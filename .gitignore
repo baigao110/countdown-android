@@ -1,0 +1,22 @@
+# Gradle / 构建产物
+.gradle/
+app/build/
+build/
+*.apk
+*.aab
+*.idsig
+
+# 签名密钥（含私钥，切勿提交到公开仓库）
+*.keystore
+*.jks
+
+# 本地 SDK 路径等配置
+local.properties
+
+# IDE
+.idea/
+*.iml
+
+# 系统
+.DS_Store
+Thumbs.db
