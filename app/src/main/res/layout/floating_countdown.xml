@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/fRoot"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="#1A1A2E"
+    android:padding="8dp"
+    android:minWidth="172dp">
+
+    <!-- 标题栏：标题 + 收缩 + 抽屉把手 + 关闭 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/fTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textStyle="bold"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/fCollapse"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:layout_marginStart="4dp"
+            android:text="收"
+            android:textSize="11sp"
+            android:padding="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:background="#2E2E52"
+            android:textColor="#9FD8FF" />
+
+        <Button
+            android:id="@+id/fDrawer"
+            android:layout_width="34dp"
+            android:layout_height="26dp"
+            android:layout_marginStart="4dp"
+            android:text="菜单"
+            android:textSize="9sp"
+            android:padding="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:background="#223A55"
+            android:textColor="#7FDBFF" />
+
+        <Button
+            android:id="@+id/fClose"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:layout_marginStart="4dp"
+            android:text="×"
+            android:textSize="15sp"
+            android:padding="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:background="#442222"
+            android:textColor="#FF6666" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/fTime"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:maxLines="1"
+        android:ellipsize="none" />
+
+    <!-- 备注：显示在“显示模式”上方（主区域，不依赖抽屉） -->
+    <TextView
+        android:id="@+id/fRemark"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textSize="10sp"
+        android:textColor="#B9B9D6"
+        android:gravity="center"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/fMode"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textSize="11sp"
+        android:textColor="#9090A8"
+        android:gravity="center"
+        android:maxLines="1" />
+
+    <!-- 抽屉面板：默认收起，点“菜单”滑出 -->
+    <LinearLayout
+        android:id="@+id/fDrawerPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:layout_marginTop="6dp"
+        android:padding="6dp"
+        android:background="#242441">
+
+        <TextView
+            android:id="@+id/fTargetTime"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="10sp"
+            android:textColor="#8A8AA8"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="透明度"
+                android:textSize="10sp"
+                android:textColor="#9FD8FF" />
+
+            <SeekBar
+                android:id="@+id/fOpacity"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:min="0"
+                android:max="80"
+                android:progress="0" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/fPrevMode"
+                android:layout_width="0dp"
+                android:layout_height="30dp"
+                android:layout_weight="1"
+                android:text="上一模式"
+                android:textSize="10sp"
+                android:padding="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:background="#2E2E52"
+                android:textColor="#9FD8FF" />
+
+            <Button
+                android:id="@+id/fNextMode"
+                android:layout_width="0dp"
+                android:layout_height="30dp"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:text="下一模式"
+                android:textSize="10sp"
+                android:padding="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:background="#2E2E52"
+                android:textColor="#9FD8FF" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/fEdit"
+                android:layout_width="0dp"
+                android:layout_height="30dp"
+                android:layout_weight="1"
+                android:text="编辑"
+                android:textSize="11sp"
+                android:padding="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:background="#1F3A2E"
+                android:textColor="#66FF99" />
+
+            <Button
+                android:id="@+id/fHide"
+                android:layout_width="0dp"
+                android:layout_height="30dp"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:text="隐藏"
+                android:textSize="11sp"
+                android:padding="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:background="#3A331F"
+                android:textColor="#FFCC66" />
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>

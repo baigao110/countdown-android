@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    android:background="@android:color/transparent">
+
+    <!-- 底层：操作按钮（右对齐，仅露出编辑/提示音/删除），前景向左滑动后显示 -->
+    <LinearLayout
+        android:id="@+id/itemActions"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_gravity="end|center_vertical"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#2A2A44"
+        android:paddingStart="14dp"
+        android:paddingEnd="10dp">
+
+        <Button
+            android:id="@+id/itemEdit"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="编辑"
+            android:textSize="12sp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:padding="6dp" />
+
+        <Button
+            android:id="@+id/itemSound"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="提示音"
+            android:textSize="12sp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:padding="6dp"
+            android:layout_marginStart="6dp" />
+
+        <Button
+            android:id="@+id/itemDelete"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="删除"
+            android:textSize="12sp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:padding="6dp"
+            android:layout_marginStart="6dp" />
+    </LinearLayout>
+
+    <!-- 前景：内容（在上层），可横向滑动露出底层按钮 -->
+    <LinearLayout
+        android:id="@+id/itemFront"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#23233A"
+        android:padding="10dp">
+
+        <TextView
+            android:id="@+id/itemTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textStyle="bold"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/itemSub"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textColor="#A0A0B4" />
+
+        <!-- 实时倒计时（每秒刷新，颜色与标题一致，风格同悬浮窗） -->
+        <TextView
+            android:id="@+id/itemTime"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:maxLines="1"
+            android:ellipsize="none"
+            android:textColor="#00FFFF" />
+
+        <TextView
+            android:id="@+id/itemRemark"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textColor="#8C8CA5" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="6dp">
+
+            <Button
+                android:id="@+id/itemShow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="隐藏"
+                android:textSize="12sp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:padding="6dp" />
+
+            <Button
+                android:id="@+id/itemMode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="模式"
+                android:textSize="12sp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:padding="6dp"
+                android:layout_marginStart="6dp" />
+        </LinearLayout>
+    </LinearLayout>
+
+</FrameLayout>

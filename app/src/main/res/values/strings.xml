@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">倒计时</string>
+    <string name="channel_name">倒计时服务</string>
+    <string name="channel_desc">后台悬浮倒计时常驻服务</string>
+    <string name="notification_title">倒计时运行中</string>
+    <string name="notification_text">点击管理你的倒计时</string>
+</resources>

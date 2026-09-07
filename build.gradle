@@ -1,0 +1,7 @@
+// Top-level build file. Plugin versions are resolved via settings.gradle pluginManagement.
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
