@@ -86,6 +86,16 @@
             android:textSize="14sp"
             android:text="点击「检查更新」可检测新版本" />
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:gravity="center"
+            android:lineSpacingExtra="4dp"
+            android:textColor="#6E7491"
+            android:textSize="12sp"
+            android:text="已知限制：悬浮窗在系统「设置」前台时会被系统临时隐藏（Android 安全机制，应用无法覆盖），返回本应用后会自动恢复。\n若部分品牌手机在任意界面都不显示，请在系统设置中为本应用开启「显示在其他应用上层」，并在品牌权限管理中开启「后台弹出界面 / 显示弹窗」。" />
+
     </LinearLayout>
 
 </FrameLayout>
