@@ -1,6 +1,6 @@
 {
-  "versionCode": 1,
-  "versionName": "1.0.0",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0/countdown-android-v1.0.0-release.apk",
-  "note": "倒计时安卓版 v1.0.0 首发版本"
+  "versionCode": 2,
+  "versionName": "1.0.1",
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.1/countdown-android-v1.0.1-release.apk",
+  "note": "倒计时安卓版 v1.0.1：关于页支持 App 内直接下载并安装更新"
 }
