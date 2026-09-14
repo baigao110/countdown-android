@@ -165,6 +165,22 @@
                 android:minHeight="0dp"
                 android:padding="6dp"
                 android:layout_marginStart="6dp" />
+
+            <!-- 当前提示音名称：未设置时显示「未设置提示音」，点击可直接挑选提示音。
+                 铃声标题可能很长，限定最大宽度并尾部省略，避免把同行按钮挤出屏幕。 -->
+            <Button
+                android:id="@+id/itemSoundLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="未设置提示音"
+                android:textSize="12sp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:maxWidth="130dp"
+                android:singleLine="true"
+                android:ellipsize="end"
+                android:padding="6dp"
+                android:layout_marginStart="6dp" />
         </LinearLayout>
     </LinearLayout>
 
