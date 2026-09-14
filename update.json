@@ -1,8 +1,8 @@
 {
-  "versionCode": 12,
-  "versionName": "1.0.0.3",
+  "versionCode": 13,
+  "versionName": "1.0.0.4",
   "date": "2026-09-14",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.3/countdown-android-v1.0.0.3-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.3",
-  "note": "1. 更新弹窗、下载进度框、更新日志框统一为与「关于」页一致的深色风格\n2. 强制更新弹窗新增「发布日期（年月日）」\n3. 更新日志按发布日期分组：同一天发布多条时，点日期后的下箭头展开当天各版本明细\n4. 同一天只发布一条时，日期后不显示下箭头，直接列出日志内容"
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.4/countdown-android-v1.0.0.4-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.4",
+  "note": "1. 添加 / 编辑倒计时页改为与「关于」页一致的风格：深色底 + 青色返回栏与标题 + 胶囊按钮\n2. 各输入项改为深色圆角卡片，字段标题统一为青色小标题\n3. 更新日志按日期分组后改为「一次只展开一个日期」：点开新日期会自动收起上一个"
 }
