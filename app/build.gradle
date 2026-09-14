@@ -11,8 +11,8 @@ android {
         applicationId 'com.baigao.countdown'
         minSdk 26
         targetSdk 34
-        versionCode 13
-        versionName '1.0.0.4'
+        versionCode 14
+        versionName '1.0.0.5'
     }
 
     buildTypes {
