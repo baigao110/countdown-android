@@ -21,11 +21,15 @@ object CountdownStore {
             val list = mutableListOf<Countdown>()
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
+                // 兼容历史数据：早期版本保存的目标时间带毫秒尾数，会让各条目的秒数错开。
+                // 读取时统一抹掉毫秒，使所有倒计时的跳秒时刻完全对齐。
+                val rawTarget = o.optLong("targetTime", 0L)
+                val target = if (rawTarget > 0) Math.floorDiv(rawTarget, 1000L) * 1000L else rawTarget
                 list.add(
                     Countdown(
                         id = o.optString("id", UUID.randomUUID().toString()),
                         title = o.optString("title", ""),
-                        targetTime = o.optLong("targetTime", 0L),
+                        targetTime = target,
                         customColorArgb = o.optInt("customColorArgb", 0xFF00FFFF.toInt()),
                         displayMode = o.optInt("displayMode", 0),
                         isVisible = o.optBoolean("isVisible", true),
