@@ -1,6 +1,16 @@
 package com.baigao.countdown
 
+import java.util.Calendar
 import java.util.UUID
+
+/**
+ * 内置倒计时类型：系统自动维护目标时间、且不可删除（对应桌面版 BuiltInType 枚举）。
+ */
+object BuiltIn {
+    const val NONE = 0   // 普通倒计时
+    const val DAY = 1    // 当日倒计时：目标为今日 23:59:59
+    const val MONTH = 2  // 当月倒计时：目标为本月最后一天 23:59:59
+}
 
 /**
  * 单个倒计时数据模型。字段与 Win11 桌面版保持一致。
@@ -19,8 +29,44 @@ data class Countdown(
     var opacity: Int = 100,                    // 悬浮窗不透明度百分比（20..100，100=完全不透明）
     var collapsed: Boolean = false,            // 是否已收缩为小条（仅显示标题栏）
     var posX: Int = -1,                        // 悬浮窗位置 X（<0 表示未保存，使用默认错开位置）
-    var posY: Int = -1                         // 悬浮窗位置 Y
-)
+    var posY: Int = -1,                        // 悬浮窗位置 Y
+    var builtIn: Int = BuiltIn.NONE            // 内置倒计时类型（见 BuiltIn）；旧数据缺省为普通倒计时
+) {
+    /** 是否为系统内置倒计时（当日 / 当月）——内置项不可删除 */
+    fun isBuiltIn(): Boolean = builtIn != BuiltIn.NONE
+
+    /**
+     * 内置倒计时的目标时间由系统动态计算：当日 → 今日 23:59:59，当月 → 本月最后一天 23:59:59。
+     * @return 目标时间是否发生变化（跨天 / 跨月时为 true，调用方据此重建界面并复位提示音状态）
+     */
+    fun refreshBuiltInTarget(): Boolean {
+        if (builtIn == BuiltIn.NONE) return false
+        val cal = Calendar.getInstance()
+        when (builtIn) {
+            BuiltIn.DAY -> {
+                // 当日：目标为今天 23:59:59
+            }
+            BuiltIn.MONTH -> {
+                cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH))
+            }
+            else -> return false
+        }
+        cal.set(Calendar.HOUR_OF_DAY, 23)
+        cal.set(Calendar.MINUTE, 59)
+        cal.set(Calendar.SECOND, 59)
+        cal.set(Calendar.MILLISECOND, 0)
+        val newTarget = cal.timeInMillis
+        if (newTarget == targetTime) return false
+        targetTime = newTarget
+        return true
+    }
+
+    /** 剩余时间文本（内置项会先刷新目标时间，跨天 / 跨月自动进入下一周期） */
+    fun remainingText(): String {
+        refreshBuiltInTarget()
+        return CountdownFormatter.remaining(targetTime, displayMode)
+    }
+}
 
 /**
  * 显示模式名称与倒计时段文本生成（移植自桌面版 TimerData，并补齐安卓所需的全部模式）。
