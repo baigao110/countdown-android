@@ -476,7 +476,9 @@ class MainActivity : Activity() {
         lateinit var actions: LinearLayout
         lateinit var titleTv: TextView
         lateinit var subTv: TextView
-        lateinit var timeTv: TextView
+        lateinit var timeHead: TextView   // 最后一位数字之前的文本（动画时不参与）
+        lateinit var timeLast: TextView   // 最后一位数字 —— 跳秒动画只作用在它身上
+        lateinit var timeTail: TextView   // 最后一位数字之后的单位字样（如「秒」）
         lateinit var remarkTv: TextView
         lateinit var showBtn: Button
         lateinit var modeBtn: Button
@@ -514,7 +516,9 @@ class MainActivity : Activity() {
             actions = v.findViewById(R.id.itemActions)
             titleTv = v.findViewById(R.id.itemTitle)
             subTv = v.findViewById(R.id.itemSub)
-            timeTv = v.findViewById(R.id.itemTime)
+            timeHead = v.findViewById(R.id.itemTimeHead)
+            timeLast = v.findViewById(R.id.itemTimeLast)
+            timeTail = v.findViewById(R.id.itemTimeTail)
             remarkTv = v.findViewById(R.id.itemRemark)
             showBtn = v.findViewById(R.id.itemShow)
             modeBtn = v.findViewById(R.id.itemMode)
@@ -562,13 +566,15 @@ class MainActivity : Activity() {
             c.refreshBuiltInTarget() // 内置项先对齐目标时间，保证「目标:」行显示的是当前周期
             titleTv.text = c.title
             titleTv.setTextColor(c.customColorArgb)
-            subTv.text = "目标: " + sdf.format(Date(c.targetTime)) + " | " + CountdownFormatter.modeName(c.displayMode)
+            // 模式后面显示当前动画效果名称，一眼看出该条目用的哪种动画
+            subTv.text = "目标: " + sdf.format(Date(c.targetTime)) +
+                    " | " + CountdownFormatter.modeName(c.displayMode) +
+                    " | " + AnimStyle.name(c.animStyle)
             lastTimeText = c.remainingText(now)
-            timeTv.text = lastTimeText
-            timeTv.setTextColor(c.customColorArgb)
+            applyTimeText(lastTimeText, c.customColorArgb)
             // 整表重建不播动画（否则一进界面所有条目一起乱动），但要确保属性干净
-            AnimStyle.stop(timeTv)
-            AnimStyle.reset(timeTv, c.customColorArgb)
+            AnimStyle.stop(timeLast)
+            AnimStyle.reset(timeLast, c.customColorArgb)
             if (c.remark.isNotEmpty()) {
                 remarkTv.visibility = View.VISIBLE
                 remarkTv.text = "备注: " + c.remark.replace("\n", " ")
@@ -584,9 +590,19 @@ class MainActivity : Activity() {
             val text = c.remainingText(now)
             if (text == lastTimeText) return
             lastTimeText = text
-            timeTv.text = text
-            timeTv.setTextColor(c.customColorArgb)
-            AnimStyle.play(timeTv, c.animStyle, c.customColorArgb)
+            applyTimeText(text, c.customColorArgb)
+            AnimStyle.play(timeLast, c.animStyle, c.customColorArgb)
+        }
+
+        /** 把时间文本拆成三段显示。 */
+        private fun applyTimeText(text: String, color: Int) {
+            val (head, last, tail) = CountdownFormatter.splitLastDigit(text)
+            timeHead.text = head
+            timeLast.text = last
+            timeTail.text = tail
+            timeHead.setTextColor(color)
+            timeLast.setTextColor(color)
+            timeTail.setTextColor(color)
         }
 
         /** 拖动时把原条目虚化为半透明轮廓。 */
