@@ -53,7 +53,8 @@ data class Countdown(
     var collapsed: Boolean = false,            // 是否已收缩为小条（仅显示标题栏）
     var posX: Int = -1,                        // 悬浮窗位置 X（<0 表示未保存，使用默认错开位置）
     var posY: Int = -1,                        // 悬浮窗位置 Y
-    var builtIn: Int = BuiltIn.NONE            // 内置倒计时类型（见 BuiltIn）；旧数据缺省为普通倒计时
+    var builtIn: Int = BuiltIn.NONE,           // 内置倒计时类型（见 BuiltIn）；旧数据缺省为普通倒计时
+    var animStyle: Int = AnimStyle.NONE        // 跳秒动画样式（见 AnimStyle）；旧数据缺省为无动画
 ) {
     /** 是否为系统内置倒计时（当日 / 当月）——内置项不可删除 */
     fun isBuiltIn(): Boolean = builtIn != BuiltIn.NONE
@@ -118,17 +119,22 @@ fun millisToNextSecond(now: Long = System.currentTimeMillis()): Long {
 object CountdownFormatter {
 
     val MODE_NAMES = arrayOf(
-        "标准模式",     // 0  xx周xx天xx时xx分xx秒
-        "小时模式",     // 1  xx时
-        "分钟模式",     // 2  xx分
-        "秒模式",       // 3  xx秒
-        "天数模式",     // 4  xx天
-        "时分秒模式",   // 5  xx时xx分xx秒
-        "天时分秒模式", // 6  xx天xx时xx分xx秒
-        "天时分模式",   // 7  xx天xx时xx分
-        "周模式",       // 8  ≥7天显示 xx周，否则智能
-        "周天时分秒模式" // 9  xx周xx天xx时xx分xx秒
+        "标准模式",       // 0  xx周xx天xx时xx分xx秒
+        "小时模式",       // 1  xx时
+        "分钟模式",       // 2  xx分
+        "秒模式",         // 3  xx秒
+        "天数模式",       // 4  xx天
+        "时分秒模式",     // 5  xx时xx分xx秒
+        "天时分秒模式",   // 6  xx天xx时xx分xx秒
+        "天时分模式",     // 7  xx天xx时xx分
+        "周天时分秒模式"  // 8  xx周xx天xx时xx分xx秒（恒定显示完整单位）
     )
+
+    /**
+     * 模式号合法化：历史数据里可能残留已下线的模式号（例如原 9 = 周天时分秒模式），
+     * 统一回退到 0（标准模式），其文本格式与下线模式相同，用户无感。
+     */
+    fun normalizeMode(mode: Int): Int = if (mode in MODE_NAMES.indices) mode else 0
 
     fun modeName(mode: Int): String =
         if (mode in MODE_NAMES.indices) MODE_NAMES[mode] else MODE_NAMES[0]
@@ -150,8 +156,7 @@ object CountdownFormatter {
             5 -> hms(s)
             6 -> dayHms(s)
             7 -> dayHm(s)
-            8 -> if (s >= 7L * 86400) String.format("%02d周", s / (7L * 86400)) else smart(s)
-            9 -> weekDayHms(s)
+            8 -> weekDayHms(s)
             else -> weekDayHms(s)
         }
     }
