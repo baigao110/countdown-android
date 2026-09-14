@@ -1,8 +1,8 @@
 {
-  "versionCode": 14,
+  "versionCode": 15,
   "versionName": "1.0.0.5",
   "date": "2026-09-14",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.5/countdown-android-v1.0.0.5-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.5",
-  "note": "1. 更新日志默认收起所有日期：只有点击展开的那一天才显示日志\n2. 未展开的日期、以及没有下箭头的单条日期，在展开其它日期时不再显示日志\n3. 没有下箭头的日期改为点击日期本身即可展开 / 收起"
+  "note": "1. 更新日志默认收起所有日期：只有点击展开的那一天才显示日志\n2. 未展开的日期连「日期行」本身都不显示，界面上只剩被展开那一天的日期与日志\n3. 再点一次已展开的日期即可收起，收起后所有日期行重新显示出来"
 }
