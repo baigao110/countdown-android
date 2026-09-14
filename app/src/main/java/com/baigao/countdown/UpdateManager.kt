@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.0.3"
+    const val CURRENT_VERSION_NAME = "1.0.0.4"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -464,6 +464,10 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.4", "2026-09-14",
+            "添加 / 编辑倒计时页改为与「关于」页一致的风格：深色底 + 青色返回栏与标题 + 胶囊按钮\n" +
+            "各输入项改为深色圆角卡片，字段标题统一为青色小标题\n" +
+            "更新日志按日期分组后改为「一次只展开一个日期」：点开新日期会自动收起上一个"),
         ChangelogItem("v1.0.0.3", "2026-09-14",
             "更新弹窗、下载进度框、更新日志框统一为与「关于」页一致的深色风格\n" +
             "强制更新弹窗新增「发布日期（年月日）」\n" +
@@ -533,6 +537,10 @@ object UpdateManager {
                 val list = groups[item.date]
                 if (list == null) groups[item.date] = mutableListOf(item) else list.add(item)
             }
+            // 手风琴：同一时刻只展开一个日期分组。点开新日期会自动收起上一个，
+            // 保证「展开后只显示所点击下箭头那一天的更新日志」。
+            var openDetail: LinearLayout? = null
+            var openArrow: TextView? = null
             for ((date, items) in groups) {
                 val head = LinearLayout(activity)
                 head.orientation = LinearLayout.HORIZONTAL
@@ -560,9 +568,24 @@ object UpdateManager {
                     for (item in items) addVersionBlock(activity, detail, item)
                     host.addView(detail)
                     head.setOnClickListener {
-                        val open = detail.visibility != View.VISIBLE
-                        detail.visibility = if (open) View.VISIBLE else View.GONE
-                        arrow.text = if (open) "  ▲" else "  ▼"
+                        val sameOne = openDetail === detail && detail.visibility == View.VISIBLE
+                        // 先收起此前展开的分组
+                        openDetail?.visibility = View.GONE
+                        openArrow?.text = "  ▼"
+                        if (sameOne) {
+                            // 再点一次同一个日期 = 收起
+                            openDetail = null
+                            openArrow = null
+                        } else {
+                            detail.visibility = View.VISIBLE
+                            arrow.text = "  ▲"
+                            openDetail = detail
+                            openArrow = arrow
+                            // 展开后把该日期滚到可见位置
+                            detail.post {
+                                (host.parent as? ScrollView)?.smoothScrollTo(0, detail.top)
+                            }
+                        }
                     }
                 } else {
                     // 当天只有一条：直接铺开显示，不显示箭头
