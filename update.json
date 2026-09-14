@@ -1,7 +1,7 @@
 {
-  "versionCode": 3,
-  "versionName": "1.0.2",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.2/countdown-android-v1.0.2-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.2",
-  "note": "1. 检测到新版本后强制弹窗展示更新日志，不再只显示一行状态文字\n2. 弹窗内点「立即更新」即在 App 内下载并显示进度，下载完自动拉起安装\n3. 启动 App 时自动检查一次更新，有新版本同样弹出更新日志\n4. 从「允许安装未知应用」设置页返回后自动继续安装"
+  "versionCode": 4,
+  "versionName": "1.0.3",
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.3/countdown-android-v1.0.3-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.3",
+  "note": "1. 修复主界面多个倒计时秒数刷新不同步：统一按同一时刻刷新，所有倒计时同时跳秒\n2. 刷新频率提高到每秒 4~5 次，避免定时漂移造成停顿、跳秒\n3. 关于页「检查更新」按钮旁新增「更新日志」按钮，点击可查看各版本更新内容"
 }
