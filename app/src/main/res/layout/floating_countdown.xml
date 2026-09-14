@@ -65,16 +65,46 @@
             android:textColor="#FF6666" />
     </LinearLayout>
 
-    <TextView
+    <!-- 实时倒计时：拆成三段，跳秒动画只作用于最后一位数字 -->
+    <LinearLayout
         android:id="@+id/fTime"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:textSize="22sp"
-        android:textStyle="bold"
+        android:orientation="horizontal"
         android:gravity="center"
-        android:maxLines="1"
-        android:ellipsize="none" />
+        android:clipChildren="false">
+
+        <TextView
+            android:id="@+id/fTimeHead"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:ellipsize="none" />
+
+        <TextView
+            android:id="@+id/fTimeLast"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:ellipsize="none" />
+
+        <TextView
+            android:id="@+id/fTimeTail"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:ellipsize="none" />
+    </LinearLayout>
 
     <!-- 备注：显示在“显示模式”上方（主区域，不依赖抽屉） -->
     <TextView
