@@ -11,8 +11,8 @@
 2. 校验 v1.0.0 Release 的 APK 资产与本地签名 APK 的 sha256，不一致才覆盖上传；
 3. 全程幂等 —— 重复运行不会产生空提交，输出「全部一致」即代表完全同步。
 
-用法（令牌走环境变量，绝不落盘）：
-    set GH_TOKEN=ghp_xxxxxxxxxxxx        # Windows
+用法（令牌只走环境变量，绝不写进文件）：
+    set GH_TOKEN=<你的GitHub个人访问令牌>        # Windows，令牌以 ghp_ 开头
     python sync_to_github.py
 
 注意：
@@ -27,6 +27,7 @@ import json
 import base64
 import hashlib
 import subprocess
+import time
 import urllib.request
 import urllib.error
 
@@ -35,6 +36,8 @@ REPO = "countdown-android"
 ROOT = os.path.dirname(os.path.abspath(__file__))
 GIT = r"C:/Users/BDJ/.workbuddy/binaries/PortableGit/versions/1.2.0/cmd/git.exe"
 
+# 安全约定：令牌只从环境变量读取，绝不能写死在文件里。
+# （GitHub 的密钥扫描会拦截含令牌字样的提交，且令牌一旦进入公开仓库即视为泄露。）
 TOKEN = os.environ.get("GH_TOKEN", "").strip()
 if not TOKEN:
     print("ERROR: 请先设置环境变量 GH_TOKEN（classic PAT，勾选 repo 权限）")
@@ -51,7 +54,7 @@ TEXT_EXT = {".kt", ".java", ".xml", ".gradle", ".properties", ".bat", ".md",
             ".json", ".pro", ".txt", ".yml", ".yaml", ".gitignore", ""}
 
 
-def api(method, path, data=None):
+def api(method, path, data=None, quiet=False):
     url = f"https://api.github.com{path}"
     body = json.dumps(data).encode("utf-8") if data is not None else None
     req = urllib.request.Request(url, data=body, headers=HDR, method=method)
@@ -61,10 +64,12 @@ def api(method, path, data=None):
             raw = r.read()
             return json.loads(raw.decode("utf-8")) if raw else None
     except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", "ignore")[:500]
+        e.detail = detail  # 供上层判断错误类型
         if e.code == 404:
             return None
-        detail = e.read().decode("utf-8", "ignore")[:300]
-        print(f"  HTTP {e.code} {method} {path}: {detail}")
+        if not quiet:
+            print(f"  HTTP {e.code} {method} {path}: {detail}")
         raise
 
 
@@ -91,23 +96,53 @@ def content_equal(remote: bytes, local: bytes, path: str) -> bool:
     return False
 
 
-def sync_file(rel_api_path: str, local_path: str):
-    meta = api("GET", f"/repos/{OWNER}/{REPO}/contents/{rel_api_path}")
+def sync_file(rel_api_path: str, local_path: str, max_attempts: int = 4):
+    """
+    同步单个文件（带 409 自愈重试）。
+
+    409 Conflict 的常见成因：本机有代理，PUT 请求偶发被重放——第一次其实已成功更新
+    （文件 blob sha 随之改变），重放的第二次仍携带旧 sha，GitHub 便返回 409。
+    因此遇到 409 不直接失败：重新 GET 取最新 sha，若内容已等价则判定同步完成，
+    否则用新 sha 再试一次。
+    """
     with open(local_path, "rb") as f:
         local = f.read()
-    if meta is not None and content_equal(base64.b64decode(meta["content"]), local, local_path):
-        return "SAME"
-    payload = {
-        "message": f"同步安卓版源码：{rel_api_path}",
-        "content": base64.b64encode(local).decode("ascii"),
-    }
-    if meta is not None:
-        payload["sha"] = meta.get("sha")
-    res = api("PUT", f"/repos/{OWNER}/{REPO}/contents/{rel_api_path}", payload)
-    # GitHub 在内容等价于现状时不会创建提交（files 为空），此时视为已同步
-    if res and not res.get("commit", {}).get("files"):
-        return "SAME"
-    return "NEW" if meta is None else "UPDATED"
+
+    for attempt in range(1, max_attempts + 1):
+        meta = api("GET", f"/repos/{OWNER}/{REPO}/contents/{rel_api_path}")
+        if meta is not None and content_equal(base64.b64decode(meta["content"]), local, local_path):
+            return "SAME"
+
+        payload = {
+            "message": f"同步安卓版源码：{rel_api_path}",
+            "content": base64.b64encode(local).decode("ascii"),
+        }
+        if meta is not None:
+            payload["sha"] = meta.get("sha")
+
+        try:
+            res = api("PUT", f"/repos/{OWNER}/{REPO}/contents/{rel_api_path}", payload,
+                      quiet=(attempt < max_attempts))
+        except urllib.error.HTTPError as e:
+            detail = getattr(e, "detail", "") or ""
+            if "Secret detected" in detail or "secret_scanning" in detail:
+                print(f"  [被拦截] {rel_api_path} 含疑似密钥内容，GitHub 拒绝提交")
+                print("           → 请删除文件里的令牌字样（ghp_ 开头的字符串）后重跑；"
+                      "已泄露的令牌请到 GitHub 立即吊销")
+                return "FAILED"
+            if e.code == 409 and attempt < max_attempts:
+                print(f"  [409] {rel_api_path} sha 已过期，重新获取后重试（第 {attempt} 次）")
+                time.sleep(1.5 * attempt)
+                continue
+            raise
+
+        # GitHub 在内容等价于现状时不会创建提交（files 为空），此时视为已同步
+        if res and not res.get("commit", {}).get("files"):
+            return "SAME"
+        return "NEW" if meta is None else "UPDATED"
+
+    print(f"  [跳过] {rel_api_path} 重试 {max_attempts} 次仍未成功，请稍后重跑脚本")
+    return "FAILED"
 
 
 def check_release_asset():
@@ -153,17 +188,18 @@ def check_release_asset():
 def main():
     files = tracked_files()
     print(f"=== 1. 源码全量比对（本地跟踪 {len(files)} 个文件）===")
-    counts = {"SAME": 0, "UPDATED": 0, "NEW": 0}
+    counts = {"SAME": 0, "UPDATED": 0, "NEW": 0, "FAILED": 0}
     for rel in files:
         local_path = os.path.join(ROOT, rel.replace("/", os.sep))
         if not os.path.isfile(local_path):
             continue
         state = sync_file(rel, local_path)
-        counts[state] += 1
+        counts[state] = counts.get(state, 0) + 1
         if state != "SAME":
             print(f"  [{state}] {rel}")
-    print(f"  结果：一致 {counts['SAME']}，更新 {counts['UPDATED']}，新增 {counts['NEW']}")
-    if counts["UPDATED"] == 0 and counts["NEW"] == 0:
+    print(f"  结果：一致 {counts['SAME']}，更新 {counts['UPDATED']}，"
+          f"新增 {counts['NEW']}，失败 {counts['FAILED']}")
+    if counts["UPDATED"] == 0 and counts["NEW"] == 0 and counts["FAILED"] == 0:
         print("  => 源码已与 GitHub 完全同步")
 
     print("=== 2. 校验 v1.0.0 Release 的 APK 资产 ===")
