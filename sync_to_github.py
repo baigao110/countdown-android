@@ -130,7 +130,14 @@ def sync_file(rel_api_path: str, local_path: str, max_attempts: int = 4):
         local = f.read()
 
     for attempt in range(1, max_attempts + 1):
-        meta = api("GET", f"/repos/{OWNER}/{REPO}/contents/{rel_api_path}")
+        try:
+            meta = api("GET", f"/repos/{OWNER}/{REPO}/contents/{rel_api_path}")
+        except urllib.error.URLError as e:
+            if attempt < max_attempts:
+                print(f"  [网络] {rel_api_path} 读取失败（{e.reason}），第 {attempt} 次重试")
+                time.sleep(2.0 * attempt)
+                continue
+            raise
         if meta is not None and content_equal(base64.b64decode(meta["content"]), local, local_path):
             return "SAME"
 
@@ -154,6 +161,14 @@ def sync_file(rel_api_path: str, local_path: str, max_attempts: int = 4):
             if e.code == 409 and attempt < max_attempts:
                 print(f"  [409] {rel_api_path} sha 已过期，重新获取后重试（第 {attempt} 次）")
                 time.sleep(1.5 * attempt)
+                continue
+            raise
+        except urllib.error.URLError as e:
+            # 本机代理偶发 SSL 握手中断（UNEXPECTED_EOF / connection reset），
+            # 这不是内容问题，直接退避重试即可；否则整轮同步会被一次抖动打断。
+            if attempt < max_attempts:
+                print(f"  [网络] {rel_api_path} {e.reason}，第 {attempt} 次重试")
+                time.sleep(2.0 * attempt)
                 continue
             raise
 
