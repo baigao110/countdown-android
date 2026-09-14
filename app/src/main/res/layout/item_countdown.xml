@@ -153,6 +153,18 @@
                 android:minHeight="0dp"
                 android:padding="6dp"
                 android:layout_marginStart="6dp" />
+
+            <!-- 当前动画效果：显示名称，点击可循环切换 -->
+            <Button
+                android:id="@+id/itemAnim"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="无动画"
+                android:textSize="12sp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:padding="6dp"
+                android:layout_marginStart="6dp" />
         </LinearLayout>
     </LinearLayout>
 
