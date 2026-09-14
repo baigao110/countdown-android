@@ -181,11 +181,17 @@ def check_release_asset():
     rel = api("GET", f"/repos/{OWNER}/{REPO}/releases/tags/{tag}")
     if rel is None:
         print(f"  线上没有 {tag} Release，自动创建")
+        # 更新日志统一取自 update.json 的 note，App 内弹窗与 Release 页面显示同一份内容
+        try:
+            with open(os.path.join(ROOT, "update.json"), "r", encoding="utf-8") as f:
+                note = json.load(f).get("note", "").strip()
+        except Exception:
+            note = ""
+        body = f"倒计时安卓版 {tag}\n\n更新日志：\n{note}\n\n安装：下载 {apk_name} 后覆盖安装即可。"
         rel = api("POST", f"/repos/{OWNER}/{REPO}/releases", {
             "tag_name": tag,
             "name": f"倒计时安卓版 {tag}",
-            "body": f"倒计时安卓版 {tag}\n\n- 关于页「检查更新」支持在 App 内直接下载并安装新版本\n"
-                    f"- 内置「当日倒计时 / 当月倒计时」\n\n安装：下载 {apk_name} 后覆盖安装即可。",
+            "body": body,
             "draft": False,
             "prerelease": False,
         })
