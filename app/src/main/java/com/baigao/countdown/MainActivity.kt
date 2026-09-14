@@ -66,8 +66,9 @@ class MainActivity : Activity() {
                     (listContainer.getChildAt(i) as? CountdownRow)?.refreshTime(now)
                 }
             }
-            // 4~5 次/秒：贴近整秒边界刷新，避免 1000ms 定时的累积漂移导致“跳秒 / 停顿”
-            tickHandler.postDelayed(this, 200)
+            // 对齐到整秒：每次刷新都落在整秒之后 15ms，所有条目同一瞬间跳秒，
+            // 也不会像固定 1000ms 定时那样累积漂移（漂移会造成停顿、跳 2 秒）
+            tickHandler.postDelayed(this, millisToNextSecond())
         }
     }
 
@@ -554,13 +555,13 @@ class MainActivity : Activity() {
         }
 
         /** 全量刷新（模式/显隐变化后）。 */
-        fun refreshAll() {
+        fun refreshAll(now: Long = System.currentTimeMillis()) {
             val c = bound ?: return
             c.refreshBuiltInTarget() // 内置项先对齐目标时间，保证「目标:」行显示的是当前周期
             titleTv.text = c.title
             titleTv.setTextColor(c.customColorArgb)
             subTv.text = "目标: " + sdf.format(Date(c.targetTime)) + " | " + CountdownFormatter.modeName(c.displayMode)
-            timeTv.text = c.remainingText()
+            timeTv.text = c.remainingText(now)
             timeTv.setTextColor(c.customColorArgb)
             if (c.remark.isNotEmpty()) {
                 remarkTv.visibility = View.VISIBLE
