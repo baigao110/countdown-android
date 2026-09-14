@@ -131,6 +131,7 @@ class FloatingView(
             titleTv.setTextColor(data.customColorArgb)
             timeTv.setTextColor(data.customColorArgb)
             modeTv.text = CountdownFormatter.modeName(data.displayMode)
+            data.refreshBuiltInTarget() // 内置项对齐目标时间，保证「目标:」显示当前周期
             targetTv.text = "目标: " +
                     SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(data.targetTime))
             if (data.remark.isNotEmpty()) {
@@ -148,7 +149,7 @@ class FloatingView(
     /** 每秒调用：只刷新倒计时数字。 */
     fun update() {
         try {
-            timeTv.text = CountdownFormatter.remaining(data.targetTime, data.displayMode)
+            timeTv.text = data.remainingText()
         } catch (e: Throwable) {
             Log.w(TAG, "update: ${e.message}")
         }
@@ -159,6 +160,7 @@ class FloatingView(
         try {
             data.title = c.title
             data.targetTime = c.targetTime
+            data.builtIn = c.builtIn
             data.customColorArgb = c.customColorArgb
             data.displayMode = c.displayMode
             data.remark = c.remark
