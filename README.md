@@ -42,9 +42,18 @@ Windows 用户可直接双击 `build_apk.bat` 完成上述全部步骤。
 
 > ⚠️ 注意：`countdown-release.jks` 为签名密钥，**已通过 `.gitignore` 排除，不会提交到仓库**；如需自行构建 Release，请使用你自己的密钥。
 
-## 应用内更新机制
+## 应用内更新机制（已与 GitHub Release 同步）
 
-关于页的「更新」按钮会请求仓库根目录的 `update.json`：
+关于页的「更新」按钮**直接读取本仓库的最新 Release**，无需人工维护版本文件：
+
+```
+GET https://api.github.com/repos/baigao110/countdown-android/releases/latest
+```
+
+- **版本号**：取 Release 的 `tag_name`（支持 `v1.1.0` / `1.1.0` 两种写法），按「主版本号×10000 + 次版本号×100 + 修订号」转成数值与当前版本比较。
+- **下载地址**：自动取该 Release 中第一个 `.apk` 资产的 `browser_download_url`；若没有 APK 资产则退回到 Release 页面地址。
+- **更新说明**：取 Release 的 `body`（正文超 200 字会截断），并附上 APK 体积。
+- **回退通道**：若 GitHub 接口不可达（网络受限等），自动改读仓库根目录的 `update.json`：
 
 ```json
 {
@@ -55,9 +64,13 @@ Windows 用户可直接双击 `build_apk.bat` 完成上述全部步骤。
 }
 ```
 
-- 远程 `versionCode` 大于当前版本号 → 按钮变为「下载更新 vX」，点击打开 `apkUrl` 下载安装。
-- 相等或无更新 → 提示「已是最新版本」。
-- 检测地址由 `AboutActivity.kt` 中的 `UPDATE_URL` 常量定义，部署后请改为实际仓库路径。
+### 发布新版本的正确姿势
+
+1. 在 GitHub 仓库发一个 **新 Release**，tag 填 `v1.1.0`（版本号要比当前大），标题/正文写更新说明；
+2. 把签名好的 APK 作为资产上传（文件名建议保持 `countdown-android-v<版本>-release.apk`）；
+3. 完成 —— 用户打开 App 关于页点「更新」就会自动识别并提示下载，**不必再改 `update.json`**。
+
+> 提示：`update.json` 现已降级为备用通道，仅在 GitHub 接口不可用时生效，可不维护。
 
 ## 目录结构
 
