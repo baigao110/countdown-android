@@ -33,6 +33,7 @@ import subprocess
 import time
 import urllib.request
 import urllib.error
+from urllib.parse import quote
 
 OWNER = "baigao110"
 REPO = "countdown-android"
@@ -58,7 +59,9 @@ TEXT_EXT = {".kt", ".java", ".xml", ".gradle", ".properties", ".bat", ".md",
 
 
 def api(method, path, data=None, quiet=False):
-    url = f"https://api.github.com{path}"
+    # 路径可能含中文文件名（如「同步到GitHub.bat」），必须先做 URL 编码，
+    # 否则 http.client 会用 ascii 编码请求行而抛 UnicodeEncodeError。
+    url = f"https://api.github.com{quote(path, safe='/@:')}"
     body = json.dumps(data).encode("utf-8") if data is not None else None
     req = urllib.request.Request(url, data=body, headers=HDR, method=method)
     req.add_header("Content-Type", "application/json")
