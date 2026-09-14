@@ -119,6 +119,8 @@ class MainActivity : Activity() {
     companion object {
         const val REQ_OVERLAY = 1001
         const val REQ_EDIT = 1003
+        /** 进程存活期间只自动检查一次更新，避免每次 onResume 都弹窗。 */
+        private var updateCheckedOnce = false
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -146,6 +148,12 @@ class MainActivity : Activity() {
             if (!menuOpen) return@setOnClickListener
             closeMenu()
             startActivity(Intent(this, AboutActivity::class.java))
+        }
+
+        // 启动即检查更新：发现新版本会强制弹出更新日志对话框
+        if (!updateCheckedOnce) {
+            updateCheckedOnce = true
+            UpdateManager.check(this, forceDialog = true)
         }
     }
 
@@ -194,6 +202,8 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        // 从「允许安装未知应用」设置页返回后，继续之前挂起的安装
+        UpdateManager.consumePendingInstall(this)
         loadData()
         rebuildList()
         try {
