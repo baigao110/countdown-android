@@ -12,10 +12,13 @@
 3. 全程幂等 —— 重复运行不会产生空提交，输出「全部一致」即代表完全同步。
 
 用法（令牌只走环境变量，绝不写进文件）：
-    set GH_TOKEN=<你的GitHub个人访问令牌>        # Windows，令牌以 ghp_ 开头
+    set GH_TOKEN=<你的 GitHub 个人访问令牌>       # Windows
     python sync_to_github.py
 
+或双击同目录下的「同步到GitHub.bat」，令牌当场输入、不落盘。
+
 注意：
+- **永远不要把令牌填进本文件或任何源码**（GitHub 会拦截含令牌的提交；一旦进入公开仓库即视为泄露）。
 - 本机代理会拦截 github.com 的 git 协议（push 返回 502），因此**不能用 git push**，
   必须走 REST API（api.github.com 走代理正常）。
 - 文本文件存在编码差异（线上 UTF-8 / 本地 GBK，如 build_apk.bat），
@@ -127,7 +130,7 @@ def sync_file(rel_api_path: str, local_path: str, max_attempts: int = 4):
             detail = getattr(e, "detail", "") or ""
             if "Secret detected" in detail or "secret_scanning" in detail:
                 print(f"  [被拦截] {rel_api_path} 含疑似密钥内容，GitHub 拒绝提交")
-                print("           → 请删除文件里的令牌字样（ghp_ 开头的字符串）后重跑；"
+                print("           → 请删除文件里的令牌字样（以 GitHub PAT 前缀开头的字符串）后重跑；"
                       "已泄露的令牌请到 GitHub 立即吊销")
                 return "FAILED"
             if e.code == 409 and attempt < max_attempts:
