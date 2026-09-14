@@ -75,18 +75,50 @@
             android:textSize="12sp"
             android:textColor="#A0A0B4" />
 
-        <!-- 实时倒计时（每秒刷新，颜色与标题一致，风格同悬浮窗） -->
-        <TextView
+        <!-- 实时倒计时：拆成「前缀 / 最后一位数字 / 后缀」三段，
+             跳秒动画只作用在中间那一位数字上（颜色与标题一致，风格同悬浮窗） -->
+        <LinearLayout
             android:id="@+id/itemTime"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:textSize="17sp"
-            android:textStyle="bold"
+            android:orientation="horizontal"
             android:gravity="center"
-            android:maxLines="1"
-            android:ellipsize="none"
-            android:textColor="#00FFFF" />
+            android:clipChildren="false">
+
+            <TextView
+                android:id="@+id/itemTimeHead"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="17sp"
+                android:textStyle="bold"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:ellipsize="none"
+                android:textColor="#00FFFF" />
+
+            <TextView
+                android:id="@+id/itemTimeLast"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="17sp"
+                android:textStyle="bold"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:ellipsize="none"
+                android:textColor="#00FFFF" />
+
+            <TextView
+                android:id="@+id/itemTimeTail"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="17sp"
+                android:textStyle="bold"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:ellipsize="none"
+                android:textColor="#00FFFF" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/itemRemark"
