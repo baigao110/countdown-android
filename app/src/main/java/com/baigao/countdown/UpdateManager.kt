@@ -9,6 +9,8 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.widget.ScrollView
+import android.widget.TextView
 import android.widget.Toast
 import org.json.JSONObject
 import java.io.File
@@ -31,7 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.2"
+    const val CURRENT_VERSION_NAME = "1.0.3"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -296,6 +298,49 @@ object UpdateManager {
         } catch (e: Throwable) {
             Toast.makeText(activity, "无法打开下载链接", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    /** 各版本更新日志（离线可读，新增版本时在头部追加一条即可）。 */
+    private val CHANGELOG = listOf(
+        "v1.0.3" to
+            "修复主界面多个倒计时秒数刷新不同步的问题：同一帧统一取一次当前时刻，所有倒计时同时跳秒\n" +
+            "刷新频率提高到每秒 4~5 次，避免定时漂移造成的停顿、跳秒\n" +
+            "关于页「检查更新」按钮旁新增「更新日志」按钮，可随时查看各版本改动",
+        "v1.0.2" to
+            "检测到新版本后强制弹窗展示更新日志，不再只显示一行状态文字\n" +
+            "弹窗内点「立即更新」即在 App 内下载并显示进度，下载完自动拉起安装\n" +
+            "启动 App 时自动检查一次更新",
+        "v1.0.1" to
+            "检查更新支持在 App 内直接下载并安装（不再跳浏览器）\n" +
+            "新增「当日倒计时 / 当月倒计时」内置项（不可删除）",
+        "v1.0.0" to
+            "首发版本：多倒计时管理、悬浮窗显示、归零提示音、10 种显示模式"
+    )
+
+    /** 显示更新日志（可滚动查看全文）。 */
+    fun showChangelog(activity: Activity) {
+        if (activity.isFinishing) return
+        val tv = TextView(activity)
+        tv.setPadding(40, 24, 40, 16)
+        tv.textSize = 14f
+        tv.setTextColor(0xFFE6E6F0.toInt())
+        tv.setLineSpacing(4f, 1.15f)
+        val sb = StringBuilder()
+        for ((version, content) in CHANGELOG) {
+            sb.append(version).append("\n")
+            for (line in content.split("\n")) {
+                sb.append("  · ").append(line).append("\n")
+            }
+            sb.append("\n")
+        }
+        tv.text = sb.toString()
+        val scroll = ScrollView(activity)
+        scroll.addView(tv)
+        AlertDialog.Builder(activity)
+            .setTitle("更新日志")
+            .setView(scroll)
+            .setPositiveButton("关闭", null)
+            .show()
     }
 
     /**
