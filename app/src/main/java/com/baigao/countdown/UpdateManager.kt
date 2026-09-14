@@ -466,8 +466,8 @@ object UpdateManager {
     private val CHANGELOG = listOf(
         ChangelogItem("v1.0.0.5", "2026-09-14",
             "更新日志默认收起所有日期：只有点击展开的那一天才显示日志\n" +
-            "未展开的日期、以及没有下箭头的单条日期，在展开其它日期时不再显示日志\n" +
-            "没有下箭头的日期改为点击日期本身即可展开 / 收起"),
+            "未展开的日期连「日期行」本身都不显示，界面上只剩被展开那一天的日期与日志\n" +
+            "再点一次已展开的日期即可收起，收起后所有日期行重新显示出来"),
         ChangelogItem("v1.0.0.4", "2026-09-14",
             "添加 / 编辑倒计时页改为与「关于」页一致的风格：深色底 + 青色返回栏与标题 + 胶囊按钮\n" +
             "各输入项改为深色圆角卡片，字段标题统一为青色小标题\n" +
@@ -526,7 +526,12 @@ object UpdateManager {
             "首发版本：多倒计时管理、悬浮窗显示、归零提示音、10 种显示模式")
     )
 
-    /** 显示更新日志：按发布日期分组，默认全部收起，只有被展开（或点击）的那一天显示日志。 */
+    /**
+     * 显示更新日志：按发布日期分组，默认全部收起，只有被展开（或点击）的那一天显示日志。
+     *
+     * 展开某一天时，其余日期的「日期行 + 明细」整体隐藏，界面上只剩被展开那天的内容；
+     * 全部收起时再把日期行显示回来，方便继续点选其它日期。
+     */
     fun showChangelog(activity: Activity) {
         if (activity.isFinishing) return
         showStyledDialog(
@@ -541,10 +546,30 @@ object UpdateManager {
                 val list = groups[item.date]
                 if (list == null) groups[item.date] = mutableListOf(item) else list.add(item)
             }
-            // 所有日期的内容容器默认全部收起：展开某一天后才显示那一天的日志，
-            // 未被展开的日期（含没有下箭头的单条日期）一律不显示明细。
-            var openDetail: LinearLayout? = null
-            var openArrow: TextView? = null
+
+            val heads = ArrayList<LinearLayout>()
+            val details = ArrayList<LinearLayout>()
+            val arrows = ArrayList<TextView?>()
+
+            /**
+             * 切换展开状态：idx 为要展开的分组下标，-1 表示全部收起。
+             * 只要有一天是展开的，其它日期的行（含日期本身）就不显示。
+             */
+            fun applyState(idx: Int) {
+                for (i in heads.indices) {
+                    val expandThis = i == idx
+                    heads[i].visibility = if (idx < 0 || expandThis) View.VISIBLE else View.GONE
+                    details[i].visibility = if (expandThis) View.VISIBLE else View.GONE
+                    arrows[i]?.text = if (expandThis) "  ▲" else "  ▼"
+                }
+                if (idx >= 0) {
+                    heads[idx].post {
+                        (host.parent as? ScrollView)?.smoothScrollTo(0, heads[idx].top)
+                    }
+                }
+            }
+            var expanded = -1
+
             for ((date, items) in groups) {
                 val head = LinearLayout(activity)
                 head.orientation = LinearLayout.HORIZONTAL
@@ -576,25 +601,14 @@ object UpdateManager {
                 for (item in items) addVersionBlock(activity, detail, item)
                 host.addView(detail)
 
+                val index = heads.size
+                heads.add(head)
+                details.add(detail)
+                arrows.add(arrow)
+
                 head.setOnClickListener {
-                    val sameOne = openDetail === detail && detail.visibility == View.VISIBLE
-                    // 先收起此前展开的那一天
-                    openDetail?.visibility = View.GONE
-                    openArrow?.text = "  ▼"
-                    if (sameOne) {
-                        // 再点一次同一个日期 = 收起
-                        openDetail = null
-                        openArrow = null
-                    } else {
-                        detail.visibility = View.VISIBLE
-                        arrow?.text = "  ▲"
-                        openDetail = detail
-                        openArrow = arrow
-                        // 展开后把该日期滚到可见位置
-                        detail.post {
-                            (host.parent as? ScrollView)?.smoothScrollTo(0, detail.top)
-                        }
-                    }
+                    expanded = if (expanded == index) -1 else index
+                    applyState(expanded)
                 }
             }
         }
