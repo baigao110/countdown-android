@@ -46,6 +46,8 @@ class FloatingView(
     private val view: View = LayoutInflater.from(context).inflate(R.layout.floating_countdown, null)
     private val titleTv: TextView = view.findViewById(R.id.fTitle)
     private val timeTv: TextView = view.findViewById(R.id.fTime)
+    /** 上一次显示的时间文本：仅文本变化时播放动画（天/周等模式并非每秒都变）。 */
+    private var lastTimeText = ""
     private val modeTv: TextView = view.findViewById(R.id.fMode)
     private val remarkMain: TextView = view.findViewById(R.id.fRemark)
     private val drawerBtn: Button = view.findViewById(R.id.fDrawer)
@@ -149,7 +151,12 @@ class FloatingView(
     /** 每秒调用：只刷新倒计时数字。now 由调用方统一给定（多个悬浮窗同步跳秒）。 */
     fun update(now: Long = System.currentTimeMillis()) {
         try {
-            timeTv.text = data.remainingText(now)
+            val text = data.remainingText(now)
+            if (text != lastTimeText) {
+                lastTimeText = text
+                timeTv.text = text
+                AnimStyle.play(timeTv, data.animStyle, data.customColorArgb)
+            }
         } catch (e: Throwable) {
             Log.w(TAG, "update: ${e.message}")
         }
@@ -163,6 +170,7 @@ class FloatingView(
             data.builtIn = c.builtIn
             data.customColorArgb = c.customColorArgb
             data.displayMode = c.displayMode
+            data.animStyle = c.animStyle
             data.remark = c.remark
             data.isVisible = c.isVisible
             data.opacity = c.opacity
