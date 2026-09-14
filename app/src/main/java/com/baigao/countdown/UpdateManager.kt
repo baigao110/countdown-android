@@ -55,14 +55,18 @@ object UpdateManager {
         val htmlUrl: String
     )
 
-    /** "1.2.3" / "v1.2.3" → 1*10000 + 2*100 + 3，便于数值比较。 */
+    /**
+     * "1.2.3" / "v1.2.3" / "1.2.3.4" → 便于数值比较的整数。
+     * 支持四段版本号（末段为修订号）：1.0.3.1 必须大于 1.0.3、小于 1.0.4。
+     */
     fun versionToNumber(version: String): Int {
         val v = version.trim().removePrefix("v").removePrefix("V")
         val parts = v.split(".")
         val major = parts.getOrNull(0)?.toIntOrNull() ?: 0
         val minor = parts.getOrNull(1)?.toIntOrNull() ?: 0
         val patch = parts.getOrNull(2)?.toIntOrNull() ?: 0
-        return major * 10000 + minor * 100 + patch
+        val build = parts.getOrNull(3)?.toIntOrNull() ?: 0
+        return major * 1000000 + minor * 10000 + patch * 100 + build
     }
 
     /**
@@ -302,6 +306,11 @@ object UpdateManager {
 
     /** 各版本更新日志（离线可读，新增版本时在头部追加一条即可）。 */
     private val CHANGELOG = listOf(
+        "v1.0.3.1" to
+            "修复主界面多个倒计时秒数不一致（有的 29 秒、有的 30/31 秒）的问题：\n" +
+            "  目标时间与当前时刻统一对齐到整秒后再相减，所有倒计时在同一瞬间跳秒\n" +
+            "刷新节奏改为对齐墙上时钟的整秒边界，消除固定周期定时累积漂移造成的停顿、跳秒\n" +
+            "读取本地数据时自动抹平历史目标时间的毫秒尾数，避免旧数据让各条目秒数错开",
         "v1.0.3" to
             "修复主界面多个倒计时秒数刷新不同步的问题：同一帧统一取一次当前时刻，所有倒计时同时跳秒\n" +
             "刷新频率提高到每秒 4~5 次，避免定时漂移造成的停顿、跳秒\n" +
