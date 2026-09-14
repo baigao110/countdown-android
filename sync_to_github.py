@@ -76,18 +76,27 @@ def api(method, path, data=None, quiet=False):
     body = json.dumps(data).encode("utf-8") if data is not None else None
     req = urllib.request.Request(url, data=body, headers=HDR, method=method)
     req.add_header("Content-Type", "application/json")
-    try:
-        with urllib.request.urlopen(req, timeout=180) as r:
-            raw = r.read()
-            return json.loads(raw.decode("utf-8")) if raw else None
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode("utf-8", "ignore")[:500]
-        e.detail = detail  # 供上层判断错误类型
-        if e.code == 404:
-            return None
-        if not quiet:
-            print(f"  HTTP {e.code} {method} {path}: {detail}")
-        raise
+    # 本机代理会偶发中断 SSL 握手（UNEXPECTED_EOF / reset），统一退避重试，
+    # 否则一次抖动就会打断整轮同步（创建 Release、上传 APK 尤其容易中招）。
+    for attempt in range(1, 5):
+        try:
+            with urllib.request.urlopen(req, timeout=180) as r:
+                raw = r.read()
+                return json.loads(raw.decode("utf-8")) if raw else None
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode("utf-8", "ignore")[:500]
+            e.detail = detail  # 供上层判断错误类型
+            if e.code == 404:
+                return None
+            if not quiet:
+                print(f"  HTTP {e.code} {method} {path}: {detail}")
+            raise
+        except urllib.error.URLError as e:
+            # 纯网络抖动：退避重试（HTTPError 是 URLError 的子类，已在上面分支处理）
+            if attempt == 4:
+                raise
+            print(f"  [网络] {method} {path} {e.reason}，第 {attempt} 次重试")
+            time.sleep(2.0 * attempt)
 
 
 def tracked_files():
