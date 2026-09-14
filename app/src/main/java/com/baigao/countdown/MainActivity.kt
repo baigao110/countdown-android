@@ -61,7 +61,7 @@ class MainActivity : Activity() {
             } else {
                 // 一帧内共用一个 now，保证所有倒计时的秒数同时跳变（原先各行各自取时间，
                 // 跨秒边界时彼此差 1 秒，看起来像不同步）
-                val now = System.currentTimeMillis()
+                val now = AlignedClock.now()
                 for (i in 0 until listContainer.childCount) {
                     (listContainer.getChildAt(i) as? CountdownRow)?.refreshTime(now)
                 }
@@ -555,7 +555,7 @@ class MainActivity : Activity() {
         }
 
         /** 全量刷新（模式/显隐变化后）。 */
-        fun refreshAll(now: Long = System.currentTimeMillis()) {
+        fun refreshAll(now: Long = AlignedClock.now()) {
             val c = bound ?: return
             c.refreshBuiltInTarget() // 内置项先对齐目标时间，保证「目标:」行显示的是当前周期
             titleTv.text = c.title
@@ -573,7 +573,7 @@ class MainActivity : Activity() {
         }
 
         /** 仅刷新时间文本（不重建视图，保留滑动/拖动状态）；now 由调用方统一给定。 */
-        fun refreshTime(now: Long = System.currentTimeMillis()) {
+        fun refreshTime(now: Long = AlignedClock.now()) {
             val c = bound ?: return
             timeTv.text = c.remainingText(now)
             timeTv.setTextColor(c.customColorArgb)
