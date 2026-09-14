@@ -501,6 +501,7 @@ class MainActivity : Activity() {
         lateinit var showBtn: Button
         lateinit var modeBtn: Button
         lateinit var animBtn: Button
+        lateinit var soundLabelBtn: Button // 按钮行上的「提示音名称」
         lateinit var editBtn: Button
         lateinit var soundBtn: Button
         lateinit var deleteBtn: Button
@@ -545,6 +546,7 @@ class MainActivity : Activity() {
             editBtn = v.findViewById(R.id.itemEdit)
             soundBtn = v.findViewById(R.id.itemSound)
             deleteBtn = v.findViewById(R.id.itemDelete)
+            soundLabelBtn = v.findViewById(R.id.itemSoundLabel)
 
             bound = c
             boundId = c.id
@@ -552,6 +554,8 @@ class MainActivity : Activity() {
             showBtn.setOnClickListener { bound?.let { this@MainActivity.onShowToggle(it) } }
             modeBtn.setOnClickListener { bound?.let { this@MainActivity.onModeCycle(it) } }
             animBtn.setOnClickListener { bound?.let { this@MainActivity.onAnimCycle(it) } }
+            // 提示音名称按钮：直接打开系统铃声选择器（与左滑露出的「提示音」按钮一致）
+            soundLabelBtn.setOnClickListener { bound?.let { this@MainActivity.onSound(it) } }
             editBtn.setOnClickListener { bound?.let { this@MainActivity.onEdit(it) } }
             soundBtn.setOnClickListener { bound?.let { this@MainActivity.onSound(it) } }
             deleteBtn.setOnClickListener { bound?.let { this@MainActivity.onDelete(it) } }
@@ -603,6 +607,8 @@ class MainActivity : Activity() {
             showBtn.text = if (c.isVisible) "隐藏" else "显示"
             // 动画效果名称显示在「显示 / 模式」按钮之后
             animBtn.text = AnimStyle.name(c.animStyle)
+            // 再后面显示本条倒计时设置的提示音名称；没设过就显示「未设置提示音」
+            soundLabelBtn.text = SoundNames.name(context, c.soundUri)
         }
 
         /** 仅刷新时间文本（不重建视图，保留滑动/拖动状态）；now 由调用方统一给定。 */
