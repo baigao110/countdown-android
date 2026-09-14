@@ -194,7 +194,18 @@ class AddEditActivity : Activity() {
     @Suppress("DEPRECATION")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == 200 && resultCode == Activity.RESULT_OK) {
+        if (requestCode != 200) return
+        // 「仅挑选提示音」模式没有加载布局（onCreate 里提前 return），
+        // 若用户在选择器里按返回取消，必须自己收尾，否则会停在一个空白页上。
+        if (resultCode != Activity.RESULT_OK) {
+            pendingSoundId = null
+            if (pickSoundOnly) {
+                setResult(Activity.RESULT_CANCELED)
+                finish()
+            }
+            return
+        }
+        if (resultCode == Activity.RESULT_OK) {
             // 选中“默认”时返回 null（约定为默认提示音，即内置 beep）
             @Suppress("DEPRECATION")
             val picked = data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI) as? Uri
