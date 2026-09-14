@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.3.4"
+    const val CURRENT_VERSION_NAME = "1.0.3.5"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -306,6 +306,10 @@ object UpdateManager {
 
     /** 各版本更新日志（离线可读，新增版本时在头部追加一条即可）。 */
     private val CHANGELOG = listOf(
+        "v1.0.3.5" to
+            "当前动画效果名称从「目标 / 模式」一行移到按钮区，显示在「显示」「模式」按钮之后\n" +
+            "该按钮可直接点击循环切换动画效果，改完立即生效\n" +
+            "「目标 / 模式」行恢复只显示目标时间与显示模式",
         "v1.0.3.4" to
             "跳秒动画改为只作用在最后一位数字上，其余数字保持静止，视觉更聚焦\n" +
             "列表每行「目标 / 模式」之后显示当前动画效果名称，悬浮窗同步显示\n" +
