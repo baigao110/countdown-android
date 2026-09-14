@@ -50,6 +50,7 @@ class AddEditActivity : Activity() {
         val timePicker = findViewById<TimePicker>(R.id.timePicker)
         val colorSpinner = findViewById<Spinner>(R.id.colorSpinner)
         val modeSpinner = findViewById<Spinner>(R.id.modeSpinner)
+        val animSpinner = findViewById<Spinner>(R.id.animSpinner)
         val remarkEt = findViewById<EditText>(R.id.etRemark)
         val soundBtn = findViewById<Button>(R.id.btnSound)
         this.soundBtn = soundBtn
@@ -64,6 +65,8 @@ class AddEditActivity : Activity() {
         (colorSpinner.adapter as ArrayAdapter<*>).setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         modeSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, CountdownFormatter.MODE_NAMES)
         (modeSpinner.adapter as ArrayAdapter<*>).setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        animSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, AnimStyle.NAMES)
+        (animSpinner.adapter as ArrayAdapter<*>).setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
 
         if (c != null) {
             titleEt.setText(c.title)
@@ -76,7 +79,11 @@ class AddEditActivity : Activity() {
             var ci = colors.indexOfFirst { it == c.customColorArgb }
             if (ci < 0) ci = 0
             colorSpinner.setSelection(ci)
-            modeSpinner.setSelection(c.displayMode.coerceIn(0, CountdownFormatter.MODE_NAMES.size - 1))
+            modeSpinner.setSelection(
+                CountdownFormatter.normalizeMode(c.displayMode)
+                    .coerceIn(0, CountdownFormatter.MODE_NAMES.size - 1)
+            )
+            animSpinner.setSelection(c.animStyle.coerceIn(0, AnimStyle.NAMES.size - 1))
             remarkEt.setText(c.remark)
             soundBtn.text = if (c.soundUri != null) {
                 "已选择：${ringtoneName(Uri.parse(c.soundUri)) ?: "自定义提示音"}（点击更换）"
@@ -132,6 +139,7 @@ class AddEditActivity : Activity() {
                     if (!builtInEdit) existing.targetTime = target // 内置倒计时目标时间由系统维护
                     existing.customColorArgb = colors[colorSpinner.selectedItemPosition]
                     existing.displayMode = modeSpinner.selectedItemPosition
+                    existing.animStyle = animSpinner.selectedItemPosition
                     existing.remark = remarkEt.text.toString()
                 }
             } else {
@@ -141,6 +149,7 @@ class AddEditActivity : Activity() {
                         targetTime = target,
                         customColorArgb = colors[colorSpinner.selectedItemPosition],
                         displayMode = modeSpinner.selectedItemPosition,
+                        animStyle = animSpinner.selectedItemPosition,
                         remark = remarkEt.text.toString()
                     )
                 )
