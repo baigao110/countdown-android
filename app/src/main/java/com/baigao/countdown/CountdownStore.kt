@@ -21,10 +21,14 @@ object CountdownStore {
             val list = mutableListOf<Countdown>()
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
-                // 兼容历史数据：早期版本保存的目标时间带毫秒尾数，会让各条目的秒数错开。
-                // 读取时统一抹掉毫秒，使所有倒计时的跳秒时刻完全对齐。
+                // 兼容历史数据：早期版本保存的目标时间带着秒 / 毫秒尾数，会让各条目的
+                // 「秒」位数永远差那么几秒。读取时把普通倒计时对齐到整分（内置项由系统
+                // 每帧重算，不在此处理），使列表里所有倒计时的秒数完全一致。
                 val rawTarget = o.optLong("targetTime", 0L)
-                val target = if (rawTarget > 0) Math.floorDiv(rawTarget, 1000L) * 1000L else rawTarget
+                val builtIn = o.optInt("builtIn", BuiltIn.NONE)
+                val target = if (rawTarget > 0 && builtIn == BuiltIn.NONE) {
+                    alignToMinute(rawTarget)
+                } else rawTarget
                 list.add(
                     Countdown(
                         id = o.optString("id", UUID.randomUUID().toString()),
@@ -39,7 +43,7 @@ object CountdownStore {
                         finished = o.optBoolean("finished", false),
                         posX = o.optInt("posX", -1),
                         posY = o.optInt("posY", -1),
-                        builtIn = o.optInt("builtIn", BuiltIn.NONE)
+                        builtIn = builtIn
                     )
                 )
             }
