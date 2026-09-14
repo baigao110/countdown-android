@@ -8,8 +8,31 @@ import java.util.UUID
  */
 object BuiltIn {
     const val NONE = 0   // 普通倒计时
-    const val DAY = 1    // 当日倒计时：目标为今日 23:59:59
-    const val MONTH = 2  // 当月倒计时：目标为本月最后一天 23:59:59
+    const val DAY = 1    // 当日倒计时：目标为「次日 00:00:00」（今日结束的那一刻）
+    const val MONTH = 2  // 当月倒计时：目标为「次月 1 日 00:00:00」（本月结束的那一刻）
+}
+
+/**
+ * 全局统一的「整秒时钟」。
+ *
+ * 任何刷新路径（列表每帧刷新、整表重建、悬浮窗、服务）都取这里的值：
+ * 它把当前时刻向下对齐到整秒，因此**同一秒内无论被调用多少次，返回值完全相同**。
+ * 这样即使两条目在不同的代码路径、相差几百毫秒被刷新，算出的秒数也必然一致。
+ */
+object AlignedClock {
+    fun now(): Long = Math.floorDiv(System.currentTimeMillis(), 1000L) * 1000L
+}
+
+/**
+ * 把时间戳对齐到「整分」（秒、毫秒归零）。
+ *
+ * 界面上的日期时间选择器只能选到分钟，理论上目标时间的秒/毫秒都应为 0；
+ * 早期版本留下的历史数据却带着秒和毫秒尾数，会让各条目的秒数永远差那么几秒。
+ * 这里按「四舍五入到最近的整分」抹平，最多偏移 30 秒，肉眼几乎无感。
+ */
+fun alignToMinute(timeMillis: Long): Long {
+    if (timeMillis <= 0) return timeMillis
+    return Math.floorDiv(timeMillis + 30000L, 60000L) * 60000L
 }
 
 /**
@@ -36,7 +59,7 @@ data class Countdown(
     fun isBuiltIn(): Boolean = builtIn != BuiltIn.NONE
 
     /**
-     * 内置倒计时的目标时间由系统动态计算：当日 → 今日 23:59:59，当月 → 本月最后一天 23:59:59。
+     * 内置倒计时的目标时间由系统动态计算：当日 → 次日 00:00:00，当月 → 次月 1 日 00:00:00。
      * @return 目标时间是否发生变化（跨天 / 跨月时为 true，调用方据此重建界面并复位提示音状态）
      */
     fun refreshBuiltInTarget(): Boolean {
@@ -44,16 +67,21 @@ data class Countdown(
         val cal = Calendar.getInstance()
         when (builtIn) {
             BuiltIn.DAY -> {
-                // 当日：目标为今天 23:59:59
+                cal.add(Calendar.DAY_OF_MONTH, 1) // 次日
             }
             BuiltIn.MONTH -> {
-                cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH))
+                // 先回到 1 号再进一个月，避免 1/31 + 1 个月 这种溢出
+                cal.set(Calendar.DAY_OF_MONTH, 1)
+                cal.add(Calendar.MONTH, 1)
             }
             else -> return false
         }
-        cal.set(Calendar.HOUR_OF_DAY, 23)
-        cal.set(Calendar.MINUTE, 59)
-        cal.set(Calendar.SECOND, 59)
+        // 统一为 00:00:00：既与「今日/本月结束的那一刻」语义一致，
+        // 也让内置倒计时与用户自建倒计时（选择器只能选到分钟）一样对齐到整分，
+        // 从而保证列表里所有倒计时的「秒」位数完全相同。
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
         cal.set(Calendar.MILLISECOND, 0)
         val newTarget = cal.timeInMillis
         if (newTarget == targetTime) return false
@@ -67,7 +95,7 @@ data class Countdown(
      * @param now 由调用方一次性取好的“当前时刻”。**同一帧刷新多个倒计时必须共用同一个 now**，
      *            否则各行各自取值、刚好跨越秒边界时会相差 1 秒，看起来像“没同步走秒”。
      */
-    fun remainingText(now: Long = System.currentTimeMillis()): String {
+    fun remainingText(now: Long = AlignedClock.now()): String {
         refreshBuiltInTarget()
         return CountdownFormatter.remaining(targetTime, displayMode, now)
     }
