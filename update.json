@@ -1,7 +1,7 @@
 {
-  "versionCode": 10,
-  "versionName": "1.0.0.1",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.1/countdown-android-v1.0.0.1-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.1",
-  "note": "1. 修复长按拖动排序时条目「分成两层」的问题，改为整层卡片跟随手指\n2. 不再对条目截图 + 原地留虚影，原地条目占位隐藏，列表不跳动\n3. 拖动过程中卡片上的倒计时持续走秒"
+  "versionCode": 11,
+  "versionName": "1.0.0.2",
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.2/countdown-android-v1.0.0.2-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.2",
+  "note": "1. 每个倒计时的按钮行新增「提示音名称」：显示该倒计时当前设置的提示音\n2. 未设置提示音的倒计时统一显示「未设置提示音」\n3. 该名称按钮可直接点击打开系统铃声选择器更换提示音\n4. 修复「仅挑选提示音」时在选择器里按返回取消会停在空白页的问题"
 }
