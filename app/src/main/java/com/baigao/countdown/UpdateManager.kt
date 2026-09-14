@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.0.1"
+    const val CURRENT_VERSION_NAME = "1.0.0.2"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -306,6 +306,11 @@ object UpdateManager {
 
     /** 各版本更新日志（离线可读，新增版本时在头部追加一条即可）。 */
     private val CHANGELOG = listOf(
+        "v1.0.0.2" to
+            "1. 每个倒计时的按钮行新增「提示音名称」，一眼看出这条倒计时响什么\n" +
+            "2. 没有设置提示音的条目显示「未设置提示音」\n" +
+            "3. 名称按钮可直接点击更换提示音\n" +
+            "4. 修复挑选提示音时取消会停在空白页的问题",
         "v1.0.0.1" to
             "修复长按拖动排序时条目「分成两层」的问题：\n" +
             "  现在拖动的是完整的一层卡片（真实视图而非截图），不再额外留一份虚影在原位\n" +
