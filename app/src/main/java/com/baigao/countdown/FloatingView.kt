@@ -146,10 +146,10 @@ class FloatingView(
         }
     }
 
-    /** 每秒调用：只刷新倒计时数字。 */
-    fun update() {
+    /** 每秒调用：只刷新倒计时数字。now 由调用方统一给定（多个悬浮窗同步跳秒）。 */
+    fun update(now: Long = System.currentTimeMillis()) {
         try {
-            timeTv.text = data.remainingText()
+            timeTv.text = data.remainingText(now)
         } catch (e: Throwable) {
             Log.w(TAG, "update: ${e.message}")
         }
