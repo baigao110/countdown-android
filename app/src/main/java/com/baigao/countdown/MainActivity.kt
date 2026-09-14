@@ -430,6 +430,15 @@ class MainActivity : Activity() {
         syncService()
     }
 
+    /** 列表上点「动画」按钮：循环切换该倒计时的跳秒动画效果。 */
+    fun onAnimCycle(c: Countdown) {
+        val n = AnimStyle.NAMES.size
+        c.animStyle = ((c.animStyle + 1) % n + n) % n
+        CountdownStore.save(this, data)
+        rebuildList()
+        syncService()
+    }
+
     fun onEdit(c: Countdown) {
         val i = Intent(this, AddEditActivity::class.java)
         i.putExtra("id", c.id)
@@ -482,6 +491,7 @@ class MainActivity : Activity() {
         lateinit var remarkTv: TextView
         lateinit var showBtn: Button
         lateinit var modeBtn: Button
+        lateinit var animBtn: Button
         lateinit var editBtn: Button
         lateinit var soundBtn: Button
         lateinit var deleteBtn: Button
@@ -522,6 +532,7 @@ class MainActivity : Activity() {
             remarkTv = v.findViewById(R.id.itemRemark)
             showBtn = v.findViewById(R.id.itemShow)
             modeBtn = v.findViewById(R.id.itemMode)
+            animBtn = v.findViewById(R.id.itemAnim)
             editBtn = v.findViewById(R.id.itemEdit)
             soundBtn = v.findViewById(R.id.itemSound)
             deleteBtn = v.findViewById(R.id.itemDelete)
@@ -531,6 +542,7 @@ class MainActivity : Activity() {
 
             showBtn.setOnClickListener { bound?.let { this@MainActivity.onShowToggle(it) } }
             modeBtn.setOnClickListener { bound?.let { this@MainActivity.onModeCycle(it) } }
+            animBtn.setOnClickListener { bound?.let { this@MainActivity.onAnimCycle(it) } }
             editBtn.setOnClickListener { bound?.let { this@MainActivity.onEdit(it) } }
             soundBtn.setOnClickListener { bound?.let { this@MainActivity.onSound(it) } }
             deleteBtn.setOnClickListener { bound?.let { this@MainActivity.onDelete(it) } }
@@ -566,10 +578,8 @@ class MainActivity : Activity() {
             c.refreshBuiltInTarget() // 内置项先对齐目标时间，保证「目标:」行显示的是当前周期
             titleTv.text = c.title
             titleTv.setTextColor(c.customColorArgb)
-            // 模式后面显示当前动画效果名称，一眼看出该条目用的哪种动画
             subTv.text = "目标: " + sdf.format(Date(c.targetTime)) +
-                    " | " + CountdownFormatter.modeName(c.displayMode) +
-                    " | " + AnimStyle.name(c.animStyle)
+                    " | " + CountdownFormatter.modeName(c.displayMode)
             lastTimeText = c.remainingText(now)
             applyTimeText(lastTimeText, c.customColorArgb)
             // 整表重建不播动画（否则一进界面所有条目一起乱动），但要确保属性干净
@@ -582,6 +592,8 @@ class MainActivity : Activity() {
                 remarkTv.visibility = View.GONE
             }
             showBtn.text = if (c.isVisible) "隐藏" else "显示"
+            // 动画效果名称显示在「显示 / 模式」按钮之后
+            animBtn.text = AnimStyle.name(c.animStyle)
         }
 
         /** 仅刷新时间文本（不重建视图，保留滑动/拖动状态）；now 由调用方统一给定。 */
