@@ -59,11 +59,15 @@ class MainActivity : Activity() {
                 rebuildList()
                 syncService()
             } else {
+                // 一帧内共用一个 now，保证所有倒计时的秒数同时跳变（原先各行各自取时间，
+                // 跨秒边界时彼此差 1 秒，看起来像不同步）
+                val now = System.currentTimeMillis()
                 for (i in 0 until listContainer.childCount) {
-                    (listContainer.getChildAt(i) as? CountdownRow)?.refreshTime()
+                    (listContainer.getChildAt(i) as? CountdownRow)?.refreshTime(now)
                 }
             }
-            tickHandler.postDelayed(this, 1000)
+            // 4~5 次/秒：贴近整秒边界刷新，避免 1000ms 定时的累积漂移导致“跳秒 / 停顿”
+            tickHandler.postDelayed(this, 200)
         }
     }
 
@@ -567,10 +571,10 @@ class MainActivity : Activity() {
             showBtn.text = if (c.isVisible) "隐藏" else "显示"
         }
 
-        /** 每秒仅刷新时间文本（不重建视图，保留滑动/拖动状态）。 */
-        fun refreshTime() {
+        /** 仅刷新时间文本（不重建视图，保留滑动/拖动状态）；now 由调用方统一给定。 */
+        fun refreshTime(now: Long = System.currentTimeMillis()) {
             val c = bound ?: return
-            timeTv.text = c.remainingText()
+            timeTv.text = c.remainingText(now)
             timeTv.setTextColor(c.customColorArgb)
         }
 
