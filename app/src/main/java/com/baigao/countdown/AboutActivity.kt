@@ -31,9 +31,11 @@ class AboutActivity : Activity() {
         updateBtn = findViewById(R.id.updateBtn)
         statusTv = findViewById(R.id.statusTv)
         val backBtn = findViewById<TextView>(R.id.backBtn)
+        val changelogBtn = findViewById<Button>(R.id.changelogBtn)
 
         versionTv.text = "版本 v${UpdateManager.CURRENT_VERSION_NAME}"
         backBtn.setOnClickListener { finish() }
+        changelogBtn.setOnClickListener { UpdateManager.showChangelog(this) }
         updateBtn.setOnClickListener { checkUpdate(forceDialog = true) }
     }
 
