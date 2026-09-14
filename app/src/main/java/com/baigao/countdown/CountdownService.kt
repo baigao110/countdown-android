@@ -65,6 +65,11 @@ class CountdownService : Service() {
                 val list = CountdownStore.load(this)
                 var changed = false
                 for (c in list) {
+                    // 内置倒计时（当日 / 当月）跨天、跨月后自动进入下一周期，并复位响铃状态
+                    if (c.refreshBuiltInTarget()) {
+                        c.finished = false
+                        changed = true
+                    }
                     val f = floaters[c.id]
                     if (c.isVisible) {
                         if (f == null && canDrawOverlay()) {
