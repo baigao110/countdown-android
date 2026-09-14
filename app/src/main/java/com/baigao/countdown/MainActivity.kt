@@ -52,8 +52,16 @@ class MainActivity : Activity() {
     private val tickHandler = Handler(Looper.getMainLooper())
     private val tickRunnable = object : Runnable {
         override fun run() {
-            for (i in 0 until listContainer.childCount) {
-                (listContainer.getChildAt(i) as? CountdownRow)?.refreshTime()
+            // 内置倒计时（当日 / 当月）跨天、跨月后目标时间会变，需要整表重建；
+            // 拖动排序过程中不重建，避免打断操作。
+            if (refreshBuiltInTargets() && dragInfo == null) {
+                CountdownStore.save(this@MainActivity, data)
+                rebuildList()
+                syncService()
+            } else {
+                for (i in 0 until listContainer.childCount) {
+                    (listContainer.getChildAt(i) as? CountdownRow)?.refreshTime()
+                }
             }
             tickHandler.postDelayed(this, 1000)
         }
@@ -62,9 +70,50 @@ class MainActivity : Activity() {
     /** 接收服务的“数据已变化”广播（如悬浮窗内隐藏/显示），实时刷新列表。 */
     private val dataChangedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            data = CountdownStore.load(this@MainActivity)
+            loadData()
             rebuildList()
         }
+    }
+
+    /** 读取本地数据，并确保「当日倒计时」「当月倒计时」两个内置项始终存在。 */
+    private fun loadData() {
+        data = CountdownStore.load(this)
+        if (ensureBuiltInTimers()) CountdownStore.save(this, data)
+    }
+
+    /** 补齐两个内置倒计时；返回是否新建（新建后才需要落盘）。 */
+    private fun ensureBuiltInTimers(): Boolean {
+        // 先补当月再补当日，保证列表中「当日倒计时」排在「当月倒计时」之前
+        var added = ensureBuiltIn(BuiltIn.MONTH, "当月倒计时", "距离本月结束")
+        added = ensureBuiltIn(BuiltIn.DAY, "当日倒计时", "距离今日结束") || added
+        return added
+    }
+
+    /** 补齐单个内置倒计时；已存在则保留用户的位置、颜色、模式等配置。 */
+    private fun ensureBuiltIn(type: Int, title: String, remark: String): Boolean {
+        if (data.any { it.builtIn == type }) return false
+        val c = Countdown(
+            title = title,
+            remark = remark,
+            builtIn = type,
+            displayMode = 0,
+            isVisible = false   // 默认不强制弹出悬浮窗，可在列表中点「显示」
+        )
+        c.refreshBuiltInTarget()
+        data.add(0, c)
+        return true
+    }
+
+    /** 刷新所有内置倒计时的目标时间，返回是否有变化。 */
+    private fun refreshBuiltInTargets(): Boolean {
+        var changed = false
+        for (c in data) {
+            if (c.refreshBuiltInTarget()) {
+                c.finished = false // 进入新的周期，允许再次响铃
+                changed = true
+            }
+        }
+        return changed
     }
 
     companion object {
@@ -145,7 +194,7 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        data = CountdownStore.load(this)
+        loadData()
         rebuildList()
         try {
             registerReceiver(dataChangedReceiver, IntentFilter(CountdownService.ACTION_DATA_CHANGED))
@@ -228,7 +277,7 @@ class MainActivity : Activity() {
                 syncService()
             }
         } else if (requestCode == REQ_EDIT) {
-            this.data = CountdownStore.load(this)
+            loadData()
             rebuildList()
             syncService()
         }
@@ -384,6 +433,15 @@ class MainActivity : Activity() {
             .setTitle("确认删除")
             .setMessage("确定删除「${c.title}」吗？\n（确定将关闭该倒计时显示）")
             .setPositiveButton("确定") { _, _ ->
+                // 内置倒计时（当日 / 当月）：确认后提示不可删除，且不执行删除
+                if (c.isBuiltIn()) {
+                    AlertDialog.Builder(this)
+                        .setTitle("无法删除")
+                        .setMessage("该倒计时不可删除\n\n「${c.title}」为系统内置倒计时，如不想看到它可在列表中点击「隐藏」。")
+                        .setPositiveButton("确定", null)
+                        .show()
+                    return@setPositiveButton
+                }
                 data.removeAll { it.id == c.id }
                 CountdownStore.save(this, data)
                 rebuildList()
@@ -484,10 +542,11 @@ class MainActivity : Activity() {
         /** 全量刷新（模式/显隐变化后）。 */
         fun refreshAll() {
             val c = bound ?: return
+            c.refreshBuiltInTarget() // 内置项先对齐目标时间，保证「目标:」行显示的是当前周期
             titleTv.text = c.title
             titleTv.setTextColor(c.customColorArgb)
             subTv.text = "目标: " + sdf.format(Date(c.targetTime)) + " | " + CountdownFormatter.modeName(c.displayMode)
-            timeTv.text = CountdownFormatter.remaining(c.targetTime, c.displayMode)
+            timeTv.text = c.remainingText()
             timeTv.setTextColor(c.customColorArgb)
             if (c.remark.isNotEmpty()) {
                 remarkTv.visibility = View.VISIBLE
@@ -501,7 +560,7 @@ class MainActivity : Activity() {
         /** 每秒仅刷新时间文本（不重建视图，保留滑动/拖动状态）。 */
         fun refreshTime() {
             val c = bound ?: return
-            timeTv.text = CountdownFormatter.remaining(c.targetTime, c.displayMode)
+            timeTv.text = c.remainingText()
             timeTv.setTextColor(c.customColorArgb)
         }
 
