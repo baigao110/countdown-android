@@ -34,7 +34,8 @@ object CountdownStore {
                         isTopMost = o.optBoolean("isTopMost", false),
                         finished = o.optBoolean("finished", false),
                         posX = o.optInt("posX", -1),
-                        posY = o.optInt("posY", -1)
+                        posY = o.optInt("posY", -1),
+                        builtIn = o.optInt("builtIn", BuiltIn.NONE)
                     )
                 )
             }
@@ -62,6 +63,7 @@ object CountdownStore {
             o.put("collapsed", c.collapsed)
             o.put("posX", c.posX)
             o.put("posY", c.posY)
+            o.put("builtIn", c.builtIn)
             arr.put(o)
         }
         File(context.filesDir, FILE).writeText(arr.toString())
