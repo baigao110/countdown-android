@@ -1,7 +1,7 @@
 {
-  "versionCode": 8,
-  "versionName": "1.0.3.4",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.3.4/countdown-android-v1.0.3.4-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.3.4",
-  "note": "1. 跳秒动画只作用在最后一位数字上，其余数字保持静止\n2. 列表与悬浮窗在「模式」后显示当前动画效果名称\n3. 删除「周天时分秒模式」，显示模式精简为 8 种"
+  "versionCode": 9,
+  "versionName": "1.0.3.5",
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.3.5/countdown-android-v1.0.3.5-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.3.5",
+  "note": "1. 当前动画效果名称移到「显示」「模式」按钮之后，形成一个独立按钮\n2. 点击该按钮可直接循环切换动画效果，立即生效\n3. 「目标 / 模式」行恢复只显示目标时间与显示模式"
 }
