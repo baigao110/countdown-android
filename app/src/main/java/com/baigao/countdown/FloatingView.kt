@@ -45,7 +45,10 @@ class FloatingView(
 
     private val view: View = LayoutInflater.from(context).inflate(R.layout.floating_countdown, null)
     private val titleTv: TextView = view.findViewById(R.id.fTitle)
-    private val timeTv: TextView = view.findViewById(R.id.fTime)
+    private val timeRow: View = view.findViewById<View>(R.id.fTime)
+    private val timeHead: TextView = view.findViewById(R.id.fTimeHead)
+    private val timeLast: TextView = view.findViewById(R.id.fTimeLast)
+    private val timeTail: TextView = view.findViewById(R.id.fTimeTail)
     /** 上一次显示的时间文本：仅文本变化时播放动画（天/周等模式并非每秒都变）。 */
     private var lastTimeText = ""
     private val modeTv: TextView = view.findViewById(R.id.fMode)
@@ -131,8 +134,10 @@ class FloatingView(
         try {
             titleTv.text = data.title
             titleTv.setTextColor(data.customColorArgb)
-            timeTv.setTextColor(data.customColorArgb)
-            modeTv.text = CountdownFormatter.modeName(data.displayMode)
+            timeHead.setTextColor(data.customColorArgb)
+            timeLast.setTextColor(data.customColorArgb)
+            timeTail.setTextColor(data.customColorArgb)
+            modeTv.text = CountdownFormatter.modeName(data.displayMode) + " | " + AnimStyle.name(data.animStyle)
             data.refreshBuiltInTarget() // 内置项对齐目标时间，保证「目标:」显示当前周期
             targetTv.text = "目标: " +
                     SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(data.targetTime))
@@ -154,12 +159,20 @@ class FloatingView(
             val text = data.remainingText(now)
             if (text != lastTimeText) {
                 lastTimeText = text
-                timeTv.text = text
-                AnimStyle.play(timeTv, data.animStyle, data.customColorArgb)
+                applyTimeText(text)
+                AnimStyle.play(timeLast, data.animStyle, data.customColorArgb)
             }
         } catch (e: Throwable) {
             Log.w(TAG, "update: ${e.message}")
         }
+    }
+
+    /** 把时间文本拆成三段，动画只作用于最后一位数字。 */
+    private fun applyTimeText(text: String) {
+        val (head, last, tail) = CountdownFormatter.splitLastDigit(text)
+        timeHead.text = head
+        timeLast.text = last
+        timeTail.text = tail
     }
 
     /** 主界面编辑后同步数据（复用同一个对象，保证悬浮窗与列表一致）。 */
@@ -219,7 +232,7 @@ class FloatingView(
         try {
             val collapsed = data.collapsed
             val showBody = !collapsed
-            timeTv.visibility = if (showBody) View.VISIBLE else View.GONE
+            timeRow.visibility = if (showBody) View.VISIBLE else View.GONE
             modeTv.visibility = if (showBody) View.VISIBLE else View.GONE
             remarkMain.visibility =
                 if (showBody && data.remark.isNotEmpty()) View.VISIBLE else View.GONE
