@@ -1,7 +1,7 @@
 {
-  "versionCode": 9,
-  "versionName": "1.0.3.5",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.3.5/countdown-android-v1.0.3.5-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.3.5",
-  "note": "1. 当前动画效果名称移到「显示」「模式」按钮之后，形成一个独立按钮\n2. 点击该按钮可直接循环切换动画效果，立即生效\n3. 「目标 / 模式」行恢复只显示目标时间与显示模式"
+  "versionCode": 10,
+  "versionName": "1.0.0.1",
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.1/countdown-android-v1.0.0.1-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.1",
+  "note": "1. 修复长按拖动排序时条目「分成两层」的问题，改为整层卡片跟随手指\n2. 不再对条目截图 + 原地留虚影，原地条目占位隐藏，列表不跳动\n3. 拖动过程中卡片上的倒计时持续走秒"
 }
