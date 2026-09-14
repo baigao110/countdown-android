@@ -119,16 +119,30 @@ fun millisToNextSecond(now: Long = System.currentTimeMillis()): Long {
 object CountdownFormatter {
 
     val MODE_NAMES = arrayOf(
-        "标准模式",       // 0  xx周xx天xx时xx分xx秒
-        "小时模式",       // 1  xx时
-        "分钟模式",       // 2  xx分
-        "秒模式",         // 3  xx秒
-        "天数模式",       // 4  xx天
-        "时分秒模式",     // 5  xx时xx分xx秒
-        "天时分秒模式",   // 6  xx天xx时xx分xx秒
-        "天时分模式",     // 7  xx天xx时xx分
-        "周天时分秒模式"  // 8  xx周xx天xx时xx分xx秒（恒定显示完整单位）
+        "标准模式",     // 0  xx周xx天xx时xx分xx秒
+        "小时模式",     // 1  xx时
+        "分钟模式",     // 2  xx分
+        "秒模式",       // 3  xx秒
+        "天数模式",     // 4  xx天
+        "时分秒模式",   // 5  xx时xx分xx秒
+        "天时分秒模式", // 6  xx天xx时xx分xx秒
+        "天时分模式"    // 7  xx天xx时xx分
     )
+
+    /**
+     * 把「3天5时20分8秒」拆成（前缀, 最后一位数字, 后缀）。
+     * 为了让跳秒动画只作用在最后一位数字上：找到文本中最后一个数字字符，
+     * 它前面的内容归前缀、它本身单独一段、后面的单位字样归后缀。
+     * 找不到数字时整体归入前缀（后两段为空）。
+     */
+    fun splitLastDigit(text: String): Triple<String, String, String> {
+        for (i in text.length - 1 downTo 0) {
+            if (text[i] in '0'..'9') {
+                return Triple(text.substring(0, i), text.substring(i, i + 1), text.substring(i + 1))
+            }
+        }
+        return Triple(text, "", "")
+    }
 
     /**
      * 模式号合法化：历史数据里可能残留已下线的模式号（例如原 9 = 周天时分秒模式），
@@ -156,7 +170,6 @@ object CountdownFormatter {
             5 -> hms(s)
             6 -> dayHms(s)
             7 -> dayHm(s)
-            8 -> weekDayHms(s)
             else -> weekDayHms(s)
         }
     }
@@ -197,17 +210,4 @@ object CountdownFormatter {
         return String.format("%d天%d时%d分", dd, hh, mm)
     }
 
-    private fun smart(s: Long): String {
-        val dd = s / 86400
-        val rem = s % 86400
-        val hh = rem / 3600
-        val mm = (rem % 3600) / 60
-        val ss = rem % 60
-        val parts = ArrayList<String>()
-        if (dd > 0) parts.add("${dd}天")
-        if (hh > 0) parts.add("${hh}时")
-        if (mm > 0) parts.add("${mm}分")
-        if (ss > 0 || parts.isEmpty()) parts.add("${ss}秒")
-        return parts.joinToString("")
-    }
 }
