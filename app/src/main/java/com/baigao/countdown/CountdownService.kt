@@ -60,6 +60,7 @@ class CountdownService : Service() {
     }
 
     private fun tick() {
+        // 对齐整秒刷新：多个悬浮窗与列表在同一瞬间跳秒（见 millisToNextSecond 说明）
         handler.postDelayed({
             try {
                 val list = CountdownStore.load(this)
@@ -93,7 +94,7 @@ class CountdownService : Service() {
                 Log.w(TAG, "tick error: ${e.message}")
             }
             tick()
-        }, 1000)
+        }, millisToNextSecond())
     }
 
     private fun canDrawOverlay(): Boolean =
