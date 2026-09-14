@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.3.2"
+    const val CURRENT_VERSION_NAME = "1.0.3.3"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -306,6 +306,12 @@ object UpdateManager {
 
     /** 各版本更新日志（离线可读，新增版本时在头部追加一条即可）。 */
     private val CHANGELOG = listOf(
+        "v1.0.3.3" to
+            "新增跳秒动画：编辑倒计时可在「缩放 / 蒸发 / 坠落 / 像素化 / 碎片化 / 燃烧 / 震撼」中选择，\n" +
+            "  主界面列表与悬浮窗每次跳秒都会播放，默认「无动画」\n" +
+            "删除重复的「周天时分秒模式」，显示模式由 10 种精简为 9 种\n" +
+            "修复周模式下「xx时xx分xx秒」的显示问题：现在恒定显示「xx周xx天xx时xx分xx秒」，\n" +
+            "  当日倒计时切到该模式也会显示完整的周、天",
         "v1.0.3.2" to
             "彻底解决多个倒计时「秒」位数不一致（29 秒 / 30 秒 / 31 秒并存）：\n" +
             "  所有目标时间统一对齐到整分，列表里每个倒计时的秒数必然相同\n" +
