@@ -485,6 +485,8 @@ class MainActivity : Activity() {
         lateinit var deleteBtn: Button
         var boundId: String = ""
         private var bound: Countdown? = null
+        /** 上一次显示的时间文本：只有文本真的变了才播放动画（天/周等模式并非每秒都变）。 */
+        private var lastTimeText = ""
 
         private var actionsWidth = 0
         private var downX = 0f
@@ -561,8 +563,12 @@ class MainActivity : Activity() {
             titleTv.text = c.title
             titleTv.setTextColor(c.customColorArgb)
             subTv.text = "目标: " + sdf.format(Date(c.targetTime)) + " | " + CountdownFormatter.modeName(c.displayMode)
-            timeTv.text = c.remainingText(now)
+            lastTimeText = c.remainingText(now)
+            timeTv.text = lastTimeText
             timeTv.setTextColor(c.customColorArgb)
+            // 整表重建不播动画（否则一进界面所有条目一起乱动），但要确保属性干净
+            AnimStyle.stop(timeTv)
+            AnimStyle.reset(timeTv, c.customColorArgb)
             if (c.remark.isNotEmpty()) {
                 remarkTv.visibility = View.VISIBLE
                 remarkTv.text = "备注: " + c.remark.replace("\n", " ")
@@ -575,8 +581,12 @@ class MainActivity : Activity() {
         /** 仅刷新时间文本（不重建视图，保留滑动/拖动状态）；now 由调用方统一给定。 */
         fun refreshTime(now: Long = AlignedClock.now()) {
             val c = bound ?: return
-            timeTv.text = c.remainingText(now)
+            val text = c.remainingText(now)
+            if (text == lastTimeText) return
+            lastTimeText = text
+            timeTv.text = text
             timeTv.setTextColor(c.customColorArgb)
+            AnimStyle.play(timeTv, c.animStyle, c.customColorArgb)
         }
 
         /** 拖动时把原条目虚化为半透明轮廓。 */
