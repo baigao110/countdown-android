@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.3.5"
+    const val CURRENT_VERSION_NAME = "1.0.0.1"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -306,6 +306,10 @@ object UpdateManager {
 
     /** 各版本更新日志（离线可读，新增版本时在头部追加一条即可）。 */
     private val CHANGELOG = listOf(
+        "v1.0.0.1" to
+            "修复长按拖动排序时条目「分成两层」的问题：\n" +
+            "  现在拖动的是完整的一层卡片（真实视图而非截图），不再额外留一份虚影在原位\n" +
+            "  原位条目占位隐藏，列表不会跳动，浮层上的倒计时也会持续走秒",
         "v1.0.3.5" to
             "当前动画效果名称从「目标 / 模式」一行移到按钮区，显示在「显示」「模式」按钮之后\n" +
             "该按钮可直接点击循环切换动画效果，改完立即生效\n" +
