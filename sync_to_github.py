@@ -77,8 +77,12 @@ def api(method, path, data=None, quiet=False):
 
 
 def tracked_files():
-    out = subprocess.run([GIT, "ls-files"], cwd=ROOT, capture_output=True, text=True)
-    return [l.strip() for l in out.stdout.splitlines() if l.strip()]
+    # core.quotePath=false：否则中文文件名（如「同步到GitHub.bat」）会被转义成
+    # "\345\220\214..." 字面串，导致拼出的本地路径不存在而被静默跳过。
+    out = subprocess.run([GIT, "-c", "core.quotePath=false", "ls-files"],
+                         cwd=ROOT, capture_output=True)
+    text = out.stdout.decode("utf-8", errors="replace")
+    return [l.strip() for l in text.splitlines() if l.strip()]
 
 
 def content_equal(remote: bytes, local: bytes, path: str) -> bool:
