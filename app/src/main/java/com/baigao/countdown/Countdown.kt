@@ -61,10 +61,15 @@ data class Countdown(
         return true
     }
 
-    /** 剩余时间文本（内置项会先刷新目标时间，跨天 / 跨月自动进入下一周期） */
-    fun remainingText(): String {
+    /**
+     * 剩余时间文本（内置项会先刷新目标时间，跨天 / 跨月自动进入下一周期）。
+     *
+     * @param now 由调用方一次性取好的“当前时刻”。**同一帧刷新多个倒计时必须共用同一个 now**，
+     *            否则各行各自取值、刚好跨越秒边界时会相差 1 秒，看起来像“没同步走秒”。
+     */
+    fun remainingText(now: Long = System.currentTimeMillis()): String {
         refreshBuiltInTarget()
-        return CountdownFormatter.remaining(targetTime, displayMode)
+        return CountdownFormatter.remaining(targetTime, displayMode, now)
     }
 }
 
