@@ -63,6 +63,7 @@ class CountdownService : Service() {
         handler.postDelayed({
             try {
                 val list = CountdownStore.load(this)
+                val now = System.currentTimeMillis() // 本次 tick 统一时刻，多个悬浮窗同步走秒
                 var changed = false
                 for (c in list) {
                     // 内置倒计时（当日 / 当月）跨天、跨月后自动进入下一周期，并复位响铃状态
@@ -75,8 +76,8 @@ class CountdownService : Service() {
                         if (f == null && canDrawOverlay()) {
                             addFloater(c)
                         } else if (f != null) {
-                            f.update()
-                            if (c.targetTime <= System.currentTimeMillis() && !c.finished) {
+                            f.update(now)
+                            if (c.targetTime <= now && !c.finished) {
                                 c.finished = true
                                 changed = true
                                 SoundPlayer.play(this, c.soundUri)
