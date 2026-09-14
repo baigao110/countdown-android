@@ -1,7 +1,8 @@
 {
-  "versionCode": 11,
-  "versionName": "1.0.0.2",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.2/countdown-android-v1.0.0.2-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.2",
-  "note": "1. 每个倒计时的按钮行新增「提示音名称」：显示该倒计时当前设置的提示音\n2. 未设置提示音的倒计时统一显示「未设置提示音」\n3. 该名称按钮可直接点击打开系统铃声选择器更换提示音\n4. 修复「仅挑选提示音」时在选择器里按返回取消会停在空白页的问题"
+  "versionCode": 12,
+  "versionName": "1.0.0.3",
+  "date": "2026-09-14",
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.3/countdown-android-v1.0.0.3-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.3",
+  "note": "1. 更新弹窗、下载进度框、更新日志框统一为与「关于」页一致的深色风格\n2. 强制更新弹窗新增「发布日期（年月日）」\n3. 更新日志按发布日期分组：同一天发布多条时，点日期后的下箭头展开当天各版本明细\n4. 同一天只发布一条时，日期后不显示下箭头，直接列出日志内容"
 }
