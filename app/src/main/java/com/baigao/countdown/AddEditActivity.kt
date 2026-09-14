@@ -57,6 +57,9 @@ class AddEditActivity : Activity() {
         val saveBtn = findViewById<Button>(R.id.btnSave)
         val cancelBtn = findViewById<Button>(R.id.btnCancel)
 
+        // 内置倒计时（当日 / 当月）的目标时间由系统自动计算，编辑时禁用并提示
+        val builtInEdit = c != null && c.isBuiltIn()
+
         colorSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, colorNames)
         (colorSpinner.adapter as ArrayAdapter<*>).setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         modeSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, CountdownFormatter.MODE_NAMES)
@@ -87,6 +90,12 @@ class AddEditActivity : Activity() {
             )
             timePicker.hour = cal.get(Calendar.HOUR_OF_DAY)
             timePicker.minute = cal.get(Calendar.MINUTE)
+        }
+
+        if (builtInEdit) {
+            datePicker.isEnabled = false
+            timePicker.isEnabled = false
+            Toast.makeText(this, "内置倒计时的目标时间由系统自动计算", Toast.LENGTH_SHORT).show()
         }
 
         soundBtn.setOnClickListener {
@@ -120,7 +129,7 @@ class AddEditActivity : Activity() {
                 val existing = list.find { it.id == c.id }
                 if (existing != null) {
                     existing.title = titleEt.text.toString()
-                    existing.targetTime = target
+                    if (!builtInEdit) existing.targetTime = target // 内置倒计时目标时间由系统维护
                     existing.customColorArgb = colors[colorSpinner.selectedItemPosition]
                     existing.displayMode = modeSpinner.selectedItemPosition
                     existing.remark = remarkEt.text.toString()
