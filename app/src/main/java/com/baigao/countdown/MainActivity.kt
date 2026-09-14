@@ -6,10 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -23,7 +20,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.FrameLayout
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -65,6 +61,8 @@ class MainActivity : Activity() {
                 for (i in 0 until listContainer.childCount) {
                     (listContainer.getChildAt(i) as? CountdownRow)?.refreshTime(now)
                 }
+                // 拖动中的浮层不在 listContainer 里，单独刷新，保证手上的卡片也在走秒
+                dragInfo?.ghost?.refreshTimeQuiet(now)
             }
             // 对齐到整秒：每次刷新都落在整秒之后 15ms，所有条目同一瞬间跳秒，
             // 也不会像固定 1000ms 定时那样累积漂移（漂移会造成停顿、跳 2 秒）
@@ -314,40 +312,49 @@ class MainActivity : Activity() {
         val c: Countdown,
         var fromIndex: Int,
         var targetIndex: Int,
-        val ghost: ImageView,
+        /** 跟随手指的「浮层」：内容与原条目完全相同的整层卡片。 */
+        val ghost: CountdownRow,
         val grabOffsetY: Int,
         val row: CountdownRow
     )
 
-    /** 长按启动拖动：对原条目截图作“幽灵”，将原条目虚化（轮廓），幽灵跟随手指。 */
+    /**
+     * 长按启动拖动：整层跟随手指。
+     *
+     * 以前是「对条目截图 + 原地留一个虚化副本」，结果看起来条目被劈成了两层。
+     * 现在改为新建一个内容完全相同的 CountdownRow 放到最上层的 dragLayer 上，
+     * 原条目转为不可见但仍占位（列表不跳动）——手指上的就是完整的一层卡片，
+     * 而且它是真实视图、仍在走秒，不是一张静止的截图。
+     *
+     * 注意：浮层必须在 ACTION_DOWN 之后才加入。ViewGroup 的触摸目标在 DOWN 时就已确定，
+     * 之后再加 View 不会抢走原条目正在进行的触摸序列（不会因为 removeView 被 ACTION_CANCEL 打断）。
+     */
     fun beginDrag(row: CountdownRow, c: Countdown, pointerY: Int) {
         try {
-            val front = row.front
-            front.translationX = 0f // 还原滑动，确保截图干净
-            val w = front.width
-            val h = front.height
+            row.front.translationX = 0f // 还原横向滑动，保证浮层从正位出发
+            val w = row.width
+            val h = row.height
             if (w <= 0 || h <= 0) return
-            // 用 Canvas 直接把前景画进 Bitmap（比弃用的 buildDrawingCache 可靠，不会抛异常）
-            val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bmp)
-            front.draw(canvas)
 
-            val ghost = ImageView(this)
-            ghost.setImageBitmap(bmp)
-            ghost.layoutParams = FrameLayout.LayoutParams(w, h)
-            ghost.alpha = 0.92f
+            val layerLoc = IntArray(2)
+            dragLayer.getLocationOnScreen(layerLoc)
+            val rowLoc = IntArray(2)
+            row.getLocationOnScreen(rowLoc)
 
-            val loc = IntArray(2)
-            front.getLocationOnScreen(loc)
-            ghost.x = loc[0].toFloat()
-            ghost.y = loc[1].toFloat()
-
+            val ghost = CountdownRow(this)
+            ghost.bind(c)
             dragLayer.removeAllViews()
-            dragLayer.addView(ghost)
+            dragLayer.addView(ghost, FrameLayout.LayoutParams(w, h))
             dragLayer.visibility = View.VISIBLE
+            // x/y 用相对 dragLayer 的坐标（dragLayer 原点未必是屏幕原点）
+            ghost.x = (rowLoc[0] - layerLoc[0]).toFloat()
+            ghost.y = (rowLoc[1] - layerLoc[1]).toFloat()
+            ghost.alpha = 0.96f
+            ghost.scaleX = 1.03f
+            ghost.scaleY = 1.03f
 
-            val grabOffsetY = pointerY - loc[1]
-            row.setGhosted(true)
+            row.setDragging(true) // 原位隐藏但仍占位
+            val grabOffsetY = pointerY - rowLoc[1]
             val fromIndex = data.indexOfFirst { it.id == c.id }
             dragInfo = DragInfo(c, fromIndex, fromIndex, ghost, grabOffsetY, row)
         } catch (e: Throwable) {
@@ -356,11 +363,13 @@ class MainActivity : Activity() {
         }
     }
 
-    /** 拖动中：移动幽灵 + 计算落点；松手时按落点重排。 */
+    /** 拖动中：移动浮层 + 计算落点；松手时按落点重排。 */
     fun dragMove(pointerY: Int) {
         val info = dragInfo ?: return
         try {
-            info.ghost.y = (pointerY - info.grabOffsetY).toFloat()
+            val layerLoc = IntArray(2)
+            dragLayer.getLocationOnScreen(layerLoc)
+            info.ghost.y = (pointerY - layerLoc[1] - info.grabOffsetY).toFloat()
 
             // 接近列表上/下边缘时自动滚动
             val svLoc = IntArray(2)
@@ -376,7 +385,7 @@ class MainActivity : Activity() {
             val relY = pointerY - contLoc[1]
             var target = 0
             for (i in 0 until listContainer.childCount) {
-                val child = listContainer.getChildAt(i) as CountdownRow
+                val child = listContainer.getChildAt(i) ?: continue
                 val center = child.top + child.height / 2
                 if (relY > center) target = i + 1
             }
@@ -404,7 +413,7 @@ class MainActivity : Activity() {
             CountdownStore.save(this, data)
             // 关键：触摸事件派发过程中改动视图树（removeAllViews/addView）会让
             // 框架层在遍历子 View 时崩溃。故延到下一帧再重建列表。
-            info.row.setGhosted(false)
+            info.row.setDragging(false)
             info.row.resetDragState()
             listContainer.post { rebuildList() }
         } catch (e: Throwable) {
@@ -606,6 +615,18 @@ class MainActivity : Activity() {
             AnimStyle.play(timeLast, c.animStyle, c.customColorArgb)
         }
 
+        /**
+         * 给拖动浮层用的时间刷新：跟随列表一起走秒，但不播跳秒动画
+         *（拖动过程中播放缩放/坠落等动画会让手指下的卡片发抖）。
+         */
+        fun refreshTimeQuiet(now: Long = AlignedClock.now()) {
+            val c = bound ?: return
+            val text = c.remainingText(now)
+            if (text == lastTimeText) return
+            lastTimeText = text
+            applyTimeText(text, c.customColorArgb)
+        }
+
         /** 把时间文本拆成三段显示。 */
         private fun applyTimeText(text: String, color: Int) {
             val (head, last, tail) = CountdownFormatter.splitLastDigit(text)
@@ -617,15 +638,12 @@ class MainActivity : Activity() {
             timeTail.setTextColor(color)
         }
 
-        /** 拖动时把原条目虚化为半透明轮廓。 */
-        fun setGhosted(on: Boolean) {
-            if (on) {
-                this.background = ColorDrawable(0x22454555)
-                front.alpha = 0.3f
-            } else {
-                this.background = null
-                front.alpha = 1f
-            }
+        /**
+         * 拖动状态：原位条目隐藏但仍占据布局（visibility = INVISIBLE），
+         * 这样列表其它条目不会跳动，也不会出现「原地虚影 + 手指上的卡片」两层并存的观感。
+         */
+        fun setDragging(on: Boolean) {
+            visibility = if (on) View.INVISIBLE else View.VISIBLE
         }
 
         /** 拖动结束后复位手势状态（复位到静止、未滑动）。 */
