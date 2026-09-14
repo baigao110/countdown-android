@@ -10,6 +10,7 @@ import android.widget.Button
 import android.widget.DatePicker
 import android.widget.EditText
 import android.widget.Spinner
+import android.widget.TextView
 import android.widget.TimePicker
 import android.widget.Toast
 import java.util.Calendar
@@ -44,6 +45,11 @@ class AddEditActivity : Activity() {
         }
 
         setContentView(R.layout.activity_add_edit)
+
+        // 顶部返回栏与标题：风格、交互与「关于」页一致
+        findViewById<TextView>(R.id.pageTitle).text =
+            if (editId != null) "编辑倒计时" else "添加倒计时"
+        findViewById<TextView>(R.id.backBtn).setOnClickListener { finish() }
 
         val titleEt = findViewById<EditText>(R.id.etTitle)
         val datePicker = findViewById<DatePicker>(R.id.datePicker)
