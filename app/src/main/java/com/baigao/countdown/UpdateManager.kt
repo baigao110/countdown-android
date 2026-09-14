@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.3.3"
+    const val CURRENT_VERSION_NAME = "1.0.3.4"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -306,6 +306,10 @@ object UpdateManager {
 
     /** 各版本更新日志（离线可读，新增版本时在头部追加一条即可）。 */
     private val CHANGELOG = listOf(
+        "v1.0.3.4" to
+            "跳秒动画改为只作用在最后一位数字上，其余数字保持静止，视觉更聚焦\n" +
+            "列表每行「目标 / 模式」之后显示当前动画效果名称，悬浮窗同步显示\n" +
+            "删除「周天时分秒模式」，显示模式精简为 8 种",
         "v1.0.3.3" to
             "新增跳秒动画：编辑倒计时可在「缩放 / 蒸发 / 坠落 / 像素化 / 碎片化 / 燃烧 / 震撼」中选择，\n" +
             "  主界面列表与悬浮窗每次跳秒都会播放，默认「无动画」\n" +
