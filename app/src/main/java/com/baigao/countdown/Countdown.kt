@@ -74,6 +74,17 @@ data class Countdown(
 }
 
 /**
+ * 距离下一个「整秒」时刻还剩多少毫秒（结果恒在 16..1015ms）。
+ *
+ * 主界面与悬浮窗都按这个延时刷新，而不是固定 1000ms：
+ * - 刷新点固定落在整秒之后 15ms，所有条目都在同一瞬间跳秒，且不会出现固定周期的累积漂移；
+ * - 15ms 余量避免正好卡在整秒边界上、因时钟抖动取到“上一秒”的值。
+ */
+fun millisToNextSecond(now: Long = System.currentTimeMillis()): Long {
+    return 1000L - (now % 1000L) + 15L
+}
+
+/**
  * 显示模式名称与倒计时段文本生成（移植自桌面版 TimerData，并补齐安卓所需的全部模式）。
  */
 object CountdownFormatter {
@@ -95,9 +106,13 @@ object CountdownFormatter {
         if (mode in MODE_NAMES.indices) MODE_NAMES[mode] else MODE_NAMES[0]
 
     fun remaining(targetTime: Long, mode: Int, now: Long = System.currentTimeMillis()): String {
-        var diff = targetTime - now
-        if (diff < 0) diff = 0
-        val s = diff / 1000
+        // 关键：目标时间与当前时刻都对齐到「整秒」再相减。
+        // 若直接用 (targetTime - now) / 1000，各条目目标时间的毫秒尾数不同（历史数据常见，
+        // 例如 .237 / .881 / .512），同一瞬间算出的秒数会彼此错开 1 秒，且每个条目都在
+        // 各自不同的时刻跳秒——表现为「有的 29 秒、有的 30 秒、有的 31 秒」。
+        // 对齐整秒后，所有倒计时都在墙上时钟过整秒的同一瞬间一起跳秒。
+        var s = Math.floorDiv(targetTime, 1000L) - Math.floorDiv(now, 1000L)
+        if (s < 0) s = 0
         return when (mode) {
             0 -> weekDayHms(s)
             1 -> String.format("%d时", s / 3600)
