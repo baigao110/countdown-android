@@ -35,7 +35,8 @@ object CountdownStore {
                         title = o.optString("title", ""),
                         targetTime = target,
                         customColorArgb = o.optInt("customColorArgb", 0xFF00FFFF.toInt()),
-                        displayMode = o.optInt("displayMode", 0),
+                        displayMode = CountdownFormatter.normalizeMode(o.optInt("displayMode", 0)),
+                        animStyle = o.optInt("animStyle", AnimStyle.NONE),
                         isVisible = o.optBoolean("isVisible", true),
                         remark = o.optString("remark", ""),
                         soundUri = if (o.isNull("soundUri")) null else o.optString("soundUri"),
@@ -72,6 +73,7 @@ object CountdownStore {
             o.put("posX", c.posX)
             o.put("posY", c.posY)
             o.put("builtIn", c.builtIn)
+            o.put("animStyle", c.animStyle)
             arr.put(o)
         }
         File(context.filesDir, FILE).writeText(arr.toString())
