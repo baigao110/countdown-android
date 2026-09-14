@@ -1,7 +1,7 @@
 {
-  "versionCode": 5,
-  "versionName": "1.0.3.1",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.3.1/countdown-android-v1.0.3.1-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.3.1",
-  "note": "1. 修复主界面多个倒计时秒数不一致（有的 29 秒、有的 30/31 秒）：目标时间与当前时刻统一对齐到整秒后再相减，所有倒计时在同一瞬间跳秒\n2. 刷新节奏改为对齐墙上时钟的整秒边界，消除固定周期定时累积漂移造成的停顿、跳秒\n3. 读取本地数据时自动抹平历史目标时间的毫秒尾数，避免旧数据让各条目秒数错开"
+  "versionCode": 6,
+  "versionName": "1.0.3.2",
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.3.2/countdown-android-v1.0.3.2-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.3.2",
+  "note": "1. 彻底解决多个倒计时秒数不一致（29/30/31 秒并存）：所有目标时间统一对齐到整分，列表里每个倒计时的秒数必然相同\n2. 「当日/当月倒计时」改为在次日 / 次月 1 日 00:00:00 归零，与自建倒计时保持同一相位\n3. 读取本地数据时自动抹平历史目标时间的秒、毫秒尾数（最多偏移 30 秒），老数据不再错位\n4. 新增全局整秒时钟 AlignedClock：任何刷新路径取到的时刻都一致，杜绝跨秒错位"
 }
