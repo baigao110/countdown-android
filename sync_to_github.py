@@ -58,6 +58,17 @@ TEXT_EXT = {".kt", ".java", ".xml", ".gradle", ".properties", ".bat", ".md",
             ".json", ".pro", ".txt", ".yml", ".yaml", ".gitignore", ""}
 
 
+def current_version() -> str:
+    """从 app/build.gradle 读取 versionName，避免版本号写死在多处不同步。"""
+    gradle = os.path.join(ROOT, "app", "build.gradle")
+    with open(gradle, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("versionName"):
+                return line.split("'")[1].split('"')[0]
+    return "1.0.0"
+
+
 def api(method, path, data=None, quiet=False):
     # 路径可能含中文文件名（如「同步到GitHub.bat」），必须先做 URL 编码，
     # 否则 http.client 会用 ascii 编码请求行而抛 UnicodeEncodeError。
@@ -156,13 +167,28 @@ def sync_file(rel_api_path: str, local_path: str, max_attempts: int = 4):
 
 
 def check_release_asset():
-    apk_name = "countdown-android-v1.0.0-release.apk"
+    version = current_version()
+    tag = f"v{version}"
+    apk_name = f"countdown-android-{tag}-release.apk"
     apk_local = os.path.join(ROOT, apk_name)
+    if not os.path.isfile(apk_local):
+        print(f"  [跳过] 本地没有 {apk_name}，请先运行 build_apk.bat 打包")
+        return
     with open(apk_local, "rb") as f:
         local_bytes = f.read()
     local_sha = hashlib.sha256(local_bytes).hexdigest()
 
-    rel = api("GET", f"/repos/{OWNER}/{REPO}/releases/tags/v1.0.0")
+    rel = api("GET", f"/repos/{OWNER}/{REPO}/releases/tags/{tag}")
+    if rel is None:
+        print(f"  线上没有 {tag} Release，自动创建")
+        rel = api("POST", f"/repos/{OWNER}/{REPO}/releases", {
+            "tag_name": tag,
+            "name": f"倒计时安卓版 {tag}",
+            "body": f"倒计时安卓版 {tag}\n\n- 关于页「检查更新」支持在 App 内直接下载并安装新版本\n"
+                    f"- 内置「当日倒计时 / 当月倒计时」\n\n安装：下载 {apk_name} 后覆盖安装即可。",
+            "draft": False,
+            "prerelease": False,
+        })
     cur = next((a for a in rel.get("assets", []) if a["name"] == apk_name), None)
     if cur is not None:
         req = urllib.request.Request(cur["url"], method="GET")
@@ -212,7 +238,7 @@ def main():
     if counts["UPDATED"] == 0 and counts["NEW"] == 0 and counts["FAILED"] == 0:
         print("  => 源码已与 GitHub 完全同步")
 
-    print("=== 2. 校验 v1.0.0 Release 的 APK 资产 ===")
+    print(f"=== 2. 校验 v{current_version()} Release 的 APK 资产 ===")
     check_release_asset()
     print("DONE")
 
