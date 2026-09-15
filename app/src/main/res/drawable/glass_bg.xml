@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 应用底色：深蓝紫纵向渐变，玻璃卡片叠在上面才有通透感。 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="270"
+        android:startColor="@color/glass_bg_top"
+        android:centerColor="@color/glass_bg_center"
+        android:endColor="@color/glass_bg_bottom"
+        android:centerY="0.45" />
+</shape>
