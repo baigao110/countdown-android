@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 小号玻璃按钮（列表行 / 悬浮窗里的操作按钮）。 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="#30FFFFFF"
+                android:endColor="#14FFFFFF" />
+            <corners android:radius="10dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <stroke
+                android:width="1dp"
+                android:color="@color/glass_stroke_soft" />
+            <corners android:radius="10dp" />
+        </shape>
+    </item>
+</layer-list>
