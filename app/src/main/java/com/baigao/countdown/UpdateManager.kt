@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.0.5"
+    const val CURRENT_VERSION_NAME = "1.0.0.6"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -464,6 +464,12 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.6", "2026-09-15",
+            "整体风格升级为「液态玻璃（Liquid Glass）」：卡片、按钮、对话框、悬浮窗统一改为半透明玻璃质感\n" +
+            "  玻璃面带镜面高光与亮边，能透出背后内容，层次更轻盈通透\n" +
+            "页面背景新增模糊光斑层：Android 12+ 用系统 RenderEffect 做真模糊，低版本退回柔和渐变\n" +
+            "底色由纯深色改为深蓝紫渐变，按钮由实心改为玻璃渐变（青色主操作保留高对比）\n" +
+            "列表卡片改为大圆角玻璃卡并带投影，条目间距微调"),
         ChangelogItem("v1.0.0.5", "2026-09-14",
             "更新日志默认收起所有日期：只有点击展开的那一天才显示日志\n" +
             "未展开的日期连「日期行」本身都不显示，界面上只剩被展开那一天的日期与日志\n" +
