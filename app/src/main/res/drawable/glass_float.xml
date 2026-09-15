@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 悬浮窗玻璃底：比普通卡片更实一点（悬浮窗盖在任意界面上，太透会看不清字），
+     但仍保留顶部高光与亮边，和 App 内是同一套液态玻璃语言。 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="#F0182138"
+                android:centerColor="#E6121830"
+                android:endColor="#F20C1122"
+                android:centerY="0.4" />
+            <corners android:radius="16dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="#33FFFFFF"
+                android:endColor="#0AFFFFFF" />
+            <corners android:radius="16dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <stroke
+                android:width="1dp"
+                android:color="@color/glass_stroke" />
+            <corners android:radius="16dp" />
+        </shape>
+    </item>
+    <item
+        android:left="3dp"
+        android:right="3dp"
+        android:top="1dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="@color/glass_highlight"
+                android:endColor="#00FFFFFF" />
+            <corners
+                android:topLeftRadius="15dp"
+                android:topRightRadius="15dp" />
+            <size android:height="6dp" />
+        </shape>
+    </item>
+</layer-list>
