@@ -1,11 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 添加 / 编辑倒计时页：整体风格与「关于」页保持一致
      （深色底 + 顶部青色返回栏 + 青色标题 + 胶囊按钮）。 -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#0F0F19">
+    android:background="@drawable/glass_bg">
+
+    <com.baigao.countdown.GlassBackdrop
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
     <!-- 顶部返回栏（与关于页一致） -->
     <LinearLayout
@@ -136,7 +144,7 @@
                 android:layout_marginTop="6dp"
                 android:minHeight="46dp"
                 android:background="@drawable/field_bg"
-                android:popupBackground="#1C1C2E"
+                android:popupBackground="#1B2138"
                 android:paddingStart="12dp"
                 android:paddingEnd="8dp" />
 
@@ -156,7 +164,7 @@
                 android:layout_marginTop="6dp"
                 android:minHeight="46dp"
                 android:background="@drawable/field_bg"
-                android:popupBackground="#1C1C2E"
+                android:popupBackground="#1B2138"
                 android:paddingStart="12dp"
                 android:paddingEnd="8dp" />
 
@@ -176,7 +184,7 @@
                 android:layout_marginTop="6dp"
                 android:minHeight="46dp"
                 android:background="@drawable/field_bg"
-                android:popupBackground="#1C1C2E"
+                android:popupBackground="#1B2138"
                 android:paddingStart="12dp"
                 android:paddingEnd="8dp" />
 
@@ -264,4 +272,6 @@
         </LinearLayout>
     </ScrollView>
 
-</LinearLayout>
+    </LinearLayout>
+
+</FrameLayout>
