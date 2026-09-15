@@ -7,7 +7,9 @@
     android:layout_marginBottom="10dp"
     android:background="@android:color/transparent">
 
-    <!-- 底层：操作按钮（右对齐，仅露出编辑/提示音/删除），前景向左滑动后显示 -->
+    <!-- 底层：操作按钮（右对齐，仅露出编辑/提示音/删除），前景向左滑动后显示。
+         默认 invisible：不滑动时整层不绘制，彻底杜绝半透明前景把它透出来、
+         和倒计时文字叠在一起（「按钮被倒计时遮挡」的根因）。左滑时代码里置为 visible。 -->
     <LinearLayout
         android:id="@+id/itemActions"
         android:layout_width="wrap_content"
@@ -15,7 +17,8 @@
         android:layout_gravity="end|center_vertical"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:background="@drawable/glass_card"
+        android:visibility="invisible"
+        android:background="@drawable/glass_card_strong"
         android:paddingStart="14dp"
         android:paddingEnd="10dp">
 
@@ -61,7 +64,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:background="@drawable/glass_card"
+        android:background="@drawable/glass_card_solid"
         android:elevation="4dp"
         android:clipChildren="false"
         android:padding="12dp">
