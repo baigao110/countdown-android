@@ -88,13 +88,20 @@ object UpdateManager {
     /**
      * 异步检查更新。
      * @param forceDialog 为真时，发现新版本直接弹出更新日志对话框（用于「强制提示」场景）。
+     * @param notify 为真时，发现新版本同时在系统通知栏发一条更新提醒（同一版本每天一次）。
      */
-    fun check(activity: Activity, forceDialog: Boolean, onResult: ((UpdateInfo?) -> Unit)? = null) {
+    fun check(
+        activity: Activity,
+        forceDialog: Boolean,
+        notify: Boolean = true,
+        onResult: ((UpdateInfo?) -> Unit)? = null
+    ) {
         Thread {
             val info = fetch()
             handler.post {
                 val newest = if (info != null && info.num > CURRENT_VERSION_NUM) info else null
                 onResult?.invoke(newest)
+                if (newest != null && notify) UpdateNotifier.notifyUpdate(activity, newest)
                 if (forceDialog && newest != null) showUpdateDialog(activity, newest)
             }
         }.start()
@@ -464,6 +471,12 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.7", "2026-09-15",
+            "修复主界面「编辑 / 提示音 / 删除」按钮被倒计时文字遮挡的问题：\n" +
+            "  列表卡片改为不透底的玻璃卡，未左滑时操作按钮整层不绘制，不再透上来压住倒计时\n" +
+            "检测到新版本时新增系统通知提醒：点通知进 App 查看更新日志，\n" +
+            "  通知上的「立即更新」可直接下载安装（同一版本每天只提示一次，进 App 后自动清除）\n" +
+            "Android 13 及以上首次启动会申请通知权限，保证更新提醒能送达"),
         ChangelogItem("v1.0.0.6", "2026-09-15",
             "整体风格升级为「液态玻璃（Liquid Glass）」：卡片、按钮、对话框、悬浮窗统一改为半透明玻璃质感\n" +
             "  玻璃面带镜面高光与亮边，能透出背后内容，层次更轻盈通透\n" +
