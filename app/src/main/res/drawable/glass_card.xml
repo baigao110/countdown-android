@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 标准玻璃卡片：上半部更亮（模拟镜面高光），下半部渐隐，外圈一圈亮边。 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="@color/glass_fill_top"
+                android:centerColor="@color/glass_fill_center"
+                android:endColor="@color/glass_fill_bottom"
+                android:centerY="0.38" />
+            <corners android:radius="18dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <stroke
+                android:width="1dp"
+                android:color="@color/glass_stroke" />
+            <corners android:radius="18dp" />
+        </shape>
+    </item>
+    <!-- 顶部一条更亮的镜面高光，是液态玻璃最明显的特征 -->
+    <item
+        android:left="2dp"
+        android:right="2dp"
+        android:top="1dp"
+        android:bottom="0dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="@color/glass_highlight"
+                android:endColor="#00FFFFFF" />
+            <corners
+                android:topLeftRadius="17dp"
+                android:topRightRadius="17dp" />
+            <size android:height="6dp" />
+        </shape>
+    </item>
+</layer-list>
