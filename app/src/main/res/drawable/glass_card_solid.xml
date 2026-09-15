@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 不透明玻璃卡片：用于列表「前景层」。
+
+     前景层背后还压着一层操作按钮（编辑 / 提示音 / 删除），
+     所以这张卡必须有一层不透明底：只用半透明玻璃的话，底下的按钮会透上来，
+     和倒计时文字叠在一起（看起来像按钮被倒计时遮挡）。
+     底之上仍然保留玻璃渐变、亮边与顶部镜面高光，观感与其它玻璃卡一致。 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="#FF1B2540"
+                android:centerColor="#FF161E33"
+                android:endColor="#FF121828"
+                android:centerY="0.38" />
+            <corners android:radius="18dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="#20FFFFFF"
+                android:centerColor="#0FFFFFFF"
+                android:endColor="#08FFFFFF"
+                android:centerY="0.38" />
+            <corners android:radius="18dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <stroke
+                android:width="1dp"
+                android:color="@color/glass_stroke" />
+            <corners android:radius="18dp" />
+        </shape>
+    </item>
+    <!-- 顶部镜面高光 -->
+    <item
+        android:left="2dp"
+        android:right="2dp"
+        android:top="1dp"
+        android:bottom="0dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="@color/glass_highlight"
+                android:endColor="#00FFFFFF" />
+            <corners
+                android:topLeftRadius="17dp"
+                android:topRightRadius="17dp" />
+            <size android:height="6dp" />
+        </shape>
+    </item>
+</layer-list>
