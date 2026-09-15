@@ -78,16 +78,19 @@ class MainActivity : Activity() {
         }
     }
 
-    /** 读取本地数据，并确保「当日倒计时」「当月倒计时」两个内置项始终存在。 */
+    /** 读取本地数据，并确保四个内置项（当日 / 当月 / 华都云境悦府 / GTA6）始终存在。 */
     private fun loadData() {
         data = CountdownStore.load(this)
         if (ensureBuiltInTimers()) CountdownStore.save(this, data)
     }
 
-    /** 补齐两个内置倒计时；返回是否新建（新建后才需要落盘）。 */
+    /** 补齐全部内置倒计时；返回是否新建（新建后才需要落盘）。 */
     private fun ensureBuiltInTimers(): Boolean {
-        // 先补当月再补当日，保证列表中「当日倒计时」排在「当月倒计时」之前
-        var added = ensureBuiltIn(BuiltIn.MONTH, "当月倒计时", "距离本月结束")
+        // 每个内置项都插到列表头部，因此按「倒序」补齐，
+        // 最终列表顺序才是：当日 → 当月 → 华都云境悦府 → GTA6
+        var added = ensureBuiltIn(BuiltIn.GTA6, "GTA6倒计时", "距离 GTA6 发售（2026-11-19 08:00）")
+        added = ensureBuiltIn(BuiltIn.HUADU, "华都云境悦府倒计时", "距离华都云境悦府交付（2026-10-31 00:00）") || added
+        added = ensureBuiltIn(BuiltIn.MONTH, "当月倒计时", "距离本月结束") || added
         added = ensureBuiltIn(BuiltIn.DAY, "当日倒计时", "距离今日结束") || added
         return added
     }
