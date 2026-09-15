@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 液态玻璃（Liquid Glass）色板：
+     深色底 + 半透明玻璃面 + 高光描边，配合 GlassBackdrop 的模糊光斑形成折射感。 -->
+<resources>
+    <!-- 背景底色（渐变两端） -->
+    <color name="glass_bg_top">#0B1020</color>
+    <color name="glass_bg_center">#141A33</color>
+    <color name="glass_bg_bottom">#080B14</color>
+
+    <!-- 玻璃面：白色叠加层（数值越大越亮） -->
+    <color name="glass_fill_top">#2EFFFFFF</color>
+    <color name="glass_fill_center">#18FFFFFF</color>
+    <color name="glass_fill_bottom">#0EFFFFFF</color>
+
+    <!-- 描边与高光 -->
+    <color name="glass_stroke">#5CFFFFFF</color>
+    <color name="glass_stroke_soft">#33FFFFFF</color>
+    <color name="glass_highlight">#B3FFFFFF</color>
+
+    <!-- 强调色（青）与其玻璃渐变 -->
+    <color name="glass_accent">#FF00FFFF</color>
+    <color name="glass_accent_sheen">#66FFFFFF</color>
+    <color name="glass_accent_deep">#FF00C2D9</color>
+
+    <!-- 文字 -->
+    <color name="glass_text">#FFEAF6FF</color>
+    <color name="glass_text_sub">#FFA8B3CC</color>
+    <color name="glass_text_dim">#FF7C86A3</color>
+    <color name="glass_text_on_accent">#FF001018</color>
+</resources>
