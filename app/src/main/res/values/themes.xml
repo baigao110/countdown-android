@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- 液态玻璃：深色渐变底 + 模糊光斑背景层，界面元素统一为半透明玻璃卡片。 -->
     <style name="AppTheme" parent="android:Theme.Material.NoActionBar">
-        <item name="android:colorBackground">#0F0F19</item>
-        <item name="android:windowBackground">#0F0F19</item>
-        <item name="android:statusBarColor">#0F0F19</item>
+        <item name="android:colorBackground">#0B1020</item>
+        <item name="android:windowBackground">@drawable/glass_bg</item>
+        <item name="android:statusBarColor">#0B1020</item>
+        <item name="android:navigationBarColor">#0B1020</item>
     </style>
 </resources>
