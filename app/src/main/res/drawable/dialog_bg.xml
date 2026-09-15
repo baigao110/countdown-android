@@ -1,10 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 更新弹窗 / 更新日志 共用的容器：与「关于」页一致的深色风格（深色圆角底 + 青色标题 + 青色胶囊按钮）。 -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <solid android:color="#1A1A2E" />
-    <stroke
-        android:width="1dp"
-        android:color="#4000FFFF" />
-    <corners android:radius="16dp" />
-</shape>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/glass_card_strong" />
+</layer-list>
