@@ -1,8 +1,8 @@
 {
-  "versionCode": 17,
-  "versionName": "1.0.0.7",
+  "versionCode": 18,
+  "versionName": "1.0.0.8",
   "date": "2026-09-15",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.7/countdown-android-v1.0.0.7-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.7",
-  "note": "1. 修复主界面「编辑 / 提示音 / 删除」按钮被倒计时文字遮挡的问题：列表卡片改为不透底玻璃，未左滑时操作按钮不再透出\n2. 检测到新版本时新增系统通知提醒：点通知查看更新日志，通知上的「立即更新」可直接下载安装\n3. 同一版本每天只提示一次，进入 App 后自动清除通知栏上的更新提醒\n4. Android 13+ 首次启动会申请通知权限，保证更新提醒能正常送达"
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.8/countdown-android-v1.0.0.8-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.8",
+  "note": "1. 新增内置倒计时「华都云境悦府倒计时」：目标 2026-10-31 00:00:00\n2. 新增内置倒计时「GTA6倒计时」：目标 2026-11-19 08:00:00\n3. 新版本安装后自带四个内置倒计时：当日倒计时、当月倒计时、华都云境悦府倒计时、GTA6倒计时\n4. 内置倒计时目标时间由系统维护、不可删除，可在列表中隐藏"
 }
