@@ -1,8 +1,8 @@
 {
-  "versionCode": 15,
-  "versionName": "1.0.0.5",
-  "date": "2026-09-14",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.5/countdown-android-v1.0.0.5-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.5",
-  "note": "1. 更新日志默认收起所有日期：只有点击展开的那一天才显示日志\n2. 未展开的日期连「日期行」本身都不显示，界面上只剩被展开那一天的日期与日志\n3. 再点一次已展开的日期即可收起，收起后所有日期行重新显示出来"
+  "versionCode": 16,
+  "versionName": "1.0.0.6",
+  "date": "2026-09-15",
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.6/countdown-android-v1.0.0.6-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.6",
+  "note": "1. 整体风格升级为「液态玻璃 Liquid Glass」：卡片、按钮、对话框、悬浮窗全部改为半透明玻璃质感\n2. 玻璃面带镜面高光与亮边，能透出背后内容，层次更轻盈通透\n3. 页面背景新增模糊光斑层：Android 12+ 用系统 RenderEffect 真模糊，低版本退回柔和渐变\n4. 底色改为深蓝紫渐变，按钮由实心改为玻璃渐变，列表卡片改为大圆角玻璃卡并带投影"
 }
