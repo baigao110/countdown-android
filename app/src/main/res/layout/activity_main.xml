@@ -2,7 +2,12 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0F0F19">
+    android:background="@drawable/glass_bg">
+
+    <!-- 液态玻璃背景层：模糊光斑，玻璃卡片透过去才有折射感 -->
+    <com.baigao.countdown.GlassBackdrop
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -53,7 +58,7 @@
             android:id="@+id/menuBackdrop"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="#7A000000"
+            android:background="#59000000"
             android:visibility="gone"
             android:clickable="true"
             android:focusable="true" />
