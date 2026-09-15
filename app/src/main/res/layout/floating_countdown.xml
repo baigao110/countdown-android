@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 悬浮窗：整块是一张液态玻璃卡片（半透明 + 顶部高光 + 亮边），
+     悬浮在任意界面上时能透出背后内容。 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/fRoot"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="#1A1A2E"
-    android:padding="8dp"
-    android:minWidth="172dp">
+    android:background="@drawable/glass_float"
+    android:elevation="6dp"
+    android:padding="10dp"
+    android:minWidth="176dp">
 
     <!-- 标题栏：标题 + 收缩 + 抽屉把手 + 关闭 -->
     <LinearLayout
@@ -35,7 +38,7 @@
             android:padding="0dp"
             android:minWidth="0dp"
             android:minHeight="0dp"
-            android:background="#2E2E52"
+            android:background="@drawable/glass_chip"
             android:textColor="#9FD8FF" />
 
         <Button
@@ -48,7 +51,7 @@
             android:padding="0dp"
             android:minWidth="0dp"
             android:minHeight="0dp"
-            android:background="#223A55"
+            android:background="@drawable/glass_chip"
             android:textColor="#7FDBFF" />
 
         <Button
@@ -61,7 +64,7 @@
             android:padding="0dp"
             android:minWidth="0dp"
             android:minHeight="0dp"
-            android:background="#442222"
+            android:background="@drawable/glass_chip"
             android:textColor="#FF6666" />
     </LinearLayout>
 
@@ -113,7 +116,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
         android:textSize="10sp"
-        android:textColor="#B9B9D6"
+        android:textColor="#C7D0E8"
         android:gravity="center"
         android:maxLines="2"
         android:ellipsize="end"
@@ -125,7 +128,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
         android:textSize="11sp"
-        android:textColor="#9090A8"
+        android:textColor="#A8B3CC"
         android:gravity="center"
         android:maxLines="1" />
 
@@ -138,14 +141,14 @@
         android:visibility="gone"
         android:layout_marginTop="6dp"
         android:padding="6dp"
-        android:background="#242441">
+        android:background="@drawable/glass_field">
 
         <TextView
             android:id="@+id/fTargetTime"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="10sp"
-            android:textColor="#8A8AA8"
+            android:textColor="#9AA5C0"
             android:maxLines="1"
             android:ellipsize="end" />
 
@@ -190,7 +193,7 @@
                 android:padding="0dp"
                 android:minWidth="0dp"
                 android:minHeight="0dp"
-                android:background="#2E2E52"
+                android:background="@drawable/glass_chip"
                 android:textColor="#9FD8FF" />
 
             <Button
@@ -204,7 +207,7 @@
                 android:padding="0dp"
                 android:minWidth="0dp"
                 android:minHeight="0dp"
-                android:background="#2E2E52"
+                android:background="@drawable/glass_chip"
                 android:textColor="#9FD8FF" />
         </LinearLayout>
 
@@ -224,7 +227,7 @@
                 android:padding="0dp"
                 android:minWidth="0dp"
                 android:minHeight="0dp"
-                android:background="#1F3A2E"
+                android:background="@drawable/glass_chip"
                 android:textColor="#66FF99" />
 
             <Button
@@ -238,7 +241,7 @@
                 android:padding="0dp"
                 android:minWidth="0dp"
                 android:minHeight="0dp"
-                android:background="#3A331F"
+                android:background="@drawable/glass_chip"
                 android:textColor="#FFCC66" />
         </LinearLayout>
     </LinearLayout>
