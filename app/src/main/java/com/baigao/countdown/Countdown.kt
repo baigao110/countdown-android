@@ -10,6 +10,25 @@ object BuiltIn {
     const val NONE = 0   // 普通倒计时
     const val DAY = 1    // 当日倒计时：目标为「次日 00:00:00」（今日结束的那一刻）
     const val MONTH = 2  // 当月倒计时：目标为「次月 1 日 00:00:00」（本月结束的那一刻）
+    const val HUADU = 3  // 华都云境悦府倒计时：固定目标 2026-10-31 00:00:00
+    const val GTA6 = 4   // GTA6 倒计时：固定目标 2026-11-19 08:00:00
+
+    /**
+     * 固定目标时间的内置项（不随日期滚动）：返回 epoch 毫秒；滚动型内置项返回 null。
+     * 按本地时区构造，与用户在日期时间选择器里选到的时刻一致；秒 / 毫秒恒为 0，
+     * 保证与列表中其它倒计时一样对齐整秒，走秒完全同步。
+     */
+    fun fixedTargetMillis(type: Int): Long? {
+        val cal = Calendar.getInstance()
+        cal.clear()
+        when (type) {
+            HUADU -> cal.set(2026, Calendar.OCTOBER, 31, 0, 0, 0)
+            GTA6 -> cal.set(2026, Calendar.NOVEMBER, 19, 8, 0, 0)
+            else -> return null
+        }
+        cal.set(Calendar.MILLISECOND, 0)
+        return cal.timeInMillis
+    }
 }
 
 /**
@@ -56,15 +75,23 @@ data class Countdown(
     var builtIn: Int = BuiltIn.NONE,           // 内置倒计时类型（见 BuiltIn）；旧数据缺省为普通倒计时
     var animStyle: Int = AnimStyle.NONE        // 跳秒动画样式（见 AnimStyle）；旧数据缺省为无动画
 ) {
-    /** 是否为系统内置倒计时（当日 / 当月）——内置项不可删除 */
+    /** 是否为系统内置倒计时（当日 / 当月 / 华都云境悦府 / GTA6）——内置项不可删除 */
     fun isBuiltIn(): Boolean = builtIn != BuiltIn.NONE
 
     /**
-     * 内置倒计时的目标时间由系统动态计算：当日 → 次日 00:00:00，当月 → 次月 1 日 00:00:00。
+     * 内置倒计时的目标时间由系统动态计算：当日 → 次日 00:00:00，当月 → 次月 1 日 00:00:00；
+     * 固定目标型（华都云境悦府 / GTA6）恒取预设时刻，跨过之后停在 0，不会自动滚动到下一周期。
      * @return 目标时间是否发生变化（跨天 / 跨月时为 true，调用方据此重建界面并复位提示音状态）
      */
     fun refreshBuiltInTarget(): Boolean {
         if (builtIn == BuiltIn.NONE) return false
+        // 固定目标时间的内置项：直接取常量时刻
+        val fixed = BuiltIn.fixedTargetMillis(builtIn)
+        if (fixed != null) {
+            if (fixed == targetTime) return false
+            targetTime = fixed
+            return true
+        }
         val cal = Calendar.getInstance()
         when (builtIn) {
             BuiltIn.DAY -> {
