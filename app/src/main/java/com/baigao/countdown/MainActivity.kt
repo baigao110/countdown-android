@@ -122,6 +122,11 @@ class MainActivity : Activity() {
     companion object {
         const val REQ_OVERLAY = 1001
         const val REQ_EDIT = 1003
+        const val REQ_NOTIFY = 1004
+        /** 通知点击：进主界面后弹出更新日志。 */
+        const val EXTRA_SHOW_UPDATE = "show_update"
+        /** 通知上的「立即更新」：进主界面后直接下载安装。 */
+        const val EXTRA_UPDATE_NOW = "update_now"
         /** 进程存活期间只自动检查一次更新，避免每次 onResume 都弹窗。 */
         private var updateCheckedOnce = false
     }
@@ -153,11 +158,51 @@ class MainActivity : Activity() {
             startActivity(Intent(this, AboutActivity::class.java))
         }
 
-        // 启动即检查更新：发现新版本会强制弹出更新日志对话框
+        // 启动即检查更新：发现新版本会强制弹出更新日志对话框，并发送一条系统通知
+        handleUpdateIntent(intent)
         if (!updateCheckedOnce) {
             updateCheckedOnce = true
-            UpdateManager.check(this, forceDialog = true)
+            // 首次申请通知权限时，权限弹窗还没走完，晚一点再检查，
+            // 免得权限刚授权但通知判断仍按「未授权」跳过。
+            val delay = if (ensureNotifyPermission()) 1500L else 0L
+            window.decorView.postDelayed({
+                if (!isFinishing) UpdateManager.check(this, forceDialog = true)
+            }, delay)
         }
+    }
+
+    /**
+     * Android 13+ 需要运行时授权才能发通知。
+     * @return 是否刚刚发起了授权申请（此时更新检查应延后）。
+     */
+    private fun ensureNotifyPermission(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
+        if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) return false
+        requestPermissions(
+            arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIFY
+        )
+        return true
+    }
+
+    /** 处理从更新通知进来的意图：弹更新日志 / 直接下载安装。 */
+    private fun handleUpdateIntent(i: Intent?) {
+        val show = i?.getBooleanExtra(EXTRA_SHOW_UPDATE, false) ?: false
+        val now = i?.getBooleanExtra(EXTRA_UPDATE_NOW, false) ?: false
+        if (!show && !now) return
+        i?.removeExtra(EXTRA_SHOW_UPDATE)
+        i?.removeExtra(EXTRA_UPDATE_NOW)
+        updateCheckedOnce = true
+        UpdateManager.check(this, forceDialog = show, notify = false) { info ->
+            if (info != null && now) UpdateManager.downloadAndInstall(this, info)
+        }
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleUpdateIntent(intent)
     }
 
     // ---------------- 扇形弹出菜单 ----------------
@@ -207,6 +252,8 @@ class MainActivity : Activity() {
         super.onResume()
         // 从「允许安装未知应用」设置页返回后，继续之前挂起的安装
         UpdateManager.consumePendingInstall(this)
+        // 已经进到 App 了，清掉通知栏上的更新提醒
+        UpdateNotifier.cancel(this)
         loadData()
         rebuildList()
         try {
@@ -332,6 +379,7 @@ class MainActivity : Activity() {
     fun beginDrag(row: CountdownRow, c: Countdown, pointerY: Int) {
         try {
             row.front.translationX = 0f // 还原横向滑动，保证浮层从正位出发
+            row.setActionsRevealed(false) // 拖动时底层按钮不参与绘制
             val w = row.width
             val h = row.height
             if (w <= 0 || h <= 0) return
@@ -565,6 +613,8 @@ class MainActivity : Activity() {
             actions.setOnClickListener { if (isOpen()) closeIfOpen() }
 
             refreshAll()
+            // 未滑动时不绘制操作层（invisible 仍会测量，宽度照常可测）
+            setActionsRevealed(false)
             // 布局完成后获取“露出门宽度”（取操作层宽度，右滑即露出编辑/提示音/删除按钮）
             post { actionsWidth = actions.measuredWidth }
         }
@@ -575,9 +625,20 @@ class MainActivity : Activity() {
         /** 当前是否已滑开（露出操作按钮）。 */
         private fun isOpen(): Boolean = front.translationX < -actionsWidth / 2f
 
+        /**
+         * 是否绘制底层操作按钮（编辑 / 提示音 / 删除）。
+         * 未滑开时整层不绘制，避免它被半透明前景透出来、与倒计时文字重叠。
+         */
+        fun setActionsRevealed(revealed: Boolean) {
+            actions.visibility = if (revealed) View.VISIBLE else View.INVISIBLE
+        }
+
         /** 动画移动到指定 translationX。 */
         private fun animateTo(target: Float) {
-            front.animate().translationX(target).setDuration(160).start()
+            if (target < 0f) setActionsRevealed(true)
+            front.animate().translationX(target).setDuration(160)
+                .withEndAction { if (target >= 0f) setActionsRevealed(false) }
+                .start()
         }
 
         /** 若已滑开则收起。 */
@@ -656,6 +717,7 @@ class MainActivity : Activity() {
         fun resetDragState() {
             mode = 0
             front.translationX = 0f
+            setActionsRevealed(false)
         }
 
         override fun onInterceptTouchEvent(e: MotionEvent): Boolean {
@@ -736,6 +798,7 @@ class MainActivity : Activity() {
                         var tx = startTx + dx
                         tx = tx.coerceIn(-actionsWidth.toFloat(), 0f)
                         front.translationX = tx
+                        setActionsRevealed(tx < -1f) // 露出多少画多少，收起后立刻隐藏
                         return true
                     }
                     return false
