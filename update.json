@@ -4,6 +4,5 @@
   "date": "2026-09-16",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.13/countdown-android-v1.0.0.13-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.13",
-  "note": "1. 恢复内置倒计时时自动还原删除前的全部设置（主题颜色、显示模式、跳秒动画、提示音、悬浮窗显隐/透明度/位置、备注）
-2. 恢复对话框补充说明文字，恢复后提示实际还原了几个"
+  "note": "1. 恢复内置倒计时时自动还原删除前的全部设置：主题颜色、显示模式、跳秒动画、提示音、悬浮窗显隐/透明度/位置、备注\n2. 恢复对话框补上说明文字，恢复完成后提示实际还原了几个内置倒计时"
 }
