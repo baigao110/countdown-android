@@ -8,7 +8,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -28,6 +30,7 @@ object UpdateNotifier {
     const val CHANNEL_ID = "countdown_update_high"
     private const val OLD_CHANNEL_ID = "countdown_update"
     private const val NOTIF_ID = 20317
+    private const val TEST_ID = 20321
     private const val PREF = "update_notify"
     private const val KEY_VERSION = "version"
     private const val KEY_DATE = "date"
@@ -85,9 +88,75 @@ object UpdateNotifier {
         nm.createNotificationChannel(ch)
     }
 
+    private fun piFlags(): Int = PendingIntent.FLAG_UPDATE_CURRENT or
+            (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+
+    /**
+     * 通知渠道是否被用户在系统设置里关掉。关掉后 notify 会静默失败 —— 这类「收不到通知」
+     * 在应用内看不出任何异常，只能主动查渠道重要性。
+     */
+    fun channelEnabled(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return true
+        return try {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val ch = nm.getNotificationChannel(CHANNEL_ID)
+            ch == null || ch.importance != NotificationManager.IMPORTANCE_NONE
+        } catch (e: Throwable) {
+            true
+        }
+    }
+
+    /** 「关于」页的「测试通知」：立刻发一条，用来验证权限与渠道到底通不通。 */
+    fun sendTest(context: Context): Boolean {
+        if (!hasPermission(context)) return false
+        return try {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            createChannel(nm)
+            if (!channelEnabled(context)) return false
+            val pi = PendingIntent.getActivity(
+                context, 3,
+                Intent(context, MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                piFlags()
+            )
+            nm.notify(
+                TEST_ID,
+                Notification.Builder(context, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_stat)
+                    .setContentTitle("通知测试成功")
+                    .setContentText("有新版本时，更新提醒会出现在这里")
+                    .setContentIntent(pi)
+                    .setAutoCancel(true)
+                    .setPriority(Notification.PRIORITY_HIGH)
+                    .setDefaults(Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE)
+                    .build()
+            )
+            true
+        } catch (e: Throwable) {
+            android.util.Log.w("UpdateNotifier", "sendTest: ${e.message}")
+            false
+        }
+    }
+
+    /** 跳系统的「本应用通知设置」页，让用户可以自己把通知打开。 */
+    fun openSettings(context: Context) {
+        try {
+            val i = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            } else {
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    .setData(Uri.parse("package:${context.packageName}"))
+            }
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(i)
+        } catch (e: Throwable) {
+            // 部分 ROM 没有这个页面，忽略即可
+        }
+    }
+
     private fun build(context: Context, info: UpdateManager.UpdateInfo): Notification {
-        val flags = PendingIntent.FLAG_UPDATE_CURRENT or
-                (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+        val flags = piFlags()
 
         // 点通知本体：进主界面弹更新日志
         val contentIntent = Intent(context, MainActivity::class.java)
