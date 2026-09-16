@@ -25,6 +25,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Collections
 import java.util.Date
@@ -107,13 +108,25 @@ class MainActivity : Activity() {
         // 被用户删除过的内置项不再自动补齐，否则删完一重启又回来了
         if (type in removedBuiltIns) return false
         if (data.any { it.builtIn == type }) return false
-        val c = Countdown(
-            title = title,
-            remark = remark,
-            builtIn = type,
-            displayMode = 0,
-            isVisible = false   // 默认不强制弹出悬浮窗，可在列表中点「显示」
-        )
+        // 之前被删过：把删除时的设置整份还原（主题颜色、显示模式、跳秒动画、提示音、
+        // 悬浮窗显隐 / 透明度 / 位置、备注等），只有目标时间由系统重新计算，
+        // 于是恢复出来的内置项和删掉之前一模一样，只是重新开始计时。
+        val backup = loadBuiltInBackup(type)
+        val c = if (backup != null) {
+            backup.builtIn = type
+            if (backup.title.isBlank()) backup.title = title
+            if (backup.remark.isBlank()) backup.remark = remark
+            backup.finished = false // 重新计时，允许再次响铃
+            backup
+        } else {
+            Countdown(
+                title = title,
+                remark = remark,
+                builtIn = type,
+                displayMode = 0,
+                isVisible = false   // 默认不强制弹出悬浮窗，可在列表中点「显示」
+            )
+        }
         c.refreshBuiltInTarget()
         data.add(0, c)
         return true
@@ -547,8 +560,13 @@ class MainActivity : Activity() {
             .setTitle("确认删除")
             .setMessage("确定删除「${c.title}」吗？\n（确定将关闭该倒计时显示）")
             .setPositiveButton("确定") { _, _ ->
-                // 内置倒计时同样可以删除（v1.0.0.9 起）：记下类型，之后不再自动补齐
-                if (c.isBuiltIn()) markBuiltInRemoved(c.builtIn)
+                // 内置倒计时同样可以删除（v1.0.0.9 起）：记下类型，之后不再自动补齐。
+                // 先把它的全部设置（主题颜色 / 显示模式 / 动画 / 提示音 / 悬浮窗显隐等）
+                // 存成快照，之后点「恢复内置」时原样还原，不用重新配置一遍。
+                if (c.isBuiltIn()) {
+                    saveBuiltInBackup(c)
+                    markBuiltInRemoved(c.builtIn)
+                }
                 data.removeAll { it.id == c.id }
                 CountdownStore.save(this, data)
                 rebuildList()
@@ -567,6 +585,26 @@ class MainActivity : Activity() {
         Triple(BuiltIn.HUADU, "华都云境悦府倒计时", "距离华都云境悦府交付（2026-10-31 00:00）"),
         Triple(BuiltIn.GTA6, "GTA6倒计时", "距离 GTA6 发售（2026-11-19 08:00）")
     )
+
+    /**
+     * 删除内置倒计时时，把它的完整设置存成快照（JSON 字符串，存在 builtin_removed 里）。
+     * 只存「设置」，不存目标时间——目标时间由系统按当日 / 当月 / 固定日期重算。
+     */
+    private fun saveBuiltInBackup(c: Countdown) {
+        removedPrefs.edit()
+            .putString("backup_${c.builtIn}", CountdownStore.toJson(c).toString())
+            .apply()
+    }
+
+    /** 读出某个内置倒计时被删除时的设置快照；老版本删除的没有快照，返回 null。 */
+    private fun loadBuiltInBackup(type: Int): Countdown? {
+        val json = removedPrefs.getString("backup_$type", null) ?: return null
+        return try {
+            CountdownStore.parse(JSONObject(json))
+        } catch (e: Exception) {
+            null
+        }
+    }
 
     /** 记录「某个内置倒计时已被删除」，写盘持久化。 */
     private fun markBuiltInRemoved(type: Int) {
@@ -618,6 +656,7 @@ class MainActivity : Activity() {
         val checked = BooleanArray(missing.size) { true }
         AlertDialog.Builder(this)
             .setTitle("恢复内置倒计时")
+            .setMessage("勾选要恢复的倒计时，确定后按删除前的设置还原（主题颜色、显示模式、跳秒动画、提示音等）。")
             .setMultiChoiceItems(names, checked) { _, which, isChecked -> checked[which] = isChecked }
             .setPositiveButton("确定") { _, _ ->
                 val types = missing.filterIndexed { i, _ -> checked[i] }.map { it.first }
@@ -625,8 +664,13 @@ class MainActivity : Activity() {
                     Toast.makeText(this, "没有勾选任何内置倒计时", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
+                val restored = types.count { loadBuiltInBackup(it) != null }
                 restoreBuiltIn(*types.toIntArray())
-                Toast.makeText(this, "已恢复 ${types.size} 个内置倒计时", Toast.LENGTH_SHORT).show()
+                val msg = if (restored > 0)
+                    "已恢复 ${types.size} 个内置倒计时（其中 $restored 个还原了原有设置）"
+                else
+                    "已恢复 ${types.size} 个内置倒计时"
+                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("取消", null)
             .show()
