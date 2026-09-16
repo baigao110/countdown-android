@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.0.13"
+    const val CURRENT_VERSION_NAME = "1.0.0.14"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -269,7 +269,7 @@ object UpdateManager {
      * @param content 往内容容器里填视图（容器本身可滚动，内容过高时自动限高）。
      * @return 已显示的对话框，便于调用方关闭或更新内容。
      */
-    private fun showStyledDialog(
+    fun showStyledDialog(
         activity: Activity,
         title: String,
         positiveText: String,
@@ -475,6 +475,13 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.14", "2026-09-16",
+            "再修「有版本更新却收不到系统通知」：\n" +
+            "  新增 JobScheduler 后台检查（系统统一调度，**有网络才执行**、每 15 分钟一趟、重启自动恢复）；\n" +
+            "  之前只靠闹钟唤醒，而息屏省电模式会切断网络，唤醒了也拉不到版本信息\n" +
+            "  闹钟检查缩短为 2 小时一次，拉取失败再 30 分钟后重试\n" +
+            "「关于」页新增「开启通知 / 测试通知 / 允许后台运行」三个入口，并显示后台检查状态，\n" +
+            "  点一下就能确认通知到底收不收得到"),
         ChangelogItem("v1.0.0.13", "2026-09-16",
             "「恢复内置」现在会连同设置一起还原：删除内置倒计时时会自动保存一份设置快照，\n" +
             "  再点「恢复内置」把主题颜色、显示模式、跳秒动画、提示音、悬浮窗显隐 / 透明度 / 位置、备注等\n" +
