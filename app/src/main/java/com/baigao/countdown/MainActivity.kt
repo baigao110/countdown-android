@@ -245,7 +245,14 @@ class MainActivity : Activity() {
         // 两个菜单项沿右下角向上的弧线“扇形”弹出
         animateItemOut(menuItemAdd, -dp(132), -dp(60), 0)
         animateItemOut(menuItemAbout, -dp(60), -dp(132), 70)
-        animateItemOut(menuItemRestore, -dp(150), -dp(150), 140)
+        // 「恢复内置」只在确实有内置倒计时不在列表里时才出现；
+        // 四个都在列表时整项隐藏，点了加号也不会出现这一项。
+        if (missingBuiltIns().isNotEmpty()) {
+            animateItemOut(menuItemRestore, -dp(150), -dp(150), 140)
+        } else {
+            menuItemRestore.visibility = View.GONE
+            menuItemRestore.alpha = 0f
+        }
         addBtn.animate().rotation(45f).setDuration(200).start()
     }
 
@@ -573,14 +580,26 @@ class MainActivity : Activity() {
         for (t in types) {
             if (removedBuiltIns.remove(t)) changed = true
         }
-        if (!changed) return
-        removedPrefs.edit()
-            .putStringSet("types", removedBuiltIns.map { it.toString() }.toSet())
-            .apply()
-        loadData()
+        if (changed) {
+            removedPrefs.edit()
+                .putStringSet("types", removedBuiltIns.map { it.toString() }.toSet())
+                .apply()
+        }
+        // 兜底：某些项可能既不在列表里、也没有被标记删除（例如被改成普通倒计时），
+        // 这里统一补齐，保证点「确定」之后四个内置项真的回到列表里
+        if (ensureBuiltInTimers()) changed = true
+        if (changed) CountdownStore.save(this, data)
         rebuildList()
         syncService()
     }
+
+    /**
+     * 当前「不在列表里」的内置倒计时：
+     * 既包括用户删掉的（记在 removedBuiltIns 里），也包括列表里查不到该类型的。
+     * 为空表示四个内置倒计时都在列表里，此时不需要显示「恢复内置」。
+     */
+    private fun missingBuiltIns(): List<Triple<Int, String, String>> =
+        builtInDefs.filter { def -> def.first in removedBuiltIns || data.none { it.builtIn == def.first } }
 
     /**
      * 弹出「恢复内置倒计时」对话框（点加号菜单里的「恢复内置」）。
@@ -588,7 +607,7 @@ class MainActivity : Activity() {
      * 想一次全恢复就直接点确定，只恢复其中几个就取消勾选再确定。
      */
     private fun showRestoreBuiltInDialog() {
-        val missing = builtInDefs.filter { it.first in removedBuiltIns }
+        val missing = missingBuiltIns()
         if (missing.isEmpty()) {
             Toast.makeText(this, "四个内置倒计时都在列表里", Toast.LENGTH_SHORT).show()
             return
