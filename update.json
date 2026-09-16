@@ -1,8 +1,8 @@
 {
-  "versionCode": 20,
-  "versionName": "1.0.0.10",
+  "versionCode": 21,
+  "versionName": "1.0.0.11",
   "date": "2026-09-16",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.10/countdown-android-v1.0.0.10-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.10",
-  "note": "1. 「恢复内置」对话框改为带勾选框的多选列表\n2. 补上「确定」按钮（原先只有「取消」）\n3. 默认全部勾选：可直接点确定一次性恢复，也可只勾选需要的再确定"
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.11/countdown-android-v1.0.0.11-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.11",
+  "note": "1. 四个内置倒计时都在列表里时，加号菜单隐藏「恢复内置」\n2. 只要有一个内置倒计时不在列表，就会显示「恢复内置」\n3. 点确定后缺失的内置倒计时直接补回列表"
 }
