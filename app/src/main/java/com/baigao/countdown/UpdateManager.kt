@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.0.9"
+    const val CURRENT_VERSION_NAME = "1.0.0.10"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -471,6 +471,9 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.10", "2026-09-16",
+            "「恢复内置」对话框改为带勾选框的多选列表，并补上「确定」按钮（原先只有「取消」）\n" +
+            "默认全部勾选：想一次恢复全部就直接点确定，只想恢复其中几个就取消勾选再确定"),
         ChangelogItem("v1.0.0.9", "2026-09-16",
             "内置倒计时改为可删除：当天内置项也能长按（左滑）删除，删掉后不再自动补回来\n" +
             "内置倒计时改为可修改：标题、颜色、模式、动画、备注都能改，日期时间也能改\n" +
