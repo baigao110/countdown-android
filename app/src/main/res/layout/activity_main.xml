@@ -117,6 +117,33 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- 菜单项：恢复已删除的内置倒计时（沿同一弧线更远位置弹出） -->
+        <LinearLayout
+            android:id="@+id/menuItemRestore"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="16dp"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingTop="11dp"
+            android:paddingBottom="11dp"
+            android:background="@drawable/menu_item_bg"
+            android:clickable="true"
+            android:focusable="true"
+            android:visibility="invisible">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="恢复内置"
+                android:textColor="#001018"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
         <!-- 主按钮：加号（点击扇形弹出菜单，再次点击或点空白收起） -->
         <Button
             android:id="@+id/addBtn"
