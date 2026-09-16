@@ -64,7 +64,9 @@ class AddEditActivity : Activity() {
         val saveBtn = findViewById<Button>(R.id.btnSave)
         val cancelBtn = findViewById<Button>(R.id.btnCancel)
 
-        // 内置倒计时（当日 / 当月）的目标时间由系统自动计算，编辑时禁用并提示
+        // 内置倒计时自 v1.0.0.9 起同样可以编辑：标题 / 颜色 / 模式 / 动画 / 备注随便改，
+        // 日期时间也可以改 —— 只要改了目标时间，该条就转为普通倒计时（BuiltIn.NONE），
+        // 不再由系统每天 / 每月滚动，避免用户自己指定的时刻被下一帧覆盖掉。
         val builtInEdit = c != null && c.isBuiltIn()
 
         colorSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, colorNames)
@@ -76,7 +78,9 @@ class AddEditActivity : Activity() {
 
         if (c != null) {
             titleEt.setText(c.title)
-            val cal = Calendar.getInstance().apply { timeInMillis = c.targetTime }
+            // 内置项显示的是「系统此刻算出来的目标时间」，而不是磁盘上可能已过期的旧值
+            val shownTarget = if (c.isBuiltIn()) c.currentBuiltInTarget() else c.targetTime
+            val cal = Calendar.getInstance().apply { timeInMillis = shownTarget }
             datePicker.updateDate(
                 cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)
             )
@@ -106,9 +110,7 @@ class AddEditActivity : Activity() {
         }
 
         if (builtInEdit) {
-            datePicker.isEnabled = false
-            timePicker.isEnabled = false
-            Toast.makeText(this, "内置倒计时的目标时间由系统自动计算", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "内置倒计时可修改：改动日期或时间后将转为普通倒计时", Toast.LENGTH_LONG).show()
         }
 
         soundBtn.setOnClickListener {
@@ -142,7 +144,10 @@ class AddEditActivity : Activity() {
                 val existing = list.find { it.id == c.id }
                 if (existing != null) {
                     existing.title = titleEt.text.toString()
-                    if (!builtInEdit) existing.targetTime = target // 内置倒计时目标时间由系统维护
+                    // 内置项：以「系统此刻的目标时间」为基准，用户改过时间就降级为普通倒计时
+                    val sysTarget = if (existing.builtIn != BuiltIn.NONE) existing.currentBuiltInTarget() else target
+                    existing.targetTime = target
+                    if (existing.builtIn != BuiltIn.NONE && target != sysTarget) existing.builtIn = BuiltIn.NONE
                     existing.customColorArgb = colors[colorSpinner.selectedItemPosition]
                     existing.displayMode = modeSpinner.selectedItemPosition
                     existing.animStyle = animSpinner.selectedItemPosition
