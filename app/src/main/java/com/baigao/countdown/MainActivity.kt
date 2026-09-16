@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.SharedPreferences
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
@@ -23,6 +24,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import java.text.SimpleDateFormat
 import java.util.Collections
 import java.util.Date
@@ -37,11 +39,16 @@ class MainActivity : Activity() {
     private var overlayDialog: AlertDialog? = null
     private var dragInfo: DragInfo? = null
 
+    /** 已被用户删除的内置倒计时类型（存 SharedPreferences，避免下次启动又被自动补齐）。 */
+    private lateinit var removedPrefs: SharedPreferences
+    private val removedBuiltIns = mutableSetOf<Int>()
+
     // 扇形菜单相关
     private lateinit var addBtn: Button
     private lateinit var menuBackdrop: View
     private lateinit var menuItemAdd: View
     private lateinit var menuItemAbout: View
+    private lateinit var menuItemRestore: View
     private var menuOpen = false
 
     /** 主界面每秒刷新一次，让列表里的倒计时数字实时跳动（风格与悬浮窗一致）。 */
@@ -97,6 +104,8 @@ class MainActivity : Activity() {
 
     /** 补齐单个内置倒计时；已存在则保留用户的位置、颜色、模式等配置。 */
     private fun ensureBuiltIn(type: Int, title: String, remark: String): Boolean {
+        // 被用户删除过的内置项不再自动补齐，否则删完一重启又回来了
+        if (type in removedBuiltIns) return false
         if (data.any { it.builtIn == type }) return false
         val c = Countdown(
             title = title,
@@ -138,6 +147,10 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        removedPrefs = getSharedPreferences("builtin_removed", MODE_PRIVATE)
+        removedBuiltIns.clear()
+        removedPrefs.getStringSet("types", emptySet())?.forEach { removedBuiltIns.add(it.toInt()) }
+
         scrollView = findViewById(R.id.scroll)
         listContainer = findViewById(R.id.listContainer)
         dragLayer = findViewById(R.id.dragLayer)
@@ -147,6 +160,7 @@ class MainActivity : Activity() {
         menuBackdrop = findViewById(R.id.menuBackdrop)
         menuItemAdd = findViewById(R.id.menuItemAdd)
         menuItemAbout = findViewById(R.id.menuItemAbout)
+        menuItemRestore = findViewById(R.id.menuItemRestore)
 
         addBtn.setOnClickListener { toggleMenu() }
         menuBackdrop.setOnClickListener { closeMenu() }
@@ -159,6 +173,11 @@ class MainActivity : Activity() {
             if (!menuOpen) return@setOnClickListener
             closeMenu()
             startActivity(Intent(this, AboutActivity::class.java))
+        }
+        menuItemRestore.setOnClickListener {
+            if (!menuOpen) return@setOnClickListener
+            closeMenu()
+            showRestoreBuiltInDialog()
         }
 
         // 启动即检查更新：发现新版本会强制弹出更新日志对话框，并发送一条系统通知
@@ -226,6 +245,7 @@ class MainActivity : Activity() {
         // 两个菜单项沿右下角向上的弧线“扇形”弹出
         animateItemOut(menuItemAdd, -dp(132), -dp(60), 0)
         animateItemOut(menuItemAbout, -dp(60), -dp(132), 70)
+        animateItemOut(menuItemRestore, -dp(150), -dp(150), 140)
         addBtn.animate().rotation(45f).setDuration(200).start()
     }
 
@@ -236,6 +256,7 @@ class MainActivity : Activity() {
             .withEndAction { menuBackdrop.visibility = View.GONE }.start()
         animateItemIn(menuItemAdd, 0)
         animateItemIn(menuItemAbout, 70)
+        animateItemIn(menuItemRestore, 140)
         addBtn.animate().rotation(0f).setDuration(200).start()
     }
 
@@ -517,19 +538,58 @@ class MainActivity : Activity() {
             .setTitle("确认删除")
             .setMessage("确定删除「${c.title}」吗？\n（确定将关闭该倒计时显示）")
             .setPositiveButton("确定") { _, _ ->
-                // 内置倒计时（当日 / 当月）：确认后提示不可删除，且不执行删除
-                if (c.isBuiltIn()) {
-                    AlertDialog.Builder(this)
-                        .setTitle("无法删除")
-                        .setMessage("该倒计时不可删除\n\n「${c.title}」为系统内置倒计时，如不想看到它可在列表中点击「隐藏」。")
-                        .setPositiveButton("确定", null)
-                        .show()
-                    return@setPositiveButton
-                }
+                // 内置倒计时同样可以删除（v1.0.0.9 起）：记下类型，之后不再自动补齐
+                if (c.isBuiltIn()) markBuiltInRemoved(c.builtIn)
                 data.removeAll { it.id == c.id }
                 CountdownStore.save(this, data)
                 rebuildList()
                 syncService()
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    // ---------------- 内置倒计时的删除 / 恢复 ----------------
+
+    /** 内置倒计时的默认定义（顺序即列表里的展示顺序）。 */
+    private val builtInDefs = listOf(
+        Triple(BuiltIn.DAY, "当日倒计时", "距离今日结束"),
+        Triple(BuiltIn.MONTH, "当月倒计时", "距离本月结束"),
+        Triple(BuiltIn.HUADU, "华都云境悦府倒计时", "距离华都云境悦府交付（2026-10-31 00:00）"),
+        Triple(BuiltIn.GTA6, "GTA6倒计时", "距离 GTA6 发售（2026-11-19 08:00）")
+    )
+
+    /** 记录「某个内置倒计时已被删除」，写盘持久化。 */
+    private fun markBuiltInRemoved(type: Int) {
+        if (!removedBuiltIns.add(type)) return
+        removedPrefs.edit()
+            .putStringSet("types", removedBuiltIns.map { it.toString() }.toSet())
+            .apply()
+    }
+
+    /** 恢复某个已被删除的内置倒计时（重新纳入自动补齐）。 */
+    private fun restoreBuiltIn(type: Int) {
+        if (!removedBuiltIns.remove(type)) return
+        removedPrefs.edit()
+            .putStringSet("types", removedBuiltIns.map { it.toString() }.toSet())
+            .apply()
+        loadData()
+        rebuildList()
+        syncService()
+    }
+
+    /** 弹出「恢复内置倒计时」选择框（点加号菜单里的「恢复内置」）。 */
+    private fun showRestoreBuiltInDialog() {
+        val missing = builtInDefs.filter { it.first in removedBuiltIns }
+        if (missing.isEmpty()) {
+            Toast.makeText(this, "四个内置倒计时都在列表里", Toast.LENGTH_SHORT).show()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("恢复内置倒计时")
+            .setItems(missing.map { it.second }.toTypedArray()) { _, which ->
+                restoreBuiltIn(missing[which].first)
+                Toast.makeText(this, "已恢复「${missing[which].second}」", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("取消", null)
             .show()
