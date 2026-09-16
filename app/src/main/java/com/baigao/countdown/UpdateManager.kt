@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.0.11"
+    const val CURRENT_VERSION_NAME = "1.0.0.12"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -84,6 +84,10 @@ object UpdateManager {
         val build = parts.getOrNull(3)?.toIntOrNull() ?: 0
         return major * 1000000 + minor * 10000 + patch * 100 + build
     }
+
+    /** 该版本是否比当前 App 新（后台定期检查用，避免外部拿到私有的版本数值）。 */
+    fun hasNewVersion(info: UpdateInfo?): Boolean =
+        info != null && info.num > CURRENT_VERSION_NUM
 
     /**
      * 异步检查更新。
@@ -471,6 +475,11 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.12", "2026-09-16",
+            "修复「有版本更新却收不到通知」：之前只有打开 App 才会去查版本，\n" +
+            "  现在新增后台定时检查（AlarmManager，每 6 小时一次），不打开 App 也能收到更新通知\n" +
+            "  开机和应用更新后会自动把定时任务重新挂上\n" +
+            "更新通知渠道提升为高优先级：有提示音 + 横幅，不再静默躺在通知抽屉里"),
         ChangelogItem("v1.0.0.11", "2026-09-16",
             "「恢复内置」改为智能显示：四个内置倒计时都在列表里时，加号菜单不再显示该按钮\n" +
             "只要有一个内置倒计时不在列表（被删除或已转为普通倒计时），菜单里就会出现「恢复内置」\n" +
