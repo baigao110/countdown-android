@@ -97,21 +97,21 @@ if errorlevel 1 (
     exit /b 1
 )
 
-copy /Y "%OUT%" "%ROOT%\countdown-android-v1.0.0.13-release.apk"
+copy /Y "%OUT%" "%ROOT%\countdown-android-v1.0.0.14-release.apk"
 echo [3/3] 正在复制到 安卓版APK 目录...
 set "DEST=%ROOT%\..\安卓版APK"
 if not exist "%DEST%" mkdir "%DEST%"
-copy /Y "%OUT%" "%DEST%\倒计时-安卓版-v1.0.0.13-release.apk"
+copy /Y "%OUT%" "%DEST%\倒计时-安卓版-v1.0.0.14-release.apk"
 if errorlevel 1 (
     echo [警告] 复制到 %DEST% 失败，APK 已生成在：%OUT%
 ) else (
-    echo [OK] 已生成：%DEST%\倒计时-安卓版-v1.0.0.13-release.apk
+    echo [OK] 已生成：%DEST%\倒计时-安卓版-v1.0.0.14-release.apk
 )
 
 echo.
 echo ============================================================
 echo   打包完成！
-echo   安装包：%DEST%\倒计时-安卓版-v1.0.0.13-release.apk
+echo   安装包：%DEST%\倒计时-安卓版-v1.0.0.14-release.apk
 echo ============================================================
 echo.
 pause
