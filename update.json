@@ -1,8 +1,8 @@
 {
-  "versionCode": 19,
-  "versionName": "1.0.0.9",
+  "versionCode": 20,
+  "versionName": "1.0.0.10",
   "date": "2026-09-16",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.9/countdown-android-v1.0.0.9-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.9",
-  "note": "1. 内置倒计时改为可删除：删掉后不会被自动补回来\n2. 内置倒计时改为可修改：标题、颜色、模式、动画、备注、日期时间都能改\n3. 改动日期或时间的内置项自动转为普通倒计时，不再每天/每月被系统覆盖\n4. 加号菜单新增「恢复内置」，可随时一键恢复已删除的内置倒计时"
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.10/countdown-android-v1.0.0.10-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.10",
+  "note": "1. 「恢复内置」对话框改为带勾选框的多选列表\n2. 补上「确定」按钮（原先只有「取消」）\n3. 默认全部勾选：可直接点确定一次性恢复，也可只勾选需要的再确定"
 }
