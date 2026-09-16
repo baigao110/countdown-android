@@ -1,8 +1,8 @@
 {
-  "versionCode": 18,
-  "versionName": "1.0.0.8",
-  "date": "2026-09-15",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.8/countdown-android-v1.0.0.8-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.8",
-  "note": "1. 新增内置倒计时「华都云境悦府倒计时」：目标 2026-10-31 00:00:00\n2. 新增内置倒计时「GTA6倒计时」：目标 2026-11-19 08:00:00\n3. 新版本安装后自带四个内置倒计时：当日倒计时、当月倒计时、华都云境悦府倒计时、GTA6倒计时\n4. 内置倒计时目标时间由系统维护、不可删除，可在列表中隐藏"
+  "versionCode": 19,
+  "versionName": "1.0.0.9",
+  "date": "2026-09-16",
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.9/countdown-android-v1.0.0.9-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.9",
+  "note": "1. 内置倒计时改为可删除：删掉后不会被自动补回来\n2. 内置倒计时改为可修改：标题、颜色、模式、动画、备注、日期时间都能改\n3. 改动日期或时间的内置项自动转为普通倒计时，不再每天/每月被系统覆盖\n4. 加号菜单新增「恢复内置」，可随时一键恢复已删除的内置倒计时"
 }
