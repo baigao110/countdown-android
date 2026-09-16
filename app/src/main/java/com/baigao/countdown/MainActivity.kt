@@ -193,7 +193,10 @@ class MainActivity : Activity() {
             showRestoreBuiltInDialog()
         }
 
-        // 挂上后台定期检查（每 6 小时一次）：App 不打开也能知道有新版本、收到通知
+        // 挂上后台定期检查：App 不打开也能知道有新版本、收到通知。
+        // 两条路并行 —— JobScheduler（系统统一调度、有网才跑，重启后自动恢复）
+        // 与 AlarmManager（2 小时一次兜底），任一条跑通都会发通知。
+        UpdateCheckJobService.schedule(this)
         UpdateCheckReceiver.schedule(this)
         // 启动即检查更新：发现新版本会强制弹出更新日志对话框，并发送一条系统通知
         handleUpdateIntent(intent)
@@ -221,6 +224,38 @@ class MainActivity : Activity() {
             arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIFY
         )
         return true
+    }
+
+    /**
+     * 通知权限被拒后给一次明确引导：否则「收不到通知」会变成一个无解又无声的状态
+     * （用户不知道自己拒过权限，应用也不知道该不该再弹）。
+     */
+    @Suppress("DEPRECATION")
+    override fun onRequestPermissionsResult(
+        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != REQ_NOTIFY) return
+        if (grantResults.isNotEmpty() &&
+            grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) return
+        showNotice(
+            "需要通知权限",
+            "没有通知权限，有新版本时不会收到系统通知。\n可以在系统设置里打开本应用的通知权限。",
+            "去设置"
+        ) { UpdateNotifier.openSettings(this) }
+    }
+
+    /** 一行文字的提示对话框（风格与「关于」页一致）。 */
+    private fun showNotice(title: String, message: String, positive: String, onOk: () -> Unit) {
+        UpdateManager.showStyledDialog(this, title, positive, "暂不", true, onOk) { host ->
+            val tv = TextView(this)
+            tv.text = message
+            tv.setTextColor(Color.WHITE)
+            tv.textSize = 14f
+            tv.setPadding(dp(4), dp(6), dp(4), dp(6))
+            host.addView(tv)
+        }
     }
 
     /** 处理从更新通知进来的意图：弹更新日志 / 直接下载安装。 */
