@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.0.12"
+    const val CURRENT_VERSION_NAME = "1.0.0.13"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -475,6 +475,11 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.13", "2026-09-16",
+            "「恢复内置」现在会连同设置一起还原：删除内置倒计时时会自动保存一份设置快照，\n" +
+            "  再点「恢复内置」把主题颜色、显示模式、跳秒动画、提示音、悬浮窗显隐 / 透明度 / 位置、备注等\n" +
+            "  原样恢复，不用重新配置一遍（目标时间仍由系统按当日 / 当月 / 固定日期重新计算）\n" +
+            "恢复对话框补上说明文字，恢复后会提示实际还原了几个"),
         ChangelogItem("v1.0.0.12", "2026-09-16",
             "修复「有版本更新却收不到通知」：之前只有打开 App 才会去查版本，\n" +
             "  现在新增后台定时检查（AlarmManager，每 6 小时一次），不打开 App 也能收到更新通知\n" +
