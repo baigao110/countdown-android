@@ -180,6 +180,8 @@ class MainActivity : Activity() {
             showRestoreBuiltInDialog()
         }
 
+        // 挂上后台定期检查（每 6 小时一次）：App 不打开也能知道有新版本、收到通知
+        UpdateCheckReceiver.schedule(this)
         // 启动即检查更新：发现新版本会强制弹出更新日志对话框，并发送一条系统通知
         handleUpdateIntent(intent)
         if (!updateCheckedOnce) {
