@@ -123,6 +123,21 @@ data class Countdown(
      * @param now 由调用方一次性取好的“当前时刻”。**同一帧刷新多个倒计时必须共用同一个 now**，
      *            否则各行各自取值、刚好跨越秒边界时会相差 1 秒，看起来像“没同步走秒”。
      */
+    /**
+     * 系统此刻应为该内置项生成的目标时间（**不修改自身字段**）。
+     * 编辑页用它作为「用户有没有改动过时间」的基准：内置项的 targetTime 可能是上一次
+     * 刷新留下的旧值（例如昨天的次日零点），直接拿它比对会误判。
+     */
+    fun currentBuiltInTarget(): Long {
+        if (builtIn == BuiltIn.NONE) return targetTime
+        BuiltIn.fixedTargetMillis(builtIn)?.let { return it }
+        val saved = targetTime
+        refreshBuiltInTarget()
+        val t = targetTime
+        targetTime = saved
+        return t
+    }
+
     fun remainingText(now: Long = AlignedClock.now()): String {
         refreshBuiltInTarget()
         return CountdownFormatter.remaining(targetTime, displayMode, now)
