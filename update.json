@@ -1,8 +1,8 @@
 {
-  "versionCode": 23,
-  "versionName": "1.0.0.13",
+  "versionCode": 24,
+  "versionName": "1.0.0.14",
   "date": "2026-09-16",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.13/countdown-android-v1.0.0.13-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.13",
-  "note": "1. 恢复内置倒计时时自动还原删除前的全部设置：主题颜色、显示模式、跳秒动画、提示音、悬浮窗显隐/透明度/位置、备注\n2. 恢复对话框补上说明文字，恢复完成后提示实际还原了几个内置倒计时"
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.14/countdown-android-v1.0.0.14-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.14",
+  "note": "1. 修复有版本更新却收不到系统通知：新增 JobScheduler 后台检查（有网络才执行、每 15 分钟一趟、重启自动恢复），闹钟检查缩短为 2 小时并支持失败 30 分钟重试\n2. 「关于」页新增「开启通知 / 测试通知 / 允许后台运行」三个入口，并显示后台检查状态，可一键确认通知是否正常"
 }
