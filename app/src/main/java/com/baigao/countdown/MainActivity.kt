@@ -567,9 +567,13 @@ class MainActivity : Activity() {
             .apply()
     }
 
-    /** 恢复某个已被删除的内置倒计时（重新纳入自动补齐）。 */
-    private fun restoreBuiltIn(type: Int) {
-        if (!removedBuiltIns.remove(type)) return
+    /** 恢复已被删除的内置倒计时（重新纳入自动补齐），可一次恢复多个。 */
+    private fun restoreBuiltIn(vararg types: Int) {
+        var changed = false
+        for (t in types) {
+            if (removedBuiltIns.remove(t)) changed = true
+        }
+        if (!changed) return
         removedPrefs.edit()
             .putStringSet("types", removedBuiltIns.map { it.toString() }.toSet())
             .apply()
@@ -578,18 +582,30 @@ class MainActivity : Activity() {
         syncService()
     }
 
-    /** 弹出「恢复内置倒计时」选择框（点加号菜单里的「恢复内置」）。 */
+    /**
+     * 弹出「恢复内置倒计时」对话框（点加号菜单里的「恢复内置」）。
+     * 用带勾选框的多选列表 + 「确定 / 取消」两个按钮，默认全部勾选，
+     * 想一次全恢复就直接点确定，只恢复其中几个就取消勾选再确定。
+     */
     private fun showRestoreBuiltInDialog() {
         val missing = builtInDefs.filter { it.first in removedBuiltIns }
         if (missing.isEmpty()) {
             Toast.makeText(this, "四个内置倒计时都在列表里", Toast.LENGTH_SHORT).show()
             return
         }
+        val names = missing.map { it.second }.toTypedArray()
+        val checked = BooleanArray(missing.size) { true }
         AlertDialog.Builder(this)
             .setTitle("恢复内置倒计时")
-            .setItems(missing.map { it.second }.toTypedArray()) { _, which ->
-                restoreBuiltIn(missing[which].first)
-                Toast.makeText(this, "已恢复「${missing[which].second}」", Toast.LENGTH_SHORT).show()
+            .setMultiChoiceItems(names, checked) { _, which, isChecked -> checked[which] = isChecked }
+            .setPositiveButton("确定") { _, _ ->
+                val types = missing.filterIndexed { i, _ -> checked[i] }.map { it.first }
+                if (types.isEmpty()) {
+                    Toast.makeText(this, "没有勾选任何内置倒计时", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                restoreBuiltIn(*types.toIntArray())
+                Toast.makeText(this, "已恢复 ${types.size} 个内置倒计时", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("取消", null)
             .show()
