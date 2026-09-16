@@ -9,6 +9,8 @@ import android.content.Intent
  */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        // 无论哪种开机 / 覆盖安装场景，都把后台更新检查的闹钟重新挂上
+        UpdateCheckReceiver.schedule(context, UpdateCheckReceiver.FIRST_DELAY)
         if (intent.action == Intent.ACTION_BOOT_COMPLETED ||
             intent.action == Intent.ACTION_MY_PACKAGE_REPLACED
         ) {
