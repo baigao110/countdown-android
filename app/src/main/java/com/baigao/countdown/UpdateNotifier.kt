@@ -24,7 +24,9 @@ import java.util.Locale
  */
 object UpdateNotifier {
 
-    const val CHANNEL_ID = "countdown_update"
+    /** 渠道 id 带版本后缀：旧渠道以普通优先级建过，重要性一旦建立就不能就地修改。 */
+    const val CHANNEL_ID = "countdown_update_high"
+    private const val OLD_CHANNEL_ID = "countdown_update"
     private const val NOTIF_ID = 20317
     private const val PREF = "update_notify"
     private const val KEY_VERSION = "version"
@@ -63,13 +65,23 @@ object UpdateNotifier {
 
     private fun createChannel(nm: NotificationManager) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        // 旧渠道（IMPORTANCE_DEFAULT）不会弹横幅、容易被用户忽略，删掉重建为高优先级
+        try {
+            if (nm.getNotificationChannel(OLD_CHANNEL_ID) != null) {
+                nm.deleteNotificationChannel(OLD_CHANNEL_ID)
+            }
+        } catch (e: Throwable) {
+            // 部分 ROM 不允许删除渠道，忽略即可
+        }
         if (nm.getNotificationChannel(CHANNEL_ID) != null) return
         val ch = NotificationChannel(
             CHANNEL_ID,
             "版本更新",
-            NotificationManager.IMPORTANCE_DEFAULT
+            NotificationManager.IMPORTANCE_HIGH
         )
         ch.description = "检测到新版本时提醒更新"
+        ch.enableVibration(true)
+        ch.setShowBadge(true)
         nm.createNotificationChannel(ch)
     }
 
@@ -97,6 +109,11 @@ object UpdateNotifier {
             .setContentIntent(contentPi)
             .addAction(R.drawable.ic_stat, "立即更新", nowPi)
             .setAutoCancel(true)
+            // 高优先级：有声音 + 横幅，息屏后台检查到更新时用户才真的能看到
+            .setPriority(Notification.PRIORITY_HIGH)
+            .setCategory(Notification.CATEGORY_MESSAGE)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setDefaults(Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE)
         if (note.isNotEmpty()) {
             builder.setStyle(Notification.BigTextStyle().bigText(note))
         }
