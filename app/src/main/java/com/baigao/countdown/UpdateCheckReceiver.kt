@@ -21,19 +21,28 @@ import android.os.SystemClock
 class UpdateCheckReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        // 先排下一次：即便本次网络失败，下一轮也还会继续检查
-        schedule(context, INTERVAL)
-
         val result = goAsync()
         Thread {
+            var ok = true
             try {
                 val info = UpdateManager.fetch()
-                if (UpdateManager.hasNewVersion(info)) {
-                    UpdateNotifier.notifyUpdate(context, info!!)
+                if (info == null) {
+                    // 两次请求都没拿到（多半是 Doze / 后台断网），按失败处理，稍后重试
+                    ok = false
+                    UpdateCheckState.record(context, false, "")
+                } else {
+                    UpdateCheckState.record(context, true, info.name)
+                    if (UpdateManager.hasNewVersion(info)) {
+                        UpdateNotifier.notifyUpdate(context, info)
+                    }
                 }
             } catch (e: Throwable) {
+                ok = false
+                UpdateCheckState.record(context, false, "")
                 android.util.Log.w(TAG, "check: ${e.message}")
             } finally {
+                // 失败就 30 分钟后再试，成功则按常规间隔排下一次
+                schedule(context, if (ok) INTERVAL else RETRY_INTERVAL)
                 result.finish()
             }
         }.start()
@@ -43,8 +52,10 @@ class UpdateCheckReceiver : BroadcastReceiver() {
         private const val TAG = "UpdateCheckReceiver"
         private const val REQ = 20318
         const val ACTION = "com.baigao.countdown.CHECK_UPDATE"
-        /** 后台检查间隔：6 小时。 */
-        const val INTERVAL = 6 * 60 * 60 * 1000L
+        /** 后台检查间隔：2 小时（另有 JobScheduler 每 15 分钟一趟，双路并行）。 */
+        const val INTERVAL = 2 * 60 * 60 * 1000L
+        /** 拉取失败后的重试间隔：30 分钟。 */
+        const val RETRY_INTERVAL = 30 * 60 * 1000L
         /** 首次排程时留一点缓冲（刚装 / 刚开机网络可能还没就绪）。 */
         const val FIRST_DELAY = 10 * 60 * 1000L
 
