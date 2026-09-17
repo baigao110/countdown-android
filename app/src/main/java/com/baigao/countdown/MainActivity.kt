@@ -20,6 +20,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -678,8 +679,12 @@ class MainActivity : Activity() {
 
     /**
      * 弹出「恢复内置倒计时」对话框（点加号菜单里的「恢复内置」）。
-     * 用带勾选框的多选列表 + 「确定 / 取消」两个按钮，默认全部勾选，
-     * 想一次全恢复就直接点确定，只恢复其中几个就取消勾选再确定。
+     *
+     * 注意：这里不能用原生 AlertDialog 的 setMessage(...) + setMultiChoiceItems(...) ——
+     * 系统实现里两者互斥：只要设了说明文字，选项列表就不会被加进视图，
+     * 对话框里于是只剩一段话、一个可勾选项都没有（v1.0.0.13 / 14 就是这个毛病）。
+     * 因此改成自定义内容：说明文字 + 自带勾选框的选项行，默认全部勾选，
+     * 另有「全选 / 全不选」，想恢复哪几个就勾哪几个，最后点确定生效。
      */
     private fun showRestoreBuiltInDialog() {
         val missing = missingBuiltIns()
@@ -687,29 +692,91 @@ class MainActivity : Activity() {
             Toast.makeText(this, "四个内置倒计时都在列表里", Toast.LENGTH_SHORT).show()
             return
         }
-        val names = missing.map { it.second }.toTypedArray()
         val checked = BooleanArray(missing.size) { true }
-        AlertDialog.Builder(this)
-            .setTitle("恢复内置倒计时")
-            .setMessage("勾选要恢复的倒计时，确定后按删除前的设置还原（主题颜色、显示模式、跳秒动画、提示音等）。")
-            .setMultiChoiceItems(names, checked) { _, which, isChecked -> checked[which] = isChecked }
-            .setPositiveButton("确定") { _, _ ->
+        val boxes = ArrayList<CheckBox>()
+
+        UpdateManager.showStyledDialog(
+            activity = this,
+            title = "恢复内置倒计时",
+            positiveText = "确定",
+            negativeText = "取消",
+            onPositive = {
                 val types = missing.filterIndexed { i, _ -> checked[i] }.map { it.first }
                 if (types.isEmpty()) {
                     Toast.makeText(this, "没有勾选任何内置倒计时", Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
+                } else {
+                    val restored = types.count { loadBuiltInBackup(it) != null }
+                    restoreBuiltIn(*types.toIntArray())
+                    val msg = if (restored > 0)
+                        "已恢复 ${types.size} 个内置倒计时（其中 $restored 个还原了原有设置）"
+                    else
+                        "已恢复 ${types.size} 个内置倒计时"
+                    Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
                 }
-                val restored = types.count { loadBuiltInBackup(it) != null }
-                restoreBuiltIn(*types.toIntArray())
-                val msg = if (restored > 0)
-                    "已恢复 ${types.size} 个内置倒计时（其中 $restored 个还原了原有设置）"
-                else
-                    "已恢复 ${types.size} 个内置倒计时"
-                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
             }
-            .setNegativeButton("取消", null)
-            .show()
+        ) { host ->
+            host.addView(TextView(this).apply {
+                text = "勾选要恢复的倒计时，确定后按删除前的设置还原（主题颜色、显示模式、跳秒动画、提示音等）。"
+                setTextColor(Color.parseColor("#FFA8B3CC"))
+                textSize = 13f
+                setLineSpacing(0f, 1.3f)
+            })
+
+            // 「全选 / 全不选」快捷操作
+            val bar = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.END
+                setPadding(0, dp(8), 0, dp(2))
+            }
+            bar.addView(selectAllBtn("全选") { boxes.forEach { it.isChecked = true } })
+            bar.addView(selectAllBtn("全不选") { boxes.forEach { it.isChecked = false } })
+            host.addView(bar)
+
+            for ((i, def) in missing.withIndex()) {
+                val cb = CheckBox(this).apply {
+                    isChecked = true
+                    buttonTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#FF00FFFF"))
+                    setOnCheckedChangeListener { _, b -> checked[i] = b }
+                }
+                boxes.add(cb)
+                val texts = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(dp(8), 0, 0, 0)
+                }
+                texts.addView(TextView(this).apply {
+                    text = def.second
+                    setTextColor(Color.parseColor("#FFEAF6FF"))
+                    textSize = 15f
+                })
+                texts.addView(TextView(this).apply {
+                    text = def.third
+                    setTextColor(Color.parseColor("#FF7C86A3"))
+                    textSize = 12f
+                })
+                val row = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(0, dp(8), 0, dp(8))
+                    isClickable = true
+                    addView(cb)
+                    addView(texts, LinearLayout.LayoutParams(
+                        0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+                    setOnClickListener { cb.isChecked = !cb.isChecked }
+                }
+                host.addView(row)
+            }
+        }
     }
+
+    /** 对话框里的「全选 / 全不选」文字按钮。 */
+    private fun selectAllBtn(label: String, onClick: () -> Unit): TextView =
+        TextView(this).apply {
+            text = label
+            setTextColor(Color.parseColor("#FF00FFFF"))
+            textSize = 13f
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+            setOnClickListener { onClick() }
+        }
 
     private val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
 
