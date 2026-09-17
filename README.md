@@ -3,13 +3,6 @@
 一款轻量、无广告、纯原生 Kotlin 编写的 Android 倒计时工具。
 添加好倒计时后可在主界面查看，也能让它悬浮在其它应用之上，随时瞄一眼还剩多久。
 
-- 包名：`com.baigao.countdown`
-- 最低系统：Android 8.0（API 26）／目标 API 34
-- 依赖：**零第三方库**，只用 Android 原生控件（自 Android 12 起启用 RenderEffect 模糊做液态玻璃）
-- 版权署名：`Win11倒计时工具BYbaigao110`
-
----
-
 ## 功能特性
 
 ### 倒计时管理
@@ -137,10 +130,6 @@ build_apk.bat
 
 ---
 
-## 同系列
-
-Windows 桌面版（WinForms）位于上级目录 `CountdownTool/`，双击 `编译生成exe.bat` 可自行编译出 `Win11倒计时工具.exe`。
-
 ---
 
-`Win11倒计时工具BYbaigao110`
+`Win11倒计时工具 BY baigao110`
