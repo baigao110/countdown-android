@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.0.17"
+    const val CURRENT_VERSION_NAME = "1.0.0.18"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -288,6 +288,25 @@ object UpdateManager {
         titleTv.text = title
         content(host)
 
+        val dm = activity.resources.displayMetrics
+        val winW = (dm.widthPixels * 0.92).toInt()
+        // 内容区最多占屏幕高度的 45%：加上标题、按钮和内外边距，整框稳稳落在屏幕内。
+        // 关键是必须在 show() 「之前」离屏量一次内容高度，超了就直接把滚动区定高 ——
+        // 这样窗口生成时拿到的就是受限后的尺寸。等到弹出之后再去补救是没用的：
+        // 窗口高度在 show() 那一刻就按完整内容定死了，居中显示会把上下都切掉。
+        val padH = (20 * dm.density).toInt() * 2   // dialog_styled 左右各 20dp 内边距
+        host.measure(
+            android.view.View.MeasureSpec.makeMeasureSpec(
+                winW - padH, android.view.View.MeasureSpec.EXACTLY),
+            android.view.View.MeasureSpec.makeMeasureSpec(0, android.view.View.MeasureSpec.UNSPECIFIED)
+        )
+        val maxScrollH = (dm.heightPixels * 0.45).toInt()
+        if (host.measuredHeight > maxScrollH) {
+            scroll.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, maxScrollH
+            )
+        }
+
         posBtn.text = positiveText
         if (negativeText.isNullOrEmpty()) {
             negBtn.visibility = View.GONE
@@ -304,18 +323,12 @@ object UpdateManager {
         // 去掉系统默认的白色面板底，露出布局自带的深色圆角背景
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         dialog.show()
-        val dm = activity.resources.displayMetrics
-        // 对话框撑到屏幕宽度的 92%：系统默认宽度偏窄，长一点的说明文字会被挤成
-        // 竖条甚至截断，选项多时尤其明显。
-        val winW = (dm.widthPixels * 0.92).toInt()
-        val maxH = (dm.heightPixels * 0.7).toInt()
+        // 对话框撑到屏幕宽度的 92%：系统默认宽度偏窄，长一点的说明文字会被挤成竖条。
         dialog.window?.setLayout(winW, android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
-        // 高度必须等布局完成再量（show() 之后立刻读 height 拿到的还是 0）。
-        // 更关键的是：不能只压缩滚动区 —— 窗口高度是 show() 那一刻按完整内容算出来的，
-        // 内容一多窗口本身就超高，居中显示时上下两头都被切掉，于是上半部分的标题、
-        // 说明跑到屏幕外看不见。所以这里连同窗口高度一起收到屏幕的 70%，
-        // 再让滚动区按权重吃掉剩余空间：标题和「确定 / 取消」始终露在外面，中间可滚动。
+        // 兜底：万一仍然超高（比如系统字体被放得很大），再收一次窗口高度，
+        // 并让滚动区按权重吃掉剩余空间，标题与「确定 / 取消」始终露在外面。
         root.post {
+            val maxH = (dm.heightPixels * 0.8).toInt()
             if (root.height > maxH) {
                 dialog.window?.setLayout(winW, maxH)
                 scroll.layoutParams = LinearLayout.LayoutParams(
@@ -488,6 +501,12 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.18", "2026-09-17",
+            "再修「恢复内置」对话框：\n" +
+            "  上半部分仍看不全 —— 改为在弹出「之前」先量一次内容高度，超过屏幕 45% 就把内容区定高，\n" +
+            "    窗口生成时就是受限尺寸；之前只在弹出后补救，而窗口高度那时早已定死\n" +
+            "  文字看不清 —— 说明、选项标题 / 备注、「全选 / 全不选」全部提亮并加了描边阴影，\n" +
+            "    在深色玻璃面板上不再糊成一片"),
         ChangelogItem("v1.0.0.17", "2026-09-17",
             "再修「恢复内置」对话框：选项多了之后上半部分文字看不到 —— 窗口高度是按完整内容\n" +
             "  在弹出那一刻定下来的，只压缩内容区不重设窗口，窗口依旧超高、居中后上下被裁\n" +
