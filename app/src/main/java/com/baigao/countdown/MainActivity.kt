@@ -716,7 +716,7 @@ class MainActivity : Activity() {
             }
         ) { host ->
             host.addView(TextView(this).apply {
-                text = "勾选要恢复的倒计时，确定后按删除前的设置还原（主题颜色、显示模式、跳秒动画、提示音等）。"
+                text = "勾选要恢复的倒计时，确定后按删除前的设置（主题、模式、动画、提示音等）还原。"
                 setTextColor(Color.parseColor("#FFA8B3CC"))
                 textSize = 13f
                 setLineSpacing(0f, 1.3f)
