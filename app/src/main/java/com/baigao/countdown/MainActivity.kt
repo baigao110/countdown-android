@@ -717,9 +717,10 @@ class MainActivity : Activity() {
         ) { host ->
             host.addView(TextView(this).apply {
                 text = "勾选要恢复的倒计时，确定后按删除前的设置（主题、模式、动画、提示音等）还原。"
-                setTextColor(Color.parseColor("#FFA8B3CC"))
+                setTextColor(Color.parseColor("#FFE4EEFF"))
                 textSize = 13f
                 setLineSpacing(0f, 1.3f)
+                setShadowLayer(2f, 0f, 1f, Color.parseColor("#CC000000"))
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT)
@@ -751,18 +752,20 @@ class MainActivity : Activity() {
                 }
                 texts.addView(TextView(this).apply {
                     text = def.second
-                    setTextColor(Color.parseColor("#FFEAF6FF"))
+                    setTextColor(Color.parseColor("#FFFFFFFF"))
                     textSize = 15f
                     setLineSpacing(0f, 1.15f)
+                    setShadowLayer(2f, 0f, 1f, Color.parseColor("#CC000000"))
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT)
                 })
                 texts.addView(TextView(this).apply {
                     text = def.third
-                    setTextColor(Color.parseColor("#FF9AA7C2"))
-                    textSize = 12f
+                    setTextColor(Color.parseColor("#FFC6D5EF"))
+                    textSize = 12.5f
                     setLineSpacing(0f, 1.15f)
+                    setShadowLayer(2f, 0f, 1f, Color.parseColor("#CC000000"))
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT)
@@ -789,8 +792,9 @@ class MainActivity : Activity() {
     private fun selectAllBtn(label: String, onClick: () -> Unit): TextView =
         TextView(this).apply {
             text = label
-            setTextColor(Color.parseColor("#FF00FFFF"))
+            setTextColor(Color.parseColor("#FF4DFBFF"))
             textSize = 13f
+            setShadowLayer(2f, 0f, 1f, Color.parseColor("#CC000000"))
             setPadding(dp(12), dp(6), dp(12), dp(6))
             setOnClickListener { onClick() }
         }
