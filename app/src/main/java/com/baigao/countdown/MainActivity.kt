@@ -720,6 +720,9 @@ class MainActivity : Activity() {
                 setTextColor(Color.parseColor("#FFA8B3CC"))
                 textSize = 13f
                 setLineSpacing(0f, 1.3f)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT)
             })
 
             // 「全选 / 全不选」快捷操作
@@ -735,6 +738,9 @@ class MainActivity : Activity() {
             for ((i, def) in missing.withIndex()) {
                 val cb = CheckBox(this).apply {
                     isChecked = true
+                    minWidth = 0
+                    minimumWidth = 0
+                    includeFontPadding = false
                     buttonTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#FF00FFFF"))
                     setOnCheckedChangeListener { _, b -> checked[i] = b }
                 }
@@ -747,16 +753,27 @@ class MainActivity : Activity() {
                     text = def.second
                     setTextColor(Color.parseColor("#FFEAF6FF"))
                     textSize = 15f
+                    setLineSpacing(0f, 1.15f)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT)
                 })
                 texts.addView(TextView(this).apply {
                     text = def.third
-                    setTextColor(Color.parseColor("#FF7C86A3"))
+                    setTextColor(Color.parseColor("#FF9AA7C2"))
                     textSize = 12f
+                    setLineSpacing(0f, 1.15f)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT)
                 })
                 val row = LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
-                    setPadding(0, dp(8), 0, dp(8))
+                    setPadding(0, dp(6), 0, dp(6))
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT)
                     isClickable = true
                     addView(cb)
                     addView(texts, LinearLayout.LayoutParams(
