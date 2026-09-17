@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.0.15"
+    const val CURRENT_VERSION_NAME = "1.0.0.16"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -304,12 +304,23 @@ object UpdateManager {
         // 去掉系统默认的白色面板底，露出布局自带的深色圆角背景
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         dialog.show()
-        // 内容太高时把滚动区压到屏幕高度的 70%，避免对话框顶出屏幕
-        val maxH = (activity.resources.displayMetrics.heightPixels * 0.7).toInt()
-        if (scroll.height > maxH) {
-            scroll.layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, maxH
-            )
+        val dm = activity.resources.displayMetrics
+        // 对话框撑到屏幕宽度的 92%：系统默认宽度偏窄，长一点的说明文字会被挤成
+        // 竖条甚至截断，选项多时尤其明显（「恢复内置」框就是这么看不全的）。
+        dialog.window?.setLayout(
+            (dm.widthPixels * 0.92).toInt(),
+            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        // 内容太高时把滚动区压到屏幕高度的 65%，避免对话框顶出屏幕、下半部分看不见。
+        // 必须等布局完成再测量：show() 之后立刻读 scroll.height 拿到的还是 0，
+        // 之前的写法等于没生效，所以选项一多就滚不动、看不全。
+        root.post {
+            val maxH = (dm.heightPixels * 0.65).toInt()
+            if (scroll.height > maxH) {
+                scroll.layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, maxH
+                )
+            }
         }
         return dialog
     }
@@ -475,6 +486,11 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.16", "2026-09-17",
+            "修复「恢复内置」对话框文字看不全：对话框撑到屏幕宽度的 92%，长句子不再被挤截断；\n" +
+            "  选项多时内容区可滚动（原先限高代码因在布局完成前测量而从未生效，\n" +
+            "  内容一多就顶出屏幕、下半截看不见）\n" +
+            "  选项文字改为占满整行自动换行，行距收紧，备注也更清楚"),
         ChangelogItem("v1.0.0.15", "2026-09-17",
             "修复「恢复内置」对话框里看不到可勾选项：原生对话框的说明文字和选项列表互斥，\n" +
             "  设了说明文字，列表就不会显示，于是只剩一段话、没法选恢复哪几个\n" +
