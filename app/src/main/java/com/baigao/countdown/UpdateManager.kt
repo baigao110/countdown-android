@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.0.16"
+    const val CURRENT_VERSION_NAME = "1.0.0.17"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -306,20 +306,22 @@ object UpdateManager {
         dialog.show()
         val dm = activity.resources.displayMetrics
         // 对话框撑到屏幕宽度的 92%：系统默认宽度偏窄，长一点的说明文字会被挤成
-        // 竖条甚至截断，选项多时尤其明显（「恢复内置」框就是这么看不全的）。
-        dialog.window?.setLayout(
-            (dm.widthPixels * 0.92).toInt(),
-            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-        )
-        // 内容太高时把滚动区压到屏幕高度的 65%，避免对话框顶出屏幕、下半部分看不见。
-        // 必须等布局完成再测量：show() 之后立刻读 scroll.height 拿到的还是 0，
-        // 之前的写法等于没生效，所以选项一多就滚不动、看不全。
+        // 竖条甚至截断，选项多时尤其明显。
+        val winW = (dm.widthPixels * 0.92).toInt()
+        val maxH = (dm.heightPixels * 0.7).toInt()
+        dialog.window?.setLayout(winW, android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
+        // 高度必须等布局完成再量（show() 之后立刻读 height 拿到的还是 0）。
+        // 更关键的是：不能只压缩滚动区 —— 窗口高度是 show() 那一刻按完整内容算出来的，
+        // 内容一多窗口本身就超高，居中显示时上下两头都被切掉，于是上半部分的标题、
+        // 说明跑到屏幕外看不见。所以这里连同窗口高度一起收到屏幕的 70%，
+        // 再让滚动区按权重吃掉剩余空间：标题和「确定 / 取消」始终露在外面，中间可滚动。
         root.post {
-            val maxH = (dm.heightPixels * 0.65).toInt()
-            if (scroll.height > maxH) {
+            if (root.height > maxH) {
+                dialog.window?.setLayout(winW, maxH)
                 scroll.layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, maxH
+                    LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
                 )
+                root.requestLayout()
             }
         }
         return dialog
@@ -486,6 +488,11 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.17", "2026-09-17",
+            "再修「恢复内置」对话框：选项多了之后上半部分文字看不到 —— 窗口高度是按完整内容\n" +
+            "  在弹出那一刻定下来的，只压缩内容区不重设窗口，窗口依旧超高、居中后上下被裁\n" +
+            "  现在超过屏幕 70% 时连窗口高度一起收，滚动区按权重吃掉剩余空间，\n" +
+            "  标题、说明与「确定 / 取消」始终露在外面，中间内容可上下滚动"),
         ChangelogItem("v1.0.0.16", "2026-09-17",
             "修复「恢复内置」对话框文字看不全：对话框撑到屏幕宽度的 92%，长句子不再被挤截断；\n" +
             "  选项多时内容区可滚动（原先限高代码因在布局完成前测量而从未生效，\n" +
