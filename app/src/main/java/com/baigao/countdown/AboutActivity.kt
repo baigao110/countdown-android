@@ -41,6 +41,7 @@ class AboutActivity : Activity() {
         statusTv = findViewById(R.id.statusTv)
         val backBtn = findViewById<TextView>(R.id.backBtn)
         val changelogBtn = findViewById<Button>(R.id.changelogBtn)
+        val helpBtn = findViewById<Button>(R.id.helpBtn)
         notifyBtn = findViewById(R.id.notifyBtn)
         testBtn = findViewById(R.id.testBtn)
         batteryBtn = findViewById(R.id.batteryBtn)
@@ -49,6 +50,7 @@ class AboutActivity : Activity() {
         versionTv.text = "版本 v${UpdateManager.CURRENT_VERSION_NAME}"
         backBtn.setOnClickListener { finish() }
         changelogBtn.setOnClickListener { UpdateManager.showChangelog(this) }
+        helpBtn.setOnClickListener { UpdateManager.showHelp(this) }
         updateBtn.setOnClickListener { checkUpdate(forceDialog = true) }
 
         // 「开启通知」：没权限就申请（Android 13+），老版本直接跳通知设置页
