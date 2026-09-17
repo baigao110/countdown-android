@@ -1,8 +1,8 @@
 {
-  "versionCode": 26,
-  "versionName": "1.0.0.16",
+  "versionCode": 27,
+  "versionName": "1.0.0.17",
   "date": "2026-09-17",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.16/countdown-android-v1.0.0.16-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.16",
-  "note": "1. 修复「恢复内置」对话框文字看不全：对话框加宽到屏幕 92%，说明与选项文字占满整行自动换行\n2. 选项较多时内容区可滚动查看（原先限高在布局完成前测量而从未生效，内容会顶出屏幕）\n3. 选项行距收紧、备注文字提亮，四个内置倒计时同时列出也能一眼看全"
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.17/countdown-android-v1.0.0.17-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.17",
+  "note": "1. 修复「恢复内置」对话框选项多时上半部分文字被裁：窗口高度原先按完整内容一次定死，超高后居中显示上下都被切，现在超过屏幕 70% 时连窗口高度一起收\n2. 内容区改为按权重填充剩余空间并可上下滚动，标题、说明与「确定 / 取消」始终可见\n3. 对话框说明文字精简，占用高度更少"
 }
