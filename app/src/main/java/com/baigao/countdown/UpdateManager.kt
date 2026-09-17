@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.0.14"
+    const val CURRENT_VERSION_NAME = "1.0.0.15"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -475,6 +475,11 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.15", "2026-09-17",
+            "修复「恢复内置」对话框里看不到可勾选项：原生对话框的说明文字和选项列表互斥，\n" +
+            "  设了说明文字，列表就不会显示，于是只剩一段话、没法选恢复哪几个\n" +
+            "  现在把缺少的内置倒计时逐条列成可勾选列表，默认全选，可只勾其中几个，\n" +
+            "  另配「全选 / 全不选」，确定后只恢复勾选的那些"),
         ChangelogItem("v1.0.0.14", "2026-09-16",
             "再修「有版本更新却收不到系统通知」：\n" +
             "  新增 JobScheduler 后台检查（系统统一调度，**有网络才执行**、每 15 分钟一趟、重启自动恢复）；\n" +
