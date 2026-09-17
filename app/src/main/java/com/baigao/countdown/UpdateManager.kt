@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.0.18"
+    const val CURRENT_VERSION_NAME = "1.0.0.19"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -501,6 +501,11 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.19", "2026-09-17",
+            "「关于」页新增「说明」按钮（在「检查更新」与「更新日志」中间，同款青色玻璃按钮）：\n" +
+            "  点开即看到完整使用说明 —— 添加 / 编辑倒计时、卡片按钮行、左滑操作、长按排序、\n" +
+            "    悬浮窗、内置倒计时的删除与恢复、更新与通知自检，全部一次讲清\n" +
+            "  同时重写了项目 README.md"),
         ChangelogItem("v1.0.0.18", "2026-09-17",
             "再修「恢复内置」对话框：\n" +
             "  上半部分仍看不全 —— 改为在弹出「之前」先量一次内容高度，超过屏幕 45% 就把内容区定高，\n" +
@@ -636,6 +641,89 @@ object UpdateManager {
      * 展开某一天时，其余日期的「日期行 + 明细」整体隐藏，界面上只剩被展开那天的内容；
      * 全部收起时再把日期行显示回来，方便继续点选其它日期。
      */
+    /**
+     * 使用说明对话框：与「更新日志」「发现新版本」同一套深色玻璃风格，
+     * 内容按小节组织，过长时自动限高并可上下滚动。
+     */
+    fun showHelp(activity: Activity) {
+        if (activity.isFinishing) return
+        showStyledDialog(
+            activity = activity,
+            title = "使用说明",
+            positiveText = "关闭",
+            negativeText = null
+        ) { host ->
+
+            /** 青色小标题。 */
+            fun head(t: String) {
+                host.addView(sectionTitle(activity, t))
+            }
+
+            /** 正文行（可传多条）。 */
+            fun line(vararg ts: String) {
+                for (t in ts) {
+                    host.addView(bodyText(activity, "  · $t", 14f, 0xFFE4EEFF.toInt()))
+                }
+            }
+
+            host.addView(
+                bodyText(
+                    activity,
+                    "一个轻量、无广告、纯原生的倒计时工具。添加好倒计时后，可以在主界面查看，" +
+                        "也可以让它悬浮在其它应用之上随时瞄一眼。",
+                    14f, 0xFFD8D8E6.toInt()
+                )
+            )
+
+            head("一、添加与编辑")
+            line(
+                "点右下角「＋」→ 添加，填写标题、选择目标日期与时间",
+                "可同时设置显示模式、跳秒动画、提示音与备注",
+                "卡片左滑可露出「编辑 / 提示音 / 删除」；点卡片上的标题也能进入编辑"
+            )
+
+            head("二、卡片上的按钮行")
+            line(
+                "显示：切换该倒计时是否在悬浮窗中显示",
+                "模式：循环切换 8 种显示格式（标准 / 小时 / 分钟 / 秒 / 天 / 时分秒 / 天时分秒 / 天时分）",
+                "动画：循环切换 8 种跳秒动画（无 / 缩放 / 蒸发 / 坠落 / 像素化 / 碎片化 / 燃烧 / 震撼）",
+                "提示音：点名称即可打开系统铃声选择器，为每个倒计时单独指定"
+            )
+
+            head("三、排序与删除")
+            line(
+                "长按卡片可上下拖动排序，松手即保存",
+                "左滑卡片点「删除」即可移除（内置倒计时同样可删除）"
+            )
+
+            head("四、悬浮窗")
+            line(
+                "在悬浮窗里可拖动位置、点标题栏收缩成小条、调节不透明度",
+                "系统「设置」界面处于前台时，悬浮窗会被系统临时隐藏（Android 安全机制），返回后自动恢复",
+                "若任意界面都不显示，请在系统设置中开启「显示在其他应用上层」，并在品牌权限管理中开启「后台弹出界面」"
+            )
+
+            head("五、内置倒计时")
+            line(
+                "自带四个：当日倒计时、当月倒计时、华都云境悦府、GTA6",
+                "内置项可以修改：一旦改了目标时间，它就变成普通倒计时",
+                "删掉的内置项可在「＋」菜单里点「恢复内置」找回，并会还原删除前的主题颜色、模式、动画、提示音等设置"
+            )
+
+            head("六、更新与通知")
+            line(
+                "打开 App 会自动检查更新，之后每 15 分钟后台检查一次",
+                "「开启通知 / 测试通知 / 允许后台运行」三个按钮可自检通知是否真的收得到",
+                "收不到更新通知时，先点「测试通知」验证，再点「允许后台运行」关闭电池优化"
+            )
+
+            head("七、数据")
+            line(
+                "所有倒计时保存在手机本地，卸载应用会一并清除，请先做好记录"
+            )
+        }
+    }
+
     fun showChangelog(activity: Activity) {
         if (activity.isFinishing) return
         showStyledDialog(
