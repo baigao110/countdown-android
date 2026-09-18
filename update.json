@@ -1,8 +1,8 @@
 {
-  "versionCode": 33,
-  "versionName": "1.0.0.23",
+  "versionCode": 34,
+  "versionName": "1.0.0.24",
   "date": "2026-09-18",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.23/countdown-android-v1.0.0.23-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.23",
-  "note": "1. 修复「改了下次提醒时间之后，退出 / 关闭软件就收不到提醒」：手动指定的那一次被去重逻辑拦下了（今天已提醒过 / 已记「已吃药」就不发），而改时间本就是为了再收一次\n2. 现在手动改的时间一定会提醒一次，响过之后才回到每天固定时刻\n3. 修掉推算「下次时间」时提前作废手动设定的副作用：后台巡检与打开 App 时的补发也能覆盖手动改过的那一次"
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.24/countdown-android-v1.0.0.24-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.24",
+  "note": "1. 继续加固「改了下次提醒时间之后，退出 / 关闭软件就收不到吃药提醒」：到点后 2 分钟、30 分钟各补响一次\n2. 精确闹钟与系统闹钟同一时刻再挂一路，共四条闹钟路线，任一条跑通都会提醒\n3. 后台巡检再加一个入口（检查更新的任务里也跑一趟），并记录「上次真正发出提醒」的时刻，自检页能分清是没发还是被拦\n4. 改完「下次提醒」时间后会弹出引导，可一键去允许后台运行；回到前台也会立刻补发漏掉的提醒"
 }
