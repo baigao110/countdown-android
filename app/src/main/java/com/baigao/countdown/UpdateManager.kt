@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.0.22"
+    const val CURRENT_VERSION_NAME = "1.0.0.23"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -501,6 +501,20 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.23", "2026-09-18",
+            "修复「改了下次提醒时间之后，退出 / 关闭软件就收不到提醒」：\n" +
+            "  根因是手动指定的那一次被去重逻辑拦下了 —— 今天已经提醒过、或已记过「已吃药」就不发，\n" +
+            "    而改时间本来就是为了再收一次，于是表现出来就是改完反倒不提醒了\n" +
+            "  现在手动改的时间**一定会提醒一次**，响过之后才回到每天固定时刻\n" +
+            "  顺带修掉推算「下次时间」时提前作废手动设定的副作用：\n" +
+            "    后台巡检与打开 App 时的补发因此也能覆盖手动改过的那一次"),
+        ChangelogItem("v1.0.0.23", "2026-09-18",
+            "修复「改了下次提醒时间之后，退出 / 关闭软件就收不到提醒」：\n" +
+            "  根因是手动指定的那一次被去重逻辑拦下了 —— 今天已经提醒过、或已记过「已吃药」就不发，\n" +
+            "    而改时间本来就是为了再收一次，于是表现出来就是改完反倒不提醒了\n" +
+            "  现在手动改的时间**一定会提醒一次**，响过之后才回到每天固定时刻\n" +
+            "  顺带修掉推算「下次时间」时提前作废手动设定的副作用：\n" +
+            "    后台巡检与打开 App 时的补发因此也能覆盖手动改过的那一次"),
         ChangelogItem("v1.0.0.22", "2026-09-18",
             "吃药提醒的「下次提醒时间」可以自己改了：\n" +
             "  「关于」页吃药卡片新增「下次提醒」按钮（按钮上直接显示当前的下次提醒时间）\n" +
