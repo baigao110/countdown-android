@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.0.21"
+    const val CURRENT_VERSION_NAME = "1.0.0.22"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -501,6 +501,13 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.22", "2026-09-18",
+            "吃药提醒的「下次提醒时间」可以自己改了：\n" +
+            "  「关于」页吃药卡片新增「下次提醒」按钮（按钮上直接显示当前的下次提醒时间）\n" +
+            "  点开可指定具体的年 / 月 / 日 + 时刻 —— 比如今天错过了 09:00，就把这一次改到今晚 20:30\n" +
+            "  改的只是即将到来的那一次：这次响过之后自动恢复为每天固定时刻\n" +
+            "  同一个对话框里有「恢复常规」按钮，一键回到每天固定时刻；\n" +
+            "    「后台自检」与状态行会标明当前的下次提醒是不是手动改过的"),
         ChangelogItem("v1.0.0.21", "2026-09-18",
             "修复「退出 / 关闭软件后收不到吃药提醒」：\n" +
             "  改为三重保障 —— 系统闹钟（能穿透省电策略）+ 每日重复闹钟 + 后台巡检（15 分钟一趟、重启自动恢复）\n" +
