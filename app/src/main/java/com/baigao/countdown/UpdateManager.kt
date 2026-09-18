@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.0.23"
+    const val CURRENT_VERSION_NAME = "1.0.0.24"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -501,13 +501,12 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
-        ChangelogItem("v1.0.0.23", "2026-09-18",
-            "修复「改了下次提醒时间之后，退出 / 关闭软件就收不到提醒」：\n" +
-            "  根因是手动指定的那一次被去重逻辑拦下了 —— 今天已经提醒过、或已记过「已吃药」就不发，\n" +
-            "    而改时间本来就是为了再收一次，于是表现出来就是改完反倒不提醒了\n" +
-            "  现在手动改的时间**一定会提醒一次**，响过之后才回到每天固定时刻\n" +
-            "  顺带修掉推算「下次时间」时提前作废手动设定的副作用：\n" +
-            "    后台巡检与打开 App 时的补发因此也能覆盖手动改过的那一次"),
+        ChangelogItem("v1.0.0.24", "2026-09-18",
+            "继续加固「改了下次提醒时间之后，退出 / 关闭软件就收不到提醒」：\n" +
+            "  到点后 2 分钟、30 分钟各补响一次 —— 主路被系统推迟或清掉也能兜住\n" +
+            "  精确闹钟与系统闹钟在同一时刻再挂一路，一共四条闹钟路线\n" +
+            "  后台巡检再加一个入口（检查更新的任务里也跑一趟），并记录「上次真正发出提醒」的时刻\n" +
+            "  改完时间会弹出引导并可一键去「允许后台运行」；回到前台也会立刻补发漏掉的提醒"),
         ChangelogItem("v1.0.0.23", "2026-09-18",
             "修复「改了下次提醒时间之后，退出 / 关闭软件就收不到提醒」：\n" +
             "  根因是手动指定的那一次被去重逻辑拦下了 —— 今天已经提醒过、或已记过「已吃药」就不发，\n" +
