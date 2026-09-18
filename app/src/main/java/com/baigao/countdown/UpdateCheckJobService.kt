@@ -26,6 +26,8 @@ class UpdateCheckJobService : JobService() {
         Thread {
             var ok = true
             try {
+                // 顺带给吃药提醒做一次巡检：多一路兜底，闹钟被清掉时补挂、错过就补发
+                MedicineReminder.onPeriodicCheck(this)
                 val info = UpdateManager.fetch()
                 if (info == null) {
                     // 两次请求（Release / update.json）都没拿到，按失败处理让系统退避重排
