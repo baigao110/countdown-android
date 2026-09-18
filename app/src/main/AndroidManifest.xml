@@ -12,6 +12,9 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- 后台检查更新：忽略电池优化，避免系统掐断后台网络 -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- 每日吃药提醒：到点准时弹通知（精确闹钟；拿不到权限时自动退化为重复闹钟） -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <!-- 开机自启悬浮倒计时 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -39,6 +42,10 @@
 
         <activity
             android:name=".AboutActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".MedicineCalendarActivity"
             android:exported="false" />
 
         <!-- 悬浮倒计时前台服务：specialUse 子类型说明必须作为 <service> 的子元素，
@@ -69,6 +76,11 @@
         </receiver>
 
         <!-- 后台定期检查更新（AlarmManager 唤起，发现新版本发系统通知） -->
+        <!-- 每日吃药提醒：到点发通知，通知上的「已吃药」也走这里 -->
+        <receiver
+            android:name=".MedicineAlarmReceiver"
+            android:exported="false" />
+
         <receiver
             android:name=".UpdateCheckReceiver"
             android:exported="false" />
