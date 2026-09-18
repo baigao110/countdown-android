@@ -91,6 +91,12 @@
             android:permission="android.permission.BIND_JOB_SERVICE"
             android:exported="true" />
 
+        <!-- 吃药提醒：后台巡检（闹钟被系统清掉时补挂、错过时补发通知） -->
+        <service
+            android:name=".MedicineCheckJobService"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="true" />
+
     </application>
 
 </manifest>
