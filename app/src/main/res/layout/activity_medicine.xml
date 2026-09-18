@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/glass_bg">
+
+    <!-- 液态玻璃背景层：与「关于」页同一套 -->
+    <com.baigao.countdown.GlassBackdrop
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="14dp">
+
+        <!-- 顶部返回栏 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="4dp">
+
+            <TextView
+                android:id="@+id/backBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="‹ 返回"
+                android:textColor="#00FFFF"
+                android:textSize="16sp"
+                android:padding="4dp" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="吃药日历"
+                android:textColor="#00FFFF"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:layout_marginEnd="40dp" />
+        </LinearLayout>
+
+        <!-- 月份切换 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <Button
+                android:id="@+id/prevBtn"
+                android:layout_width="56dp"
+                android:layout_height="40dp"
+                android:text="‹"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="#001018"
+                android:background="@drawable/circle_btn" />
+
+            <TextView
+                android:id="@+id/monthTv"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="2026年9月"
+                android:textColor="#FFE4EEFF"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/nextBtn"
+                android:layout_width="56dp"
+                android:layout_height="40dp"
+                android:text="›"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="#001018"
+                android:background="@drawable/circle_btn" />
+        </LinearLayout>
+
+        <!-- 星期表头（周一为第一列） -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal">
+
+            <TextView style="@style/CalHead" android:text="一" />
+            <TextView style="@style/CalHead" android:text="二" />
+            <TextView style="@style/CalHead" android:text="三" />
+            <TextView style="@style/CalHead" android:text="四" />
+            <TextView style="@style/CalHead" android:text="五" />
+            <TextView style="@style/CalHead" android:text="六" />
+            <TextView style="@style/CalHead" android:text="日" />
+        </LinearLayout>
+
+        <!-- 日期格子由 MedicineCalendarActivity 动态生成 -->
+        <LinearLayout
+            android:id="@+id/gridContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:orientation="vertical" />
+
+        <!-- 图例 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="● 已吃药"
+                android:textColor="#00FFFF"
+                android:textSize="13sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:text="● 未吃药"
+                android:textColor="#FF7C86A0"
+                android:textSize="13sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:text="○ 今天"
+                android:textColor="#4DFBFF"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/statTv"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:lineSpacingExtra="3dp"
+            android:textColor="#FFC6D5EF"
+            android:textSize="13sp"
+            android:text="本月已吃药 0 天" />
+
+        <Button
+            android:id="@+id/todayBtn"
+            android:layout_width="220dp"
+            android:layout_height="46dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="14dp"
+            android:text="今日已吃药"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="#001018"
+            android:background="@drawable/circle_btn" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center"
+            android:lineSpacingExtra="3dp"
+            android:textColor="#8A93AE"
+            android:textSize="12sp"
+            android:text="点过去或今天的日期可以补记 / 撤销，未来日期不可记录。\n提醒时间与开关在「关于」页里改。" />
+
+    </LinearLayout>
+
+</FrameLayout>
