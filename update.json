@@ -1,8 +1,8 @@
 {
-  "versionCode": 31,
-  "versionName": "1.0.0.21",
+  "versionCode": 32,
+  "versionName": "1.0.0.22",
   "date": "2026-09-18",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.21/countdown-android-v1.0.0.21-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.21",
-  "note": "1. 修复「退出 / 关闭软件后收不到吃药提醒」：改为系统闹钟 + 每日重复闹钟 + 后台巡检三重保障，被手机强制停止（从最近任务划掉卡片）导致闹钟被清掉时会自动补挂\n2. 错过也会补发：今天该提醒的时刻已过却没响过，打开应用或后台巡检时立刻补一条通知（标注「补发提醒」）\n3. 吃药提醒同一天只提醒一次，三重保障不会重复打扰\n4. 「关于」页吃药卡片新增「测试提醒」与「后台自检」，可自查通知权限、精确闹钟、电池优化状态与处理办法"
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.22/countdown-android-v1.0.0.22-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.22",
+  "note": "1. 吃药提醒新增「下次提醒时间」可自行修改：「关于」页点「下次提醒 …」即可指定具体日期 + 时刻\n2. 改的只是即将到来的那一次（例如把今天错过的提醒改到今晚），这次响过后自动恢复每天固定时刻\n3. 同一对话框内可一键「恢复常规」回到每天固定时刻；「后台自检」与状态行会标明当前是否已手动改过"
 }
