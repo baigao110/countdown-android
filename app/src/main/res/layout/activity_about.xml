@@ -228,17 +228,37 @@
                     android:background="@drawable/circle_btn" />
             </LinearLayout>
 
-            <Button
-                android:id="@+id/medCalendarBtn"
-                android:layout_width="200dp"
-                android:layout_height="46dp"
+            <LinearLayout
+                android:layout_width="260dp"
+                android:layout_height="52dp"
                 android:layout_gravity="center_horizontal"
                 android:layout_marginTop="10dp"
-                android:text="吃药日历"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                android:textColor="#001018"
-                android:background="@drawable/circle_btn" />
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/medCalendarBtn"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:text="吃药日历"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="#001018"
+                    android:background="@drawable/circle_btn" />
+
+                <Button
+                    android:id="@+id/medNextBtn"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_marginStart="12dp"
+                    android:maxLines="2"
+                    android:text="下次提醒"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="#001018"
+                    android:background="@drawable/circle_btn" />
+            </LinearLayout>
 
             <LinearLayout
                 android:layout_width="260dp"
