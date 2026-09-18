@@ -248,6 +248,7 @@ class AboutActivity : Activity() {
             else "下次提醒：${MedicineReminder.nextTriggerText(this)}"
         )
         lines.add("闹钟挂载：${MedicineReminder.lastScheduleText(this)}")
+        lines.add("上次发出提醒：${MedicineReminder.lastNotifyText(this)}")
         lines.add(
             if (UpdateNotifier.hasPermission(this)) "通知权限：已开启"
             else "通知权限：未开启（必须开启，否则根本弹不出）"
@@ -258,7 +259,8 @@ class AboutActivity : Activity() {
         )
         lines.add(if (batteryOptimized()) "电池优化：未关闭（建议关掉）" else "电池优化：已关闭")
         lines.add("")
-        lines.add("已经做了三重保障：系统闹钟 + 每日重复闹钟 + 后台巡检（错过会补发）。")
+        lines.add("已经做了四重保障：系统闹钟 + 精确闹钟 + 每日重复闹钟 +")
+        lines.add("两路后台巡检（到点后 2 分钟 / 30 分钟还会各补响一次）。")
         lines.add("若仍然不提醒，多半是手机把本应用「强制停止」了：")
         lines.add("  1. 别从最近任务里划掉本应用的卡片（或在最近任务里给它加锁）；")
         lines.add("  2. 系统设置 → 应用管理 → 本应用，打开「自启动 / 后台运行」；")
@@ -297,6 +299,50 @@ class AboutActivity : Activity() {
     }
 
     /**
+     * 改完「下次提醒」后的引导：到点收不到，绝大多数是手机把本应用强制停止了，
+     * 这里把时间、已经做的保障、以及用户自己能做的一步都讲清楚，并给一个直达按钮。
+     */
+    private fun showNextReminderGuide() {
+        if (isFinishing) return
+        val time = MedicineReminder.nextTriggerText(this)
+        val text = listOf(
+            "下次提醒已设为 $time（只影响这一次，响过自动恢复常规）",
+            "",
+            "为确保到点能收到，已经做了这些：",
+            "  1. 系统闹钟 + 精确闹钟（同一时刻双路，能穿透省电模式）",
+            "  2. 到点后 2 分钟、30 分钟各补响一次",
+            "  3. 后台每 15 分钟巡检一次，闹钟没了会补挂、错过会补发",
+            "  4. 重新打开本应用时，漏掉的提醒立刻补上",
+            "",
+            "如果这样还是收不到，一般是手机把本应用「强制停止」了：",
+            "  · 别从最近任务里划掉本应用的卡片（或在最近任务里给它加锁）",
+            "  · 系统设置 → 应用管理 → 本应用，打开「自启动 / 后台运行」",
+            "  · 关掉本应用的电池优化"
+        ).joinToString("\n")
+        val needBattery = batteryOptimized()
+        UpdateManager.showStyledDialog(
+            activity = this,
+            title = "下次提醒已设置",
+            positiveText = if (needBattery) "允许后台运行" else "去应用设置",
+            negativeText = "知道了",
+            onPositive = { if (needBattery) requestIgnoreBattery() else openAppDetails() }
+        ) { host ->
+            val tv = TextView(this).apply {
+                this.text = text
+                setTextColor(android.graphics.Color.parseColor("#FFE4EEFF"))
+                textSize = 13f
+                setLineSpacing(4f, 1.2f)
+                setShadowLayer(2f, 0f, 1f, android.graphics.Color.parseColor("#CC000000"))
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+            host.addView(tv)
+        }
+    }
+
+    /**
      * 手动改「下一次提醒」：弹出日期 + 时刻选择器。
      * 改完只影响即将到来的那一次，响过之后自动回到每天固定时刻（也可一键恢复常规）。
      */
@@ -327,11 +373,7 @@ class AboutActivity : Activity() {
                 }
                 MedicineReminder.setNextCustom(this, target.timeInMillis)
                 refreshMedicine()
-                Toast.makeText(
-                    this,
-                    "下次提醒已改为 ${MedicineReminder.nextTriggerText(this)}",
-                    Toast.LENGTH_LONG
-                ).show()
+                showNextReminderGuide()
             }
         ) { host ->
             val dp = makeDatePicker(cal)
