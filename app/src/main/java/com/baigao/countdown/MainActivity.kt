@@ -87,7 +87,7 @@ class MainActivity : Activity() {
         }
     }
 
-    /** 读取本地数据，并确保四个内置项（当日 / 当月 / 华都云境悦府 / GTA6）始终存在。 */
+    /** 读取本地数据，并确保五个内置项（当日 / 每周 / 当月 / 华都云境悦府 / GTA6）始终存在。 */
     private fun loadData() {
         data = CountdownStore.load(this)
         if (ensureBuiltInTimers()) CountdownStore.save(this, data)
@@ -100,6 +100,7 @@ class MainActivity : Activity() {
         var added = ensureBuiltIn(BuiltIn.GTA6, "GTA6倒计时", "距离 GTA6 发售（2026-11-19 08:00）")
         added = ensureBuiltIn(BuiltIn.HUADU, "华都云境悦府倒计时", "距离华都云境悦府交付（2026-10-31 00:00）") || added
         added = ensureBuiltIn(BuiltIn.MONTH, "当月倒计时", "距离本月结束") || added
+        added = ensureBuiltIn(BuiltIn.WEEK, "每周倒计时", "距离本周结束") || added
         added = ensureBuiltIn(BuiltIn.DAY, "当日倒计时", "距离今日结束") || added
         return added
     }
@@ -199,6 +200,8 @@ class MainActivity : Activity() {
         // 与 AlarmManager（2 小时一次兜底），任一条跑通都会发通知。
         UpdateCheckJobService.schedule(this)
         UpdateCheckReceiver.schedule(this)
+        // 每日吃药提醒：默认 09:00，开关与时间都在「关于」页里改
+        MedicineReminder.schedule(this)
         // 启动即检查更新：发现新版本会强制弹出更新日志对话框，并发送一条系统通知
         handleUpdateIntent(intent)
         if (!updateCheckedOnce) {
@@ -617,6 +620,7 @@ class MainActivity : Activity() {
     /** 内置倒计时的默认定义（顺序即列表里的展示顺序）。 */
     private val builtInDefs = listOf(
         Triple(BuiltIn.DAY, "当日倒计时", "距离今日结束"),
+        Triple(BuiltIn.WEEK, "每周倒计时", "距离本周结束"),
         Triple(BuiltIn.MONTH, "当月倒计时", "距离本月结束"),
         Triple(BuiltIn.HUADU, "华都云境悦府倒计时", "距离华都云境悦府交付（2026-10-31 00:00）"),
         Triple(BuiltIn.GTA6, "GTA6倒计时", "距离 GTA6 发售（2026-11-19 08:00）")
@@ -662,7 +666,7 @@ class MainActivity : Activity() {
                 .apply()
         }
         // 兜底：某些项可能既不在列表里、也没有被标记删除（例如被改成普通倒计时），
-        // 这里统一补齐，保证点「确定」之后四个内置项真的回到列表里
+        // 这里统一补齐，保证点「确定」之后五个内置项真的回到列表里
         if (ensureBuiltInTimers()) changed = true
         if (changed) CountdownStore.save(this, data)
         rebuildList()
@@ -672,7 +676,7 @@ class MainActivity : Activity() {
     /**
      * 当前「不在列表里」的内置倒计时：
      * 既包括用户删掉的（记在 removedBuiltIns 里），也包括列表里查不到该类型的。
-     * 为空表示四个内置倒计时都在列表里，此时不需要显示「恢复内置」。
+     * 为空表示五个内置倒计时都在列表里，此时不需要显示「恢复内置」。
      */
     private fun missingBuiltIns(): List<Triple<Int, String, String>> =
         builtInDefs.filter { def -> def.first in removedBuiltIns || data.none { it.builtIn == def.first } }
@@ -689,7 +693,7 @@ class MainActivity : Activity() {
     private fun showRestoreBuiltInDialog() {
         val missing = missingBuiltIns()
         if (missing.isEmpty()) {
-            Toast.makeText(this, "四个内置倒计时都在列表里", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "五个内置倒计时都在列表里", Toast.LENGTH_SHORT).show()
             return
         }
         val checked = BooleanArray(missing.size) { true }
