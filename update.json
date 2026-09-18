@@ -1,8 +1,8 @@
 {
-  "versionCode": 29,
-  "versionName": "1.0.0.19",
-  "date": "2026-09-17",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.19/countdown-android-v1.0.0.19-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.19",
-  "note": "1. 「关于」页新增「说明」按钮（在「检查更新」与「更新日志」中间，同款青色玻璃按钮），点开即弹出完整使用说明\n2. 使用说明覆盖：添加 / 编辑、卡片按钮行、左滑操作、长按拖动排序、悬浮窗、内置倒计时的删除与恢复、更新与通知自检、数据保存位置\n3. 重写项目 README.md"
+  "versionCode": 30,
+  "versionName": "1.0.0.20",
+  "date": "2026-09-18",
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.20/countdown-android-v1.0.0.20-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.20",
+  "note": "1. 新增「每日吃药提醒」：默认每天 09:00 弹通知，通知上点「已吃药」即记录当天\n2. 提醒时间可改（「关于」页点「提醒时间」）；「关于」页可一键开启 / 关闭该功能\n3. 新增「吃药日历」：按月查看哪天吃了、哪天没吃，可切换月份、补记 / 撤销\n4. 内置倒计时新增「每周倒计时」（距离本周结束），与其它内置项一样可删除、可修改、可恢复"
 }
