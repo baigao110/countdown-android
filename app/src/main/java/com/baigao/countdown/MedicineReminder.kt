@@ -36,6 +36,14 @@ import java.util.Locale
  *   ③ JobScheduler 周期巡检（15 分钟一趟、重启自动恢复）：发现闹钟没了就补挂，
  *      发现今天该提醒的时刻已过却还没提醒过就**补发**通知。
  * 另外每次打开 App 都会 `catchUp()`：如果今天的提醒点已经过了却没响过，立刻补一条。
+ *
+ * ---------- v1.0.0.24：改了「下次提醒」之后仍然收不到 ----------
+ * 前面三路在「改过时间」这一档上还是会漏：主路只挂一个点，ROM 一旦把闹钟清掉或推迟，
+ * 当天就再没机会。于是再加两档：
+ *   - 到点后 2 分钟、30 分钟各补响一次（REQ 4116 / 4117）；
+ *   - 精确闹钟（REQ 4118）与系统闹钟同一时刻再挂一路；
+ *   - 巡检再加一个入口（更新检查的 JobService 里也跑一次），并记下「上次真正发出提醒」的时刻，
+ *     自检页一眼能分清是「压根没发」还是「发了但被系统拦下」。
  */
 object MedicineReminder {
 
@@ -54,10 +62,18 @@ object MedicineReminder {
     private const val KEY_LAST_SCHEDULE = "last_schedule"
     /** 用户手动指定的「下一次提醒」时刻（毫秒；0 = 未指定，按每天固定时刻推算）。 */
     private const val KEY_NEXT_CUSTOM = "next_custom"
+    /** 上次真正发出通知的时刻（自检页显示，用来判断「压根没发」还是「发了被拦」）。 */
+    private const val KEY_LAST_NOTIFY_TIME = "last_notify_time"
 
     private const val NOTIF_ID = 20331
     private const val REQ_ALARM = 4111
     private const val REQ_ALARM_BACKUP = 4114
+    /** 补响 1：到点后 2 分钟再试一次（主路被系统推迟 / 丢掉时兜住）。 */
+    private const val REQ_ALARM_RETRY1 = 4116
+    /** 补响 2：到点后 30 分钟再试一次。 */
+    private const val REQ_ALARM_RETRY2 = 4117
+    /** 精确闹钟：与系统闹钟同一时刻，多一路就有多一分准时（没权限会被 catch 掉）。 */
+    private const val REQ_ALARM_EXACT = 4118
     private const val REQ_ALARM_SHOW = 4115
     private const val REQ_TAKEN = 4112
     private const val REQ_OPEN = 4113
@@ -109,7 +125,10 @@ object MedicineReminder {
         prefs(ctx).getString(KEY_LAST_NOTIFY, "") ?: ""
 
     private fun setLastNotifyKey(ctx: Context, key: String) {
-        prefs(ctx).edit().putString(KEY_LAST_NOTIFY, key).apply()
+        prefs(ctx).edit()
+            .putString(KEY_LAST_NOTIFY, key)
+            .putLong(KEY_LAST_NOTIFY_TIME, System.currentTimeMillis())
+            .apply()
     }
 
     // ---------------- 闹钟：三路冗余 ----------------
@@ -201,8 +220,19 @@ object MedicineReminder {
             }
         }
 
-        // ② 每天重复的非精确闹钟：不依赖精确闹钟权限，也不容易被 ROM 当成「精确闹钟」拦下。
-        //    它与 ① 同一天都会触发，但 maybeNotify() 保证一天只发一次通知。
+        // ② 精确闹钟：与 ① 同一时刻，走 allowWhileIdle，Doze 下也能在维护窗口里被唤起
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                am.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP, trigger, exactPi(ctx)
+                )
+            }
+        } catch (e: Throwable) {
+            // 没有精确闹钟权限会被拦下，还有另外三路
+        }
+
+        // ③ 每天重复的非精确闹钟：不依赖精确闹钟权限，也不容易被 ROM 当成「精确闹钟」拦下。
+        //    它与 ①② 同一天都会触发，但 maybeNotify() 保证一天只发一次通知。
         try {
             if (ok) am.cancel(backupPi(ctx))
             am.setRepeating(
@@ -212,7 +242,22 @@ object MedicineReminder {
             // 忽略
         }
 
-        // ③ JobScheduler 巡检：闹钟被清掉时补挂、错过提醒时补发
+        // ④ 补响：主路万一被系统推迟或丢掉，到点后 2 分钟、30 分钟各再试一次。
+        //    走的是同一个 action，maybeNotify() 保证一天只发一条通知，不会重复打扰。
+        try {
+            am.cancel(retry1Pi(ctx))
+            am.set(AlarmManager.RTC_WAKEUP, trigger + 2 * 60 * 1000L, retry1Pi(ctx))
+        } catch (e: Throwable) {
+            // 忽略
+        }
+        try {
+            am.cancel(retry2Pi(ctx))
+            am.set(AlarmManager.RTC_WAKEUP, trigger + 30 * 60 * 1000L, retry2Pi(ctx))
+        } catch (e: Throwable) {
+            // 忽略
+        }
+
+        // ⑤ JobScheduler 巡检：闹钟被清掉时补挂、错过提醒时补发
         MedicineCheckJobService.schedule(ctx)
 
         try {
@@ -298,6 +343,9 @@ object MedicineReminder {
             val am = ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             am.cancel(alarmPi(ctx))
             am.cancel(backupPi(ctx))
+            am.cancel(exactPi(ctx))
+            am.cancel(retry1Pi(ctx))
+            am.cancel(retry2Pi(ctx))
         } catch (e: Throwable) {
             // 忽略
         }
@@ -316,6 +364,24 @@ object MedicineReminder {
 
     private fun backupPi(ctx: Context): PendingIntent = PendingIntent.getBroadcast(
         ctx, REQ_ALARM_BACKUP,
+        Intent(ctx, MedicineAlarmReceiver::class.java).setAction(ACTION_ALARM),
+        piFlags()
+    )
+
+    private fun exactPi(ctx: Context): PendingIntent = PendingIntent.getBroadcast(
+        ctx, REQ_ALARM_EXACT,
+        Intent(ctx, MedicineAlarmReceiver::class.java).setAction(ACTION_ALARM),
+        piFlags()
+    )
+
+    private fun retry1Pi(ctx: Context): PendingIntent = PendingIntent.getBroadcast(
+        ctx, REQ_ALARM_RETRY1,
+        Intent(ctx, MedicineAlarmReceiver::class.java).setAction(ACTION_ALARM),
+        piFlags()
+    )
+
+    private fun retry2Pi(ctx: Context): PendingIntent = PendingIntent.getBroadcast(
+        ctx, REQ_ALARM_RETRY2,
         Intent(ctx, MedicineAlarmReceiver::class.java).setAction(ACTION_ALARM),
         piFlags()
     )
@@ -360,6 +426,7 @@ object MedicineReminder {
                 .setContentText(text)
                 .setContentIntent(openPi)
                 .addAction(R.drawable.ic_stat, "已吃药", takenPi(ctx))
+                .setCategory(Notification.CATEGORY_ALARM)
                 .setAutoCancel(true)
                 .setPriority(Notification.PRIORITY_HIGH)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
@@ -445,6 +512,14 @@ object MedicineReminder {
             min < 60 * 24 -> "${min / 60} 小时前"
             else -> "${min / 1440} 天前"
         }
+    }
+
+    /** 上次真正发出提醒通知的时刻描述（自检用：「没发过」说明确实没发出来）。 */
+    fun lastNotifyText(ctx: Context): String {
+        val key = lastNotifyKey(ctx)
+        val t = prefs(ctx).getLong(KEY_LAST_NOTIFY_TIME, 0L)
+        if (key.isEmpty() || t <= 0L) return "还没发过"
+        return SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(t))
     }
 
     /** 「关于」页状态行：一眼看出提醒到底挂上没有、卡在哪一环。 */
