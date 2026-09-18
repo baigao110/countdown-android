@@ -7,4 +7,14 @@
         <item name="android:statusBarColor">#0B1020</item>
         <item name="android:navigationBarColor">#0B1020</item>
     </style>
+
+    <!-- 吃药日历：星期表头（七列等宽、居中、灰蓝字） -->
+    <style name="CalHead">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textColor">#8A93AE</item>
+        <item name="android:textSize">13sp</item>
+    </style>
 </resources>
