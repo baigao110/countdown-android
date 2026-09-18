@@ -6,11 +6,16 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.app.AlertDialog
 import android.widget.Button
+import android.widget.DatePicker
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.TimePicker
 import android.widget.Toast
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 /**
  * 关于页面：
@@ -34,6 +39,7 @@ class AboutActivity : Activity() {
     private lateinit var medStateTv: TextView
     private lateinit var medTestBtn: Button
     private lateinit var medCheckBtn: Button
+    private lateinit var medNextBtn: Button
 
     private var checking = false
     /** 本次进入页面是否已自动检查过（避免 onResume 反复弹窗）。 */
@@ -59,6 +65,7 @@ class AboutActivity : Activity() {
         medCalendarBtn = findViewById(R.id.medCalendarBtn)
         medTestBtn = findViewById(R.id.medTestBtn)
         medCheckBtn = findViewById(R.id.medCheckBtn)
+        medNextBtn = findViewById(R.id.medNextBtn)
         medStateTv = findViewById(R.id.medStateTv)
 
         versionTv.text = "版本 v${UpdateManager.CURRENT_VERSION_NAME}"
@@ -130,6 +137,8 @@ class AboutActivity : Activity() {
         }
         // 「后台自检」：把影响「退出 App 后还能不能提醒」的每一项列出来
         medCheckBtn.setOnClickListener { showMedicineSelfCheck() }
+        // 「下次提醒」：手动指定下一次提醒的具体日期与时刻
+        medNextBtn.setOnClickListener { showNextReminderPicker() }
         refreshMedicine()
     }
 
@@ -189,6 +198,7 @@ class AboutActivity : Activity() {
         medToggleBtn.text = if (on) "吃药提醒：已开启" else "吃药提醒：已关闭"
         medTimeBtn.text = "提醒时间 ${MedicineReminder.timeText(this)}"
         medStateTv.text = MedicineReminder.statusText(this)
+        medNextBtn.text = "下次提醒\n${MedicineReminder.nextTriggerText(this)}"
     }
 
     /** 读取 TimePicker：API 23+ 用 hour / minute，老版本用已废弃的 currentHour / currentMinute。 */
@@ -232,7 +242,11 @@ class AboutActivity : Activity() {
     private fun showMedicineSelfCheck() {
         if (isFinishing) return
         val lines = mutableListOf<String>()
-        lines.add("下次提醒：${MedicineReminder.nextTriggerText(this)}")
+        lines.add(
+            if (MedicineReminder.nextIsCustom(this))
+                "下次提醒：${MedicineReminder.nextTriggerText(this)}（已手动改，这次响过即恢复常规）"
+            else "下次提醒：${MedicineReminder.nextTriggerText(this)}"
+        )
         lines.add("闹钟挂载：${MedicineReminder.lastScheduleText(this)}")
         lines.add(
             if (UpdateNotifier.hasPermission(this)) "通知权限：已开启"
@@ -270,6 +284,110 @@ class AboutActivity : Activity() {
             }
             host.addView(tv)
         }
+    }
+
+    /** DatePicker 用滚轮模式（日历模式太高，会把对话框撑爆）。 */
+    @Suppress("DEPRECATION")
+    private fun makeDatePicker(cal: Calendar): DatePicker {
+        val dp = DatePicker(this)
+        dp.calendarViewShown = false
+        dp.spinnersShown = true
+        dp.init(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH), null)
+        return dp
+    }
+
+    /**
+     * 手动改「下一次提醒」：弹出日期 + 时刻选择器。
+     * 改完只影响即将到来的那一次，响过之后自动回到每天固定时刻（也可一键恢复常规）。
+     */
+    private fun showNextReminderPicker() {
+        if (isFinishing) return
+        var datePicker: DatePicker? = null
+        var timePicker: TimePicker? = null
+        var dialog: AlertDialog? = null
+        val cal = Calendar.getInstance().apply {
+            timeInMillis = MedicineReminder.nextTriggerMillis(this@AboutActivity)
+        }
+        dialog = UpdateManager.showStyledDialog(
+            activity = this,
+            title = "下次提醒时间",
+            positiveText = "确定",
+            negativeText = "取消",
+            onPositive = {
+                val dp = datePicker ?: return@showStyledDialog
+                val tp = timePicker ?: return@showStyledDialog
+                val (h, m) = readTime(tp)
+                val target = Calendar.getInstance().apply {
+                    set(dp.year, dp.month, dp.dayOfMonth, h, m, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                if (target.timeInMillis <= System.currentTimeMillis()) {
+                    Toast.makeText(this, "请选一个晚于现在的时间", Toast.LENGTH_LONG).show()
+                    return@showStyledDialog
+                }
+                MedicineReminder.setNextCustom(this, target.timeInMillis)
+                refreshMedicine()
+                Toast.makeText(
+                    this,
+                    "下次提醒已改为 ${MedicineReminder.nextTriggerText(this)}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        ) { host ->
+            val dp = makeDatePicker(cal)
+            datePicker = dp
+            host.addView(dp)
+
+            val tp = TimePicker(this)
+            tp.setIs24HourView(true)
+            applyTime(tp, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE))
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            lp.topMargin = (6 * resources.displayMetrics.density).toInt()
+            tp.layoutParams = lp
+            timePicker = tp
+            host.addView(tp)
+
+            val tip = TextView(this).apply {
+                text = "改的是「下一次」提醒的时间，这次响过之后自动恢复为每天 " +
+                    MedicineReminder.timeText(this@AboutActivity) + "；\n" +
+                    "想改每天的固定时刻，请用上面的「提醒时间」按钮。"
+                setTextColor(android.graphics.Color.parseColor("#FFC6D5EF"))
+                textSize = 13f
+                setShadowLayer(2f, 0f, 1f, android.graphics.Color.parseColor("#CC000000"))
+                val tlp = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                tlp.topMargin = (10 * resources.displayMetrics.density).toInt()
+                layoutParams = tlp
+            }
+            host.addView(tip)
+
+            val reset = Button(this).apply {
+                text = "恢复常规（每天 ${MedicineReminder.timeText(this@AboutActivity)}）"
+                textSize = 13f
+                setTextColor(android.graphics.Color.parseColor("#FF001018"))
+                setBackgroundResource(R.drawable.circle_btn)
+                val blp = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    (44 * resources.displayMetrics.density).toInt()
+                )
+                blp.topMargin = (10 * resources.displayMetrics.density).toInt()
+                layoutParams = blp
+            }
+            reset.setOnClickListener {
+                MedicineReminder.clearNextCustom(this@AboutActivity)
+                MedicineReminder.schedule(this@AboutActivity)
+                refreshMedicine()
+                dialog?.dismiss()
+                Toast.makeText(this@AboutActivity, "已恢复为每天固定时刻提醒", Toast.LENGTH_SHORT).show()
+            }
+            host.addView(reset)
+        }
+        dialog
     }
 
     /** 修改吃药提醒时间：沿用「更新日志」那套深色玻璃对话框，里面放一个 24 小时制 TimePicker。 */
