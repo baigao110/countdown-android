@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.0.20"
+    const val CURRENT_VERSION_NAME = "1.0.0.21"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -501,6 +501,14 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.21", "2026-09-18",
+            "修复「退出 / 关闭软件后收不到吃药提醒」：\n" +
+            "  改为三重保障 —— 系统闹钟（能穿透省电策略）+ 每日重复闹钟 + 后台巡检（15 分钟一趟、重启自动恢复）\n" +
+            "  手机把应用「强制停止」（比如从最近任务划掉卡片）会清掉闹钟，巡检发现后会自动补挂\n" +
+            "  真错过了也会补发：今天该提醒的时刻已过却没响过，打开应用或巡检时立刻补一条（标注「补发提醒」）\n" +
+            "  同一天只会提醒一次，三重保障不会重复打扰\n" +
+            "「关于」页吃药卡片新增「测试提醒」（立刻验证通知通不通）与「后台自检」\n" +
+            "  （列出下次提醒时间、通知权限、精确闹钟、电池优化状态，并给出处理办法）"),
         ChangelogItem("v1.0.0.20", "2026-09-18",
             "新增「每日吃药提醒」：\n" +
             "  默认每天 09:00 弹通知，通知上直接点「已吃药」即可记录当天\n" +
