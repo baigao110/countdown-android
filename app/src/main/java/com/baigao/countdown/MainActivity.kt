@@ -355,6 +355,8 @@ class MainActivity : Activity() {
         } else {
             syncService()
         }
+        // 回到前台也补一次：漏掉的吃药提醒立刻补发（同一天只会发一次）
+        MedicineReminder.catchUp(this)
     }
 
     override fun onPause() {
