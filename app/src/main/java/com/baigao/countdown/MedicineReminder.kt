@@ -52,6 +52,8 @@ object MedicineReminder {
     private const val KEY_LAST_NOTIFY = "last_notify"
     /** 上次挂载闹钟的时刻（自检页显示用）。 */
     private const val KEY_LAST_SCHEDULE = "last_schedule"
+    /** 用户手动指定的「下一次提醒」时刻（毫秒；0 = 未指定，按每天固定时刻推算）。 */
+    private const val KEY_NEXT_CUSTOM = "next_custom"
 
     private const val NOTIF_ID = 20331
     private const val REQ_ALARM = 4111
@@ -112,10 +114,44 @@ object MedicineReminder {
 
     // ---------------- 闹钟：三路冗余 ----------------
 
-    /** 下一次响铃时刻：过了今天的设定时间就顺延到明天。 */
+    /**
+     * 下一次响铃时刻：
+     * - 用户手动改过「下次提醒」且还没到 → 用那个时刻；
+     * - 否则按每天固定时刻推算（过了今天的设定时间就顺延到明天）。
+     */
     fun nextTriggerMillis(ctx: Context): Long {
+        val custom = nextCustomMillis(ctx)
+        val now = System.currentTimeMillis()
+        if (custom > now) return custom
+        if (custom > 0L) clearNextCustom(ctx)   // 手动改的时刻已经过去，回到每天固定时刻
         val today = todayTriggerMillis(ctx)
-        return if (today > System.currentTimeMillis()) today else today + 24 * 60 * 60 * 1000L
+        return if (today > now) today else today + 24 * 60 * 60 * 1000L
+    }
+
+    /** 本次「该提醒的时刻」：手动改过就用改后的，否则用今天的固定时刻。 */
+    private fun dueMillis(ctx: Context): Long {
+        val custom = nextCustomMillis(ctx)
+        val now = System.currentTimeMillis()
+        return if (custom > now) custom else todayTriggerMillis(ctx)
+    }
+
+    // ---------------- 手动指定「下一次提醒」 ----------------
+
+    /** 手动设定的下一次提醒时刻（0 = 未设定）。 */
+    fun nextCustomMillis(ctx: Context): Long = prefs(ctx).getLong(KEY_NEXT_CUSTOM, 0L)
+
+    /** 当前「下次提醒」是不是用户手动改出来的。 */
+    fun nextIsCustom(ctx: Context): Boolean = nextCustomMillis(ctx) > System.currentTimeMillis()
+
+    /** 手动指定下一次提醒时刻，立刻按新时间重新挂载闹钟。 */
+    fun setNextCustom(ctx: Context, millis: Long) {
+        prefs(ctx).edit().putLong(KEY_NEXT_CUSTOM, millis).apply()
+        schedule(ctx)
+    }
+
+    /** 取消手动设定，恢复「每天固定时刻」。 */
+    fun clearNextCustom(ctx: Context) {
+        prefs(ctx).edit().putLong(KEY_NEXT_CUSTOM, 0L).apply()
     }
 
     /** 今天设定时刻的毫秒值（不管过没过）。 */
@@ -189,12 +225,13 @@ object MedicineReminder {
         }
     }
 
-    /** 闹钟响了：先排下一次，再（按需）发通知。 */
+    /** 闹钟响了：这次的「手动改时间」已兑现，清掉后按常规排下一次，再（按需）发通知。 */
     fun onAlarm(ctx: Context) {
         if (!isEnabled(ctx)) {
             cancel(ctx)
             return
         }
+        clearNextCustom(ctx)
         schedule(ctx)
         maybeNotify(ctx)
     }
@@ -227,9 +264,9 @@ object MedicineReminder {
         if (!force) {
             if (isTaken(ctx, today)) return          // 今天已经点了「已吃药」，不再打扰
             if (lastNotifyKey(ctx) == today) return  // 今天已经提醒过（三路冗余去重）
-            val due = todayTriggerMillis(ctx)
+            val due = dueMillis(ctx)
             val now = System.currentTimeMillis()
-            if (now < due) return                    // 还没到点
+            if (now < due) return                    // 还没到点（改过时间就等改后的时刻）
             late = now - due > 5 * 60 * 1000L         // 晚了 5 分钟以上算补发
         }
         if (!UpdateNotifier.hasPermission(ctx)) return
@@ -395,6 +432,7 @@ object MedicineReminder {
         val on = isEnabled(ctx)
         if (!on) return "提醒已关闭 · 已记录 ${takenCount(ctx)} 天"
         val today = if (isTaken(ctx)) "已吃药 ✓" else "未吃药"
-        return "今日：$today · 已记录 ${takenCount(ctx)} 天\n下次提醒 ${nextTriggerText(ctx)}"
+        val tail = if (nextIsCustom(ctx)) "（已手动改）" else ""
+        return "今日：$today · 已记录 ${takenCount(ctx)} 天\n下次提醒 ${nextTriggerText(ctx)}$tail"
     }
 }
