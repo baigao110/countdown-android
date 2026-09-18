@@ -200,8 +200,9 @@ class MainActivity : Activity() {
         // 与 AlarmManager（2 小时一次兜底），任一条跑通都会发通知。
         UpdateCheckJobService.schedule(this)
         UpdateCheckReceiver.schedule(this)
-        // 每日吃药提醒：默认 09:00，开关与时间都在「关于」页里改
-        MedicineReminder.schedule(this)
+        // 每日吃药提醒：默认 09:00，开关与时间都在「关于」页里改。
+        // catchUp() = 三路冗余挂载 + 补发（今天该提醒的时刻已过却没响过，打开就立刻补一条）
+        MedicineReminder.catchUp(this)
         // 启动即检查更新：发现新版本会强制弹出更新日志对话框，并发送一条系统通知
         handleUpdateIntent(intent)
         if (!updateCheckedOnce) {
