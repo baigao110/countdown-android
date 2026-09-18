@@ -118,21 +118,18 @@ object MedicineReminder {
      * 下一次响铃时刻：
      * - 用户手动改过「下次提醒」且还没到 → 用那个时刻；
      * - 否则按每天固定时刻推算（过了今天的设定时间就顺延到明天）。
+     *
+     * 注意：**这里必须保持纯推算、不能有副作用**。以前「手动时刻已过就顺手清掉」写在
+     * 这儿，而后台巡检每趟都会先调它重挂闹钟 —— 手动设定的时间被提前作废，
+     * 后面的补发判定就再也认不出「用户手动改的那一次到期了」，于是整条兜底链都失效。
+     * 作废统一交给 maybeNotify()：提醒真的发出去（或彻底没戏）之后才清。
      */
     fun nextTriggerMillis(ctx: Context): Long {
         val custom = nextCustomMillis(ctx)
         val now = System.currentTimeMillis()
         if (custom > now) return custom
-        if (custom > 0L) clearNextCustom(ctx)   // 手动改的时刻已经过去，回到每天固定时刻
         val today = todayTriggerMillis(ctx)
         return if (today > now) today else today + 24 * 60 * 60 * 1000L
-    }
-
-    /** 本次「该提醒的时刻」：手动改过就用改后的，否则用今天的固定时刻。 */
-    private fun dueMillis(ctx: Context): Long {
-        val custom = nextCustomMillis(ctx)
-        val now = System.currentTimeMillis()
-        return if (custom > now) custom else todayTriggerMillis(ctx)
     }
 
     // ---------------- 手动指定「下一次提醒」 ----------------
@@ -225,13 +222,12 @@ object MedicineReminder {
         }
     }
 
-    /** 闹钟响了：这次的「手动改时间」已兑现，清掉后按常规排下一次，再（按需）发通知。 */
+    /** 闹钟响了：先把下一次排上（幂等），再发通知；手动改的那次由 maybeNotify 兑现后再作废。 */
     fun onAlarm(ctx: Context) {
         if (!isEnabled(ctx)) {
             cancel(ctx)
             return
         }
-        clearNextCustom(ctx)
         schedule(ctx)
         maybeNotify(ctx)
     }
@@ -255,22 +251,46 @@ object MedicineReminder {
 
     /**
      * 到点才发通知，一天最多一次。
-     * @param force 无视「今天已提醒过 / 未到点」直接发（「测试提醒」用，不写去重标记）。
+     *
+     * 唯一例外：**用户手动指定的「下一次提醒」到期时无条件提醒一次** ——
+     * 「今天已提醒过」「今天已记过『已吃药』」都不拦。改时间就是为了再收一次，
+     * 若被去重逻辑吞掉，表现出来就是「改了下次提醒时间，退出软件后反倒收不到了」。
+     *
+     * @param force 无视一切直接发（「测试提醒」用，不写去重标记）。
      */
     fun maybeNotify(ctx: Context, force: Boolean = false) {
         if (!force && !isEnabled(ctx)) return
+        val now = System.currentTimeMillis()
         val today = todayKey()
+        val custom = nextCustomMillis(ctx)
+        val customDue = custom > 0L && now >= custom   // 手动指定的那一次到期了
         var late = false
         if (!force) {
-            if (isTaken(ctx, today)) return          // 今天已经点了「已吃药」，不再打扰
-            if (lastNotifyKey(ctx) == today) return  // 今天已经提醒过（三路冗余去重）
-            val due = dueMillis(ctx)
-            val now = System.currentTimeMillis()
-            if (now < due) return                    // 还没到点（改过时间就等改后的时刻）
-            late = now - due > 5 * 60 * 1000L         // 晚了 5 分钟以上算补发
+            if (customDue) {
+                // 用户点名要的这一次：不看去重、不看记录，到点就发
+                late = now - custom > 5 * 60 * 1000L
+            } else {
+                if (isTaken(ctx, today)) return          // 今天已经点了「已吃药」，不再打扰
+                if (lastNotifyKey(ctx) == today) return  // 今天已经提醒过（三路冗余去重）
+                val due = if (custom > now) custom else todayTriggerMillis(ctx)
+                if (now < due) return                    // 还没到点（改过时间就等改后的时刻）
+                late = now - due > 5 * 60 * 1000L         // 晚了 5 分钟以上算补发
+            }
         }
-        if (!UpdateNotifier.hasPermission(ctx)) return
+        if (!UpdateNotifier.hasPermission(ctx)) {
+            // 没通知权限：手动指定的那次直接作废，免得一直卡在「已手动改」状态
+            if (customDue) {
+                clearNextCustom(ctx)
+                schedule(ctx)
+            }
+            return
+        }
         if (notifyNow(ctx, late)) setLastNotifyKey(ctx, today)
+        if (customDue || (custom > 0L && custom <= now)) {
+            // 这次手动指定的提醒已兑现（或时刻已过、那会儿没开机）：作废，回到每天固定时刻
+            clearNextCustom(ctx)
+            schedule(ctx)
+        }
     }
 
     fun cancel(ctx: Context) {
