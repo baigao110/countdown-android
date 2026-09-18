@@ -38,12 +38,18 @@
     </LinearLayout>
 
     <!-- 主体：中间靠上的放大图标 + 版本号 + 更新按钮 -->
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:orientation="vertical"
         android:gravity="center_horizontal"
         android:paddingTop="90dp"
+        android:paddingBottom="24dp"
         android:paddingStart="24dp"
         android:paddingEnd="24dp">
 
@@ -174,6 +180,78 @@
             android:textSize="12sp"
             android:text="后台检查：尚未运行" />
 
+        <!-- 吃药提醒：开关 / 提醒时间 / 吃药日历 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="vertical"
+            android:background="@drawable/glass_card_strong"
+            android:padding="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="吃药提醒"
+                android:textColor="#00FFFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/medToggleBtn"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:text="吃药提醒：已开启"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="#001018"
+                    android:background="@drawable/circle_btn" />
+
+                <Button
+                    android:id="@+id/medTimeBtn"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_marginStart="10dp"
+                    android:text="提醒时间 09:00"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="#001018"
+                    android:background="@drawable/circle_btn" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/medCalendarBtn"
+                android:layout_width="200dp"
+                android:layout_height="46dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="10dp"
+                android:text="吃药日历"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="#001018"
+                android:background="@drawable/circle_btn" />
+
+            <TextView
+                android:id="@+id/medStateTv"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:gravity="center"
+                android:lineSpacingExtra="3dp"
+                android:textColor="#FFC6D5EF"
+                android:textSize="13sp"
+                android:text="今日：未吃药" />
+        </LinearLayout>
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -185,5 +263,7 @@
             android:text="已知限制：悬浮窗在系统「设置」前台时会被系统临时隐藏（Android 安全机制，应用无法覆盖），返回本应用后会自动恢复。\n若部分品牌手机在任意界面都不显示，请在系统设置中为本应用开启「显示在其他应用上层」，并在品牌权限管理中开启「后台弹出界面 / 显示弹窗」。" />
 
     </LinearLayout>
+
+    </ScrollView>
 
 </FrameLayout>
