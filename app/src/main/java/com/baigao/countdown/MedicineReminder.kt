@@ -8,6 +8,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.provider.Settings
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -22,6 +23,19 @@ import java.util.Locale
  * 3. 记录以「yyyy-MM-dd」为键存在 SharedPreferences 里，供「吃药日历」按天显示。
  *
  * 开关与提醒时间都在「关于」页里改（默认开启、09:00）；关掉后闹钟一并取消。
+ *
+ * ---------- v1.0.0.21：为什么退出 App 后就不提醒了 ----------
+ * 只挂一个 AlarmManager 精确闹钟，在下面几种情况里会「静默失效」：
+ *   - 国产 ROM 从最近任务划掉卡片 = 强制停止，系统会**把这个应用的所有闹钟清掉**，
+ *     而且停止状态下的包连开机广播都收不到，于是再也不会重排；
+ *   - Doze 期间 `setExactAndAllowWhileIdle` 会被推迟到维护窗口，早上那种长时间静置
+ *     的场景能晚几十分钟。
+ * 所以这里改成**三路冗余 + 同一天只提醒一次**：
+ *   ① `setAlarmClock`（系统级闹钟，能穿透 Doze，不需要精确闹钟权限）；
+ *   ② 每天重复的非精确闹钟（主路被 ROM 清掉时兜底，提前/延后触发都不会重复打扰）；
+ *   ③ JobScheduler 周期巡检（15 分钟一趟、重启自动恢复）：发现闹钟没了就补挂，
+ *      发现今天该提醒的时刻已过却还没提醒过就**补发**通知。
+ * 另外每次打开 App 都会 `catchUp()`：如果今天的提醒点已经过了却没响过，立刻补一条。
  */
 object MedicineReminder {
 
@@ -34,9 +48,15 @@ object MedicineReminder {
     private const val KEY_HOUR = "hour"
     private const val KEY_MINUTE = "minute"
     private const val KEY_TAKEN = "taken"
+    /** 已经提醒过的日期（yyyy-MM-dd）：三路冗余同时触发时靠它保证一天只打扰一次。 */
+    private const val KEY_LAST_NOTIFY = "last_notify"
+    /** 上次挂载闹钟的时刻（自检页显示用）。 */
+    private const val KEY_LAST_SCHEDULE = "last_schedule"
 
     private const val NOTIF_ID = 20331
     private const val REQ_ALARM = 4111
+    private const val REQ_ALARM_BACKUP = 4114
+    private const val REQ_ALARM_SHOW = 4115
     private const val REQ_TAKEN = 4112
     private const val REQ_OPEN = 4113
 
@@ -83,65 +103,149 @@ object MedicineReminder {
         prefs(ctx).edit().putStringSet(KEY_TAKEN, set).apply()
     }
 
-    // ---------------- 闹钟 ----------------
+    private fun lastNotifyKey(ctx: Context): String =
+        prefs(ctx).getString(KEY_LAST_NOTIFY, "") ?: ""
+
+    private fun setLastNotifyKey(ctx: Context, key: String) {
+        prefs(ctx).edit().putString(KEY_LAST_NOTIFY, key).apply()
+    }
+
+    // ---------------- 闹钟：三路冗余 ----------------
 
     /** 下一次响铃时刻：过了今天的设定时间就顺延到明天。 */
     fun nextTriggerMillis(ctx: Context): Long {
-        val cal = Calendar.getInstance().apply {
+        val today = todayTriggerMillis(ctx)
+        return if (today > System.currentTimeMillis()) today else today + 24 * 60 * 60 * 1000L
+    }
+
+    /** 今天设定时刻的毫秒值（不管过没过）。 */
+    private fun todayTriggerMillis(ctx: Context): Long =
+        Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, hour(ctx))
             set(Calendar.MINUTE, minute(ctx))
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
-        }
-        if (cal.timeInMillis <= System.currentTimeMillis()) cal.add(Calendar.DAY_OF_MONTH, 1)
-        return cal.timeInMillis
-    }
+        }.timeInMillis
 
-    /**
-     * 排下一次闹钟。只排「下一次」，响铃后由 [MedicineAlarmReceiver] 再排下一天 ——
-     * 精确闹钟在国产 ROM 上比重复闹钟更容易被准确唤起。
-     */
+    /** 排下一次提醒（对外入口）。 */
     fun schedule(ctx: Context) {
         if (!isEnabled(ctx)) {
             cancel(ctx)
             return
         }
+        ensureAlarms(ctx)
+    }
+
+    /**
+     * 真正挂载：系统闹钟（主）+ 每天重复闹钟（备）+ JobScheduler 巡检（兜底）。
+     * 重复调用是安全的 —— 只是用同一个 PendingIntent 覆盖旧闹钟。
+     */
+    private fun ensureAlarms(ctx: Context) {
         val trigger = nextTriggerMillis(ctx)
+        val am = ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val pi = alarmPi(ctx)
+
+        // ① 系统闹钟：优先级最高，Doze 也能按时唤起，且不需要精确闹钟权限
+        var ok = false
         try {
-            val am = ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val pi = alarmPi(ctx)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pi)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                am.setAlarmClock(AlarmManager.AlarmClockInfo(trigger, showPi(ctx)), pi)
             } else {
                 am.set(AlarmManager.RTC_WAKEUP, trigger, pi)
             }
-        } catch (se: SecurityException) {
-            // Android 14 起精确闹钟默认不授予：退化成每天重复的非精确闹钟，
-            // 可能被系统延后几分钟，但不需要任何权限、一定能响。
-            fallbackRepeating(ctx, trigger)
+            ok = true
         } catch (e: Throwable) {
-            fallbackRepeating(ctx, trigger)
+            try {
+                // 退而求其次：精确闹钟（Android 12+ 需要权限，没权限会抛异常）
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pi)
+                } else {
+                    am.set(AlarmManager.RTC_WAKEUP, trigger, pi)
+                }
+                ok = true
+            } catch (e2: Throwable) {
+                // 两条精确路都走不通，下面那条重复闹钟一定还在
+            }
+        }
+
+        // ② 每天重复的非精确闹钟：不依赖精确闹钟权限，也不容易被 ROM 当成「精确闹钟」拦下。
+        //    它与 ① 同一天都会触发，但 maybeNotify() 保证一天只发一次通知。
+        try {
+            if (ok) am.cancel(backupPi(ctx))
+            am.setRepeating(
+                AlarmManager.RTC_WAKEUP, trigger, AlarmManager.INTERVAL_DAY, backupPi(ctx)
+            )
+        } catch (e: Throwable) {
+            // 忽略
+        }
+
+        // ③ JobScheduler 巡检：闹钟被清掉时补挂、错过提醒时补发
+        MedicineCheckJobService.schedule(ctx)
+
+        try {
+            prefs(ctx).edit().putLong(KEY_LAST_SCHEDULE, System.currentTimeMillis()).apply()
+        } catch (e: Throwable) {
+            // 忽略
         }
     }
 
-    private fun fallbackRepeating(ctx: Context, trigger: Long) {
-        try {
-            val am = ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val pi = alarmPi(ctx)
-            am.cancel(pi)
-            am.setRepeating(AlarmManager.RTC_WAKEUP, trigger, AlarmManager.INTERVAL_DAY, pi)
-        } catch (e: Throwable) {
-            // 实在排不上就算了，下次打开 App 还会再排一次
+    /** 闹钟响了：先排下一次，再（按需）发通知。 */
+    fun onAlarm(ctx: Context) {
+        if (!isEnabled(ctx)) {
+            cancel(ctx)
+            return
         }
+        schedule(ctx)
+        maybeNotify(ctx)
+    }
+
+    /** JobScheduler 巡检：补挂闹钟 + 错过就补发。 */
+    fun onPeriodicCheck(ctx: Context) {
+        if (!isEnabled(ctx)) return
+        ensureAlarms(ctx)
+        maybeNotify(ctx)
+    }
+
+    /**
+     * 打开 App 时补一次：今天该提醒的时刻已经过了、却又没提醒过（关机、闹钟被清、
+     * 系统推迟等），立刻补一条通知，免得整天都不响。
+     */
+    fun catchUp(ctx: Context) {
+        if (!isEnabled(ctx)) return
+        schedule(ctx)
+        maybeNotify(ctx)
+    }
+
+    /**
+     * 到点才发通知，一天最多一次。
+     * @param force 无视「今天已提醒过 / 未到点」直接发（「测试提醒」用，不写去重标记）。
+     */
+    fun maybeNotify(ctx: Context, force: Boolean = false) {
+        if (!force && !isEnabled(ctx)) return
+        val today = todayKey()
+        var late = false
+        if (!force) {
+            if (isTaken(ctx, today)) return          // 今天已经点了「已吃药」，不再打扰
+            if (lastNotifyKey(ctx) == today) return  // 今天已经提醒过（三路冗余去重）
+            val due = todayTriggerMillis(ctx)
+            val now = System.currentTimeMillis()
+            if (now < due) return                    // 还没到点
+            late = now - due > 5 * 60 * 1000L         // 晚了 5 分钟以上算补发
+        }
+        if (!UpdateNotifier.hasPermission(ctx)) return
+        if (notifyNow(ctx, late)) setLastNotifyKey(ctx, today)
     }
 
     fun cancel(ctx: Context) {
         try {
             val am = ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             am.cancel(alarmPi(ctx))
+            am.cancel(backupPi(ctx))
         } catch (e: Throwable) {
             // 忽略
         }
+        MedicineCheckJobService.cancel(ctx)
+        cancelNotification(ctx)
     }
 
     private fun piFlags(): Int = PendingIntent.FLAG_UPDATE_CURRENT or
@@ -150,6 +254,20 @@ object MedicineReminder {
     private fun alarmPi(ctx: Context): PendingIntent = PendingIntent.getBroadcast(
         ctx, REQ_ALARM,
         Intent(ctx, MedicineAlarmReceiver::class.java).setAction(ACTION_ALARM),
+        piFlags()
+    )
+
+    private fun backupPi(ctx: Context): PendingIntent = PendingIntent.getBroadcast(
+        ctx, REQ_ALARM_BACKUP,
+        Intent(ctx, MedicineAlarmReceiver::class.java).setAction(ACTION_ALARM),
+        piFlags()
+    )
+
+    /** 状态栏闹钟图标被点时的去向（回主界面）。 */
+    private fun showPi(ctx: Context): PendingIntent = PendingIntent.getActivity(
+        ctx, REQ_ALARM_SHOW,
+        Intent(ctx, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
         piFlags()
     )
 
@@ -162,9 +280,9 @@ object MedicineReminder {
     // ---------------- 通知 ----------------
 
     /** 到点发通知：点本体进吃药日历，点「已吃药」直接记录今天。 */
-    fun notifyNow(ctx: Context) {
-        if (!UpdateNotifier.hasPermission(ctx)) return
-        try {
+    fun notifyNow(ctx: Context, late: Boolean = false): Boolean {
+        if (!UpdateNotifier.hasPermission(ctx)) return false
+        return try {
             val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             createChannel(nm)
             val openPi = PendingIntent.getActivity(
@@ -173,10 +291,16 @@ object MedicineReminder {
                     .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
                 piFlags()
             )
+            val title = if (late) "该吃药了（补发提醒）" else "该吃药了"
+            val text = if (late) {
+                "刚才没能按时弹出，现在补上；点「已吃药」记录今天"
+            } else {
+                "点「已吃药」记录今天，也可进吃药日历查看往日记录"
+            }
             val n = Notification.Builder(ctx, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle("该吃药了")
-                .setContentText("点「已吃药」记录今天，也可进吃药日历查看往日记录")
+                .setContentTitle(title)
+                .setContentText(text)
                 .setContentIntent(openPi)
                 .addAction(R.drawable.ic_stat, "已吃药", takenPi(ctx))
                 .setAutoCancel(true)
@@ -185,8 +309,10 @@ object MedicineReminder {
                 .setDefaults(Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE)
                 .build()
             nm.notify(NOTIF_ID, n)
+            true
         } catch (e: Throwable) {
             android.util.Log.w("MedicineReminder", "notifyNow: ${e.message}")
+            false
         }
     }
 
@@ -209,5 +335,66 @@ object MedicineReminder {
         ch.enableVibration(true)
         ch.setShowBadge(true)
         nm.createNotificationChannel(ch)
+    }
+
+    // ---------------- 自检（「关于」页用） ----------------
+
+    /** 下次提醒时间，形如「09-19 09:00」。 */
+    fun nextTriggerText(ctx: Context): String {
+        val f = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
+        return f.format(Date(nextTriggerMillis(ctx)))
+    }
+
+    /** Android 12+ 起精确闹钟是「特殊权限」，被关掉时精确路会失效（我们还有后两路）。 */
+    fun canScheduleExact(ctx: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
+        return try {
+            (ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager).canScheduleExactAlarms()
+        } catch (e: Throwable) {
+            false
+        }
+    }
+
+    /** 跳到系统的「闹钟与提醒」授权页（Android 12+ 才有）。 */
+    fun openExactAlarmSettings(ctx: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        try {
+            ctx.startActivity(
+                Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                    .setData(android.net.Uri.parse("package:${ctx.packageName}"))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        } catch (e: Throwable) {
+            try {
+                ctx.startActivity(
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        .setData(android.net.Uri.parse("package:${ctx.packageName}"))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            } catch (e2: Throwable) {
+                // 忽略
+            }
+        }
+    }
+
+    /** 上次成功挂载闹钟的时间描述（自检用）。 */
+    fun lastScheduleText(ctx: Context): String {
+        val t = prefs(ctx).getLong(KEY_LAST_SCHEDULE, 0L)
+        if (t <= 0L) return "未挂载"
+        val min = Math.max(0L, (System.currentTimeMillis() - t) / 60000L)
+        return when {
+            min < 1 -> "刚刚"
+            min < 60 -> "${min} 分钟前"
+            min < 60 * 24 -> "${min / 60} 小时前"
+            else -> "${min / 1440} 天前"
+        }
+    }
+
+    /** 「关于」页状态行：一眼看出提醒到底挂上没有、卡在哪一环。 */
+    fun statusText(ctx: Context): String {
+        val on = isEnabled(ctx)
+        if (!on) return "提醒已关闭 · 已记录 ${takenCount(ctx)} 天"
+        val today = if (isTaken(ctx)) "已吃药 ✓" else "未吃药"
+        return "今日：$today · 已记录 ${takenCount(ctx)} 天\n下次提醒 ${nextTriggerText(ctx)}"
     }
 }
