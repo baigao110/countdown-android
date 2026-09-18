@@ -12,6 +12,7 @@ object BuiltIn {
     const val MONTH = 2  // 当月倒计时：目标为「次月 1 日 00:00:00」（本月结束的那一刻）
     const val HUADU = 3  // 华都云境悦府倒计时：固定目标 2026-10-31 00:00:00
     const val GTA6 = 4   // GTA6 倒计时：固定目标 2026-11-19 08:00:00
+    const val WEEK = 5   // 每周倒计时：目标为「下周一 00:00:00」（本周结束的那一刻）
 
     /**
      * 固定目标时间的内置项（不随日期滚动）：返回 epoch 毫秒；滚动型内置项返回 null。
@@ -101,6 +102,14 @@ data class Countdown(
                 // 先回到 1 号再进一个月，避免 1/31 + 1 个月 这种溢出
                 cal.set(Calendar.DAY_OF_MONTH, 1)
                 cal.add(Calendar.MONTH, 1)
+            }
+            BuiltIn.WEEK -> {
+                // 以周一为一周的第一天：先定位到本周周一（可能是今天或过去某天），
+                // 再 +7 天即为「下周一 00:00」，也就是本周结束的那一刻。
+                // 不设 firstDayOfWeek 的话 Calendar 默认周日起算，周日当天会算出 8 天后。
+                cal.firstDayOfWeek = Calendar.MONDAY
+                cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+                cal.add(Calendar.DAY_OF_MONTH, 7)
             }
             else -> return false
         }
