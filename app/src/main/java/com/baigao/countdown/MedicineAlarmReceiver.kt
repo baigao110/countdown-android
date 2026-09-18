@@ -9,7 +9,8 @@ import android.widget.Toast
  * 吃药提醒的闹钟接收器（纯框架实现）。
  *
  * 两个动作：
- * - ACTION_ALARM：到点了 —— 先把明天的闹钟排上，再发通知；
+ * - ACTION_ALARM：到点了 —— 交给 MedicineReminder.onAlarm()：先把明天的闹钟排上（三路冗余），
+ *   再按需发通知（同一天只会发一次，重复闹钟 / 巡检不会重复打扰）；
  * - ACTION_TAKEN：通知上的「已吃药」—— 记下今天并收起通知。
  */
 class MedicineAlarmReceiver : BroadcastReceiver() {
@@ -25,11 +26,7 @@ class MedicineAlarmReceiver : BroadcastReceiver() {
                     // 部分 ROM 不允许后台弹 Toast，忽略
                 }
             }
-            else -> {
-                // 先排下一次（哪怕后面发通知失败，明天的提醒也不会丢）
-                MedicineReminder.schedule(context)
-                if (MedicineReminder.isEnabled(context)) MedicineReminder.notifyNow(context)
-            }
+            else -> MedicineReminder.onAlarm(context)
         }
     }
 }
