@@ -32,6 +32,8 @@ class AboutActivity : Activity() {
     private lateinit var medTimeBtn: Button
     private lateinit var medCalendarBtn: Button
     private lateinit var medStateTv: TextView
+    private lateinit var medTestBtn: Button
+    private lateinit var medCheckBtn: Button
 
     private var checking = false
     /** 本次进入页面是否已自动检查过（避免 onResume 反复弹窗）。 */
@@ -55,6 +57,8 @@ class AboutActivity : Activity() {
         medToggleBtn = findViewById(R.id.medToggleBtn)
         medTimeBtn = findViewById(R.id.medTimeBtn)
         medCalendarBtn = findViewById(R.id.medCalendarBtn)
+        medTestBtn = findViewById(R.id.medTestBtn)
+        medCheckBtn = findViewById(R.id.medCheckBtn)
         medStateTv = findViewById(R.id.medStateTv)
 
         versionTv.text = "版本 v${UpdateManager.CURRENT_VERSION_NAME}"
@@ -115,6 +119,17 @@ class AboutActivity : Activity() {
         medCalendarBtn.setOnClickListener {
             startActivity(Intent(this, MedicineCalendarActivity::class.java))
         }
+        // 「测试提醒」：立刻发一条吃药通知，用来确认通知链路到底通不通
+        medTestBtn.setOnClickListener {
+            val ok = MedicineReminder.notifyNow(this)
+            Toast.makeText(
+                this,
+                if (ok) "已发出吃药提醒通知" else "通知被拦截：请先在上方点「开启通知」",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+        // 「后台自检」：把影响「退出 App 后还能不能提醒」的每一项列出来
+        medCheckBtn.setOnClickListener { showMedicineSelfCheck() }
         refreshMedicine()
     }
 
@@ -173,13 +188,7 @@ class AboutActivity : Activity() {
         val on = MedicineReminder.isEnabled(this)
         medToggleBtn.text = if (on) "吃药提醒：已开启" else "吃药提醒：已关闭"
         medTimeBtn.text = "提醒时间 ${MedicineReminder.timeText(this)}"
-        val count = MedicineReminder.takenCount(this)
-        val todayState = if (MedicineReminder.isTaken(this)) "已吃药 ✓" else "未吃药"
-        medStateTv.text = if (on) {
-            "今日：$todayState · 已记录 $count 天"
-        } else {
-            "提醒已关闭 · 已记录 $count 天"
-        }
+        medStateTv.text = MedicineReminder.statusText(this)
     }
 
     /** 读取 TimePicker：API 23+ 用 hour / minute，老版本用已废弃的 currentHour / currentMinute。 */
@@ -197,6 +206,69 @@ class AboutActivity : Activity() {
         } else {
             p.currentHour = hour
             p.currentMinute = minute
+        }
+    }
+
+    /** 跳到本应用的系统设置页（自启动 / 后台运行都在这一片）。 */
+    private fun openAppDetails() {
+        try {
+            startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    .setData(Uri.parse("package:$packageName"))
+            )
+        } catch (e: Throwable) {
+            Toast.makeText(this, "请在系统设置里找到本应用，允许自启动与后台运行", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /** 电池优化是否已关闭（未关闭时后台容易被系统掐断）。 */
+    private fun batteryOptimized(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return false
+        val pm = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+        return !pm.isIgnoringBatteryOptimizations(packageName)
+    }
+
+    /** 吃药提醒自检：退出 / 关闭 App 后不提醒，基本都能在这里看出卡在哪一环。 */
+    private fun showMedicineSelfCheck() {
+        if (isFinishing) return
+        val lines = mutableListOf<String>()
+        lines.add("下次提醒：${MedicineReminder.nextTriggerText(this)}")
+        lines.add("闹钟挂载：${MedicineReminder.lastScheduleText(this)}")
+        lines.add(
+            if (UpdateNotifier.hasPermission(this)) "通知权限：已开启"
+            else "通知权限：未开启（必须开启，否则根本弹不出）"
+        )
+        lines.add(
+            if (MedicineReminder.canScheduleExact(this)) "精确闹钟：已允许"
+            else "精确闹钟：未允许（已自动改用系统闹钟 + 重复闹钟，仍能提醒）"
+        )
+        lines.add(if (batteryOptimized()) "电池优化：未关闭（建议关掉）" else "电池优化：已关闭")
+        lines.add("")
+        lines.add("已经做了三重保障：系统闹钟 + 每日重复闹钟 + 后台巡检（错过会补发）。")
+        lines.add("若仍然不提醒，多半是手机把本应用「强制停止」了：")
+        lines.add("  1. 别从最近任务里划掉本应用的卡片（或在最近任务里给它加锁）；")
+        lines.add("  2. 系统设置 → 应用管理 → 本应用，打开「自启动 / 后台运行」；")
+        lines.add("  3. 重新打开一次本应用，错过的提醒会自动补发。")
+        val needBattery = batteryOptimized()
+        UpdateManager.showStyledDialog(
+            activity = this,
+            title = "吃药提醒自检",
+            positiveText = if (needBattery) "关闭电池优化" else "去设置",
+            negativeText = "关闭",
+            onPositive = { if (needBattery) requestIgnoreBattery() else openAppDetails() }
+        ) { host ->
+            val tv = TextView(this).apply {
+                text = lines.joinToString("\n")
+                setTextColor(android.graphics.Color.parseColor("#FFE4EEFF"))
+                textSize = 13f
+                setLineSpacing(4f, 1.2f)
+                setShadowLayer(2f, 0f, 1f, android.graphics.Color.parseColor("#CC000000"))
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+            host.addView(tv)
         }
     }
 
