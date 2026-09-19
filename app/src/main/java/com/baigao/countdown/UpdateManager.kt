@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.0.25"
+    const val CURRENT_VERSION_NAME = "1.0.0.26"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -608,6 +608,16 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.26", "2026-09-19",
+            "修复「退出 / 关闭软件后就收不到通知」（吃药提醒、版本更新通知都在此列）：\n" +
+            "  新增「通知体检」（关于页）：逐项检查通知总开关、通知权限、吃药提醒渠道、\n" +
+            "    版本更新渠道、精确闹钟、电池优化、后台限制 —— 这些都是静默失败，\n" +
+            "    以前根本无从判断断在哪一环；现在每项不合格都带一个直达设置的按钮\n" +
+            "  通知渠道换新并提到最高级：免打扰时也会响、锁屏可见，不再被收进「无声通知」；\n" +
+            "    渠道重要性一旦定下来就不能就地修改，被关掉时会自动删掉重建，不再是无解死局\n" +
+            "  吃药提醒新增全屏提醒：息屏或锁屏时直接把吃药页弹到眼前\n" +
+            "  开机、覆盖安装（升级）、解锁、改时间、改时区、跨天——更多时机自动重挂任务与闹钟\n" +
+            "  进入应用时若发现通知被挡住，会自动提示一次（一天最多一次，累计最多三次）"),
         ChangelogItem("v1.0.0.25", "2026-09-19",
             "更新提示不再用对话框，改成独立页面（外观完全不变）——\n" +
             "  原先一打开 App 就弹的对话框，被「跳过开屏广告 / 弹窗拦截 / 广告过滤」类工具\n" +
