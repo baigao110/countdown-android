@@ -33,6 +33,7 @@ class AboutActivity : Activity() {
     private lateinit var testBtn: Button
     private lateinit var batteryBtn: Button
     private lateinit var notifyCheckBtn: Button
+    private lateinit var updateModeBtn: Button
     private lateinit var checkStateTv: TextView
     private lateinit var medToggleBtn: Button
     private lateinit var medTimeBtn: Button
@@ -61,6 +62,7 @@ class AboutActivity : Activity() {
         testBtn = findViewById(R.id.testBtn)
         batteryBtn = findViewById(R.id.batteryBtn)
         notifyCheckBtn = findViewById(R.id.notifyCheckBtn)
+        updateModeBtn = findViewById(R.id.updateModeBtn)
         checkStateTv = findViewById(R.id.checkStateTv)
         medToggleBtn = findViewById(R.id.medToggleBtn)
         medTimeBtn = findViewById(R.id.medTimeBtn)
@@ -74,7 +76,8 @@ class AboutActivity : Activity() {
         backBtn.setOnClickListener { finish() }
         changelogBtn.setOnClickListener { UpdateManager.showChangelog(this) }
         helpBtn.setOnClickListener { UpdateManager.showHelp(this) }
-        updateBtn.setOnClickListener { checkUpdate(forceDialog = true) }
+        // 手动点「检查更新」属于用户主动要看，强制弹页面
+        updateBtn.setOnClickListener { checkUpdate(forceDialog = true, forcePage = true) }
 
         // 「开启通知」：没权限就申请（Android 13+），老版本直接跳通知设置页
         notifyBtn.setOnClickListener {
@@ -102,6 +105,16 @@ class AboutActivity : Activity() {
         batteryBtn.setOnClickListener { requestIgnoreBattery() }
         // 「通知体检」：把「退出后收不到通知」拆成一项项可查、可一键修的开关
         notifyCheckBtn.setOnClickListener { NotifyGuard.showReport(this@AboutActivity) }
+        // 「更新提示方式」：弹窗被拦截类软件关掉时，可以改成只在通知栏提醒
+        updateModeBtn.setOnClickListener {
+            val m = UpdateManager.nextPromptMode(this@AboutActivity)
+            refreshUpdateMode()
+            Toast.makeText(
+                this@AboutActivity,
+                "更新提示：${m.label}\n${m.desc}",
+                Toast.LENGTH_LONG
+            ).show()
+        }
 
         // ---- 吃药提醒：开关 / 提醒时间 / 吃药日历 ----
         medToggleBtn.setOnClickListener {
@@ -160,6 +173,7 @@ class AboutActivity : Activity() {
             UpdateNotifier.openSettings(this)
         }
         refreshState()
+        refreshUpdateMode()
     }
 
     /** 引导关闭电池优化（不关的话系统会在后台限制网络与定时检查）。 */
@@ -180,6 +194,20 @@ class AboutActivity : Activity() {
             )
         } catch (e: Throwable) {
             Toast.makeText(this, "请在系统设置里手动关闭本应用的电池优化", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /** 「更新提示方式」按钮的文字：自动模式下若检测到拦截工具，直接把结论写上去。 */
+    private fun refreshUpdateMode() {
+        val m = UpdateManager.promptMode(this)
+        updateModeBtn.text = if (m == UpdateManager.UpdatePromptMode.AUTO) {
+            if (UpdateManager.hasSuspiciousAccessibility(this)) {
+                "更新提示：自动（已改只发通知）"
+            } else {
+                "更新提示：自动"
+            }
+        } else {
+            "更新提示：${m.label}"
         }
     }
 
@@ -498,13 +526,13 @@ class AboutActivity : Activity() {
         }
     }
 
-    private fun checkUpdate(forceDialog: Boolean) {
+    private fun checkUpdate(forceDialog: Boolean, forcePage: Boolean = false) {
         if (checking) return
         checking = true
         updateBtn.isEnabled = false
         statusTv.text = "正在检查更新..."
 
-        UpdateManager.check(this, forceDialog) { info ->
+        UpdateManager.check(this, forceDialog, forcePage = forcePage) { info ->
             checking = false
             updateBtn.isEnabled = true
             if (info == null) {
