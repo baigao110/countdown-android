@@ -574,8 +574,10 @@ class MainActivity : Activity() {
     }
 
     fun onModeCycle(c: Countdown) {
-        val n = CountdownFormatter.MODE_NAMES.size
-        c.displayMode = ((c.displayMode + 1) % n + n) % n
+        // 只在「该条目可用的模式」里循环：当日倒计时跳过已下线的天数模式
+        val modes = CountdownFormatter.availableModes(c.builtIn)
+        val i = modes.indexOf(c.displayMode)
+        c.displayMode = modes[((i + 1) % modes.size + modes.size) % modes.size]
         CountdownStore.save(this, data)
         rebuildList()
         syncService()
@@ -933,7 +935,7 @@ class MainActivity : Activity() {
             titleTv.text = c.title
             titleTv.setTextColor(c.customColorArgb)
             subTv.text = "目标: " + sdf.format(Date(c.targetTime)) +
-                    " | " + CountdownFormatter.modeName(c.displayMode)
+                    " | " + CountdownFormatter.modeName(c.displayMode, c.builtIn)
             lastTimeText = c.remainingText(now)
             applyTimeText(lastTimeText, c.customColorArgb)
             // 整表重建不播动画（否则一进界面所有条目一起乱动），但要确保属性干净
