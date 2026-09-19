@@ -115,6 +115,19 @@ object NotifyGuard {
                 )
             )
         }
+        // ⑧ 后台巡检到底跑没跑：这是判断「触发链路活着吗」最直接的证据
+        val t = UpdateCheckState.lastTime(ctx)
+        val ago = if (t <= 0L) "从未" else agoText(t)
+        val fresh = t > 0L && System.currentTimeMillis() - t < 3 * 60 * 60 * 1000L
+        out.add(
+            Item(
+                fresh, "⑧ 后台巡检",
+                if (t <= 0L) "还没跑过 —— 打开一次应用后开始生效"
+                else if (fresh) "正常（最近一次：$ago）"
+                else "已经 $ago 没跑了 —— 多半是后台被限制，到点就没人去发通知",
+                if (fresh) null else "去设置", { openAppDetails(ctx) }
+            )
+        )
         return out
     }
 
@@ -151,6 +164,16 @@ object NotifyGuard {
                     "去调高", { openChannelSettings(ctx, id) }
                 )
             else -> Item(true, title, "正常（${impName(ch.importance)}，会响铃并弹横幅）")
+        }
+    }
+
+    private fun agoText(t: Long): String {
+        val min = Math.max(0L, (System.currentTimeMillis() - t) / 60000L)
+        return when {
+            min < 1 -> "刚刚"
+            min < 60 -> "$min 分钟前"
+            min < 60 * 24 -> "${min / 60} 小时前"
+            else -> "${min / 1440} 天前"
         }
     }
 
