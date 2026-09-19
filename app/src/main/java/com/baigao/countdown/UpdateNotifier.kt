@@ -26,9 +26,14 @@ import java.util.Locale
  */
 object UpdateNotifier {
 
-    /** 渠道 id 带版本后缀：旧渠道以普通优先级建过，重要性一旦建立就不能就地修改。 */
-    const val CHANNEL_ID = "countdown_update_high"
-    private const val OLD_CHANNEL_ID = "countdown_update"
+    /**
+     * 渠道 id 带版本后缀：渠道重要性一旦由系统或用户定下来就**不能就地修改**，
+     * 被降成「无声通知」或「关闭」后 notify() 会静默失败 —— 这在国产 ROM 上很常见。
+     * 所以每次大改通知策略就换一个新 id，等于把被改坏的设置重置回最高级。
+     */
+    const val CHANNEL_ID = "countdown_update_v26"
+    /** 历代旧渠道：一律清掉，免得系统里留着一堆同名不同级的历史包袱。 */
+    private val OLD_CHANNEL_IDS = listOf("countdown_update", "countdown_update_high")
     private const val NOTIF_ID = 20317
     private const val TEST_ID = 20321
     private const val PREF = "update_notify"
@@ -44,7 +49,11 @@ object UpdateNotifier {
 
     /** 发出「发现新版本」通知；无权限或今天已经提示过该版本则跳过。 */
     fun notifyUpdate(context: Context, info: UpdateManager.UpdateInfo) {
-        if (!hasPermission(context)) return
+        if (!hasPermission(context)) {
+            // 没权限时 notify() 压根不会被调用，这里留个记号，自检时能一眼看出
+            android.util.Log.w("UpdateNotifier", "notifyUpdate: 没有通知权限，已跳过")
+            return
+        }
         if (!shouldNotify(context, info.name)) return
         try {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -66,25 +75,60 @@ object UpdateNotifier {
         }
     }
 
+    /**
+     * 建渠道：最高级 + 免打扰也能响 + 锁屏可见。
+     * 为什么要 MAX 而不是 HIGH：部分 ROM（华为/荣耀等）会把 HIGH 的通知收进「静默通知」，
+     * 不响铃、不弹横幅、只在下拉栏折叠区里躺着，用户就会觉得「通知根本没来」。
+     * 若渠道已被用户关掉（IMPORTANCE_NONE），先删再建 —— 否则只能等用户自己去设置里改。
+     */
     private fun createChannel(nm: NotificationManager) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        // 旧渠道（IMPORTANCE_DEFAULT）不会弹横幅、容易被用户忽略，删掉重建为高优先级
-        try {
-            if (nm.getNotificationChannel(OLD_CHANNEL_ID) != null) {
-                nm.deleteNotificationChannel(OLD_CHANNEL_ID)
+        for (old in OLD_CHANNEL_IDS) {
+            try {
+                if (nm.getNotificationChannel(old) != null) {
+                    nm.deleteNotificationChannel(old)
+                }
+            } catch (e: Throwable) {
+                // 部分 ROM 不允许删除渠道，忽略即可
             }
-        } catch (e: Throwable) {
-            // 部分 ROM 不允许删除渠道，忽略即可
         }
-        if (nm.getNotificationChannel(CHANNEL_ID) != null) return
+        val exist = try {
+            nm.getNotificationChannel(CHANNEL_ID)
+        } catch (e: Throwable) {
+            null
+        }
+        if (exist != null) {
+            // 被关掉的话删掉重建，让重要性回到 MAX（否则通知会被静默丢弃）
+            if (exist.importance == NotificationManager.IMPORTANCE_NONE) {
+                try {
+                    nm.deleteNotificationChannel(CHANNEL_ID)
+                } catch (e: Throwable) {
+                    return
+                }
+            } else {
+                return
+            }
+        }
         val ch = NotificationChannel(
             CHANNEL_ID,
             "版本更新",
-            NotificationManager.IMPORTANCE_HIGH
+            NotificationManager.IMPORTANCE_MAX
         )
         ch.description = "检测到新版本时提醒更新"
         ch.enableVibration(true)
         ch.setShowBadge(true)
+        ch.setBypassDnd(true)
+        ch.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        try {
+            ch.setSound(
+                Settings.System.DEFAULT_NOTIFICATION_URI,
+                android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+                    .build()
+            )
+        } catch (e: Throwable) {
+            // 拿不到默认铃声就交给系统默认行为
+        }
         nm.createNotificationChannel(ch)
     }
 
@@ -179,7 +223,7 @@ object UpdateNotifier {
             .addAction(R.drawable.ic_stat, "立即更新", nowPi)
             .setAutoCancel(true)
             // 高优先级：有声音 + 横幅，息屏后台检查到更新时用户才真的能看到
-            .setPriority(Notification.PRIORITY_HIGH)
+            .setPriority(Notification.PRIORITY_MAX)
             .setCategory(Notification.CATEGORY_MESSAGE)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setDefaults(Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE)
