@@ -180,6 +180,17 @@
             android:textColor="#001018"
             android:background="@drawable/circle_btn" />
 
+        <Button
+            android:id="@+id/updateModeBtn"
+            android:layout_width="260dp"
+            android:layout_height="46dp"
+            android:layout_marginTop="10dp"
+            android:text="更新提示：自动"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:textColor="#001018"
+            android:background="@drawable/circle_btn" />
+
         <TextView
             android:id="@+id/checkStateTv"
             android:layout_width="match_parent"
