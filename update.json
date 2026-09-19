@@ -1,8 +1,8 @@
 {
-  "versionCode": 34,
-  "versionName": "1.0.0.24",
-  "date": "2026-09-18",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.24/countdown-android-v1.0.0.24-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.24",
-  "note": "1. 继续加固「改了下次提醒时间之后，退出 / 关闭软件就收不到吃药提醒」：到点后 2 分钟、30 分钟各补响一次\n2. 精确闹钟与系统闹钟同一时刻再挂一路，共四条闹钟路线，任一条跑通都会提醒\n3. 后台巡检再加一个入口（检查更新的任务里也跑一趟），并记录「上次真正发出提醒」的时刻，自检页能分清是没发还是被拦\n4. 改完「下次提醒」时间后会弹出引导，可一键去允许后台运行；回到前台也会立刻补发漏掉的提醒"
+  "versionCode": 35,
+  "versionName": "1.0.0.25",
+  "date": "2026-09-19",
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.25/countdown-android-v1.0.0.25-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.25",
+  "note": "1. 更新提示不再用对话框，改成独立页面（外观完全不变），不再被「跳过开屏广告 / 弹窗拦截 / 广告过滤」类软件自动关掉\n2. 原先一打开 App 就弹的对话框会被这类工具当成弹窗广告点掉；现在改成一个透明底的普通页面 + 同一张玻璃卡片，并延后 800 毫秒再拉起\n3. 下载进度也直接显示在这张卡片上，不再另弹一个对话框"
 }
