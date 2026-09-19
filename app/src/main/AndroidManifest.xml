@@ -41,6 +41,12 @@
             android:exported="false" />
 
         <activity
+            android:name=".UpdateActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/UpdateTransparent" />
+
+        <activity
             android:name=".AboutActivity"
             android:exported="false" />
 
