@@ -357,6 +357,9 @@ class MainActivity : Activity() {
         }
         // 回到前台也补一次：漏掉的吃药提醒立刻补发（同一天只会发一次）
         MedicineReminder.catchUp(this)
+        // 通知收不到时，用户往往根本不知道是哪一环被关了（权限 / 渠道 / 后台限制都是静默失败）。
+        // 进 App 就悄悄查一次，有问题才弹，且一天最多一次、累计最多三次。
+        NotifyGuard.warnIfBlocked(this)
     }
 
     override fun onPause() {
