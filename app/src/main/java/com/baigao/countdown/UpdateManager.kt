@@ -123,7 +123,7 @@ object UpdateManager {
         UpdatePromptMode.NOTIFY -> false
     }
 
-    const val CURRENT_VERSION_NAME = "1.0.0.27"
+    const val CURRENT_VERSION_NAME = "1.0.0.28"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -416,7 +416,18 @@ object UpdateManager {
             )
         }
 
-        posBtn.text = positiveText
+        if (positiveText.isEmpty()) {
+            // 没有主按钮时（比如体检全部正常，没什么可修的）：隐藏它，
+            // 并把唯一的「关闭」改成按内容宽度居中 —— 否则它会撑满整行，看着像主按钮。
+            posBtn.visibility = View.GONE
+            negBtn.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+            negBtn.minWidth = (150 * dm.density).toInt()
+        } else {
+            posBtn.text = positiveText
+        }
         if (negativeText.isNullOrEmpty()) {
             negBtn.visibility = View.GONE
         } else {
@@ -700,6 +711,13 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.28", "2026-09-19",
+            "通知体检改成「照着做」而不是「看得懂」：\n" +
+            "  底部主按钮直接写明先修哪一项 —— 哪一项不对勾，按钮就显示「去修第 N 项」，\n" +
+            "    点一下直达那一项的对应设置位置\n" +
+            "  体检每一项下的小按钮也标了序号（第 N 项·去打开），不用再数行\n" +
+            "  全部正常时不显示「去修」按钮，只留一个居中的「关闭」\n" +
+            "  序号按实际项数动态编排：不同安卓版本项数不同，以前写死的序号会对不上"),
         ChangelogItem("v1.0.0.27", "2026-09-19",
             "有新版本要尽快知道 + 更新提示不再被拦截软件关掉：\n" +
             "  后台检查间隔从 2 小时缩短到 20 分钟（与系统调度同频），开机 / 解锁 / 升级后\n" +
