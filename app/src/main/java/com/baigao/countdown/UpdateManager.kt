@@ -123,7 +123,7 @@ object UpdateManager {
         UpdatePromptMode.NOTIFY -> false
     }
 
-    const val CURRENT_VERSION_NAME = "1.0.0.28"
+    const val CURRENT_VERSION_NAME = "1.0.0.29"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -711,6 +711,14 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.29", "2026-09-19",
+            "内置倒计时的显示模式按各自周期定制，不再一律显示「周天时分秒」：\n" +
+            "  当日倒计时（目标是次日 0 点，最多 24 小时）—— 标准模式改为「xx时xx分xx秒」，\n" +
+            "    周数和天数永远是 0，摆在那里没意义\n" +
+            "  每周倒计时（目标是下周一 0 点，最多 7 天）—— 标准模式改为「xx天xx时xx分xx秒」\n" +
+            "  当日倒计时下线「天数模式」（永远显示 0 天）：列表、悬浮窗、编辑页都不再出现，\n" +
+            "    已经设成该模式的旧数据自动退回标准模式\n" +
+            "  其他倒计时、其他显示模式一律不变"),
         ChangelogItem("v1.0.0.28", "2026-09-19",
             "通知体检改成「照着做」而不是「看得懂」：\n" +
             "  底部主按钮直接写明先修哪一项 —— 哪一项不对勾，按钮就显示「去修第 N 项」，\n" +
