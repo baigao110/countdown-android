@@ -1,8 +1,8 @@
 {
-  "versionCode": 38,
-  "versionName": "1.0.0.28",
+  "versionCode": 39,
+  "versionName": "1.0.0.29",
   "date": "2026-09-19",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.25/countdown-android-v1.0.0.25-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.25",
-  "note": "通知体检：底部按钮写明要修第几项，点击直达对应设置页;每项按钮带序号;全部正常时不显示去修按钮、关闭按钮居中"
+  "note": "当日倒计时标准模式改为xx时xx分xx秒;每周倒计时标准模式改为xx天xx时xx分xx秒;当日倒计时删除天数模式（列表/悬浮窗/编辑页同步，旧数据退回标准模式）"
 }
