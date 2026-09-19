@@ -47,7 +47,13 @@ import java.util.Locale
  */
 object MedicineReminder {
 
-    const val CHANNEL_ID = "medicine_reminder_high"
+    /**
+     * 渠道 id 带版本后缀：渠道重要性一旦定下来就不能就地修改，被系统/用户降成
+     * 「无声通知」后 notify() 会静默失败（不报错、不显示）。换新 id = 重置回最高级。
+     */
+    const val CHANNEL_ID = "medicine_reminder_v26"
+    /** 历代旧渠道，一律清掉。 */
+    private val OLD_CHANNEL_IDS = listOf("medicine_reminder", "medicine_reminder_high")
     const val ACTION_ALARM = "com.baigao.countdown.action.MEDICINE_ALARM"
     const val ACTION_TAKEN = "com.baigao.countdown.action.MEDICINE_TAKEN"
 
@@ -77,6 +83,8 @@ object MedicineReminder {
     private const val REQ_ALARM_SHOW = 4115
     private const val REQ_TAKEN = 4112
     private const val REQ_OPEN = 4113
+    /** 全屏意图（息屏时直接弹吃药页）用的请求码。 */
+    private const val REQ_FULL = 4119
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
 
@@ -420,15 +428,28 @@ object MedicineReminder {
             } else {
                 "点「已吃药」记录今天，也可进吃药日历查看往日记录"
             }
+            // 全屏意图：息屏 / 锁屏时把吃药页直接弹到眼前（闹钟类通知才有的待遇）。
+            // 普通通知在国产 ROM 上很容易被收进「无声通知」，这个能真正把人叫到。
+            val fullPi = PendingIntent.getActivity(
+                ctx, REQ_FULL,
+                Intent(ctx, MedicineCalendarActivity::class.java)
+                    .addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    ),
+                piFlags()
+            )
             val n = Notification.Builder(ctx, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat)
                 .setContentTitle(title)
                 .setContentText(text)
                 .setContentIntent(openPi)
+                .setFullScreenIntent(fullPi, true)
                 .addAction(R.drawable.ic_stat, "已吃药", takenPi(ctx))
                 .setCategory(Notification.CATEGORY_ALARM)
                 .setAutoCancel(true)
-                .setPriority(Notification.PRIORITY_HIGH)
+                .setPriority(Notification.PRIORITY_MAX)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setDefaults(Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE)
                 .build()
@@ -451,13 +472,49 @@ object MedicineReminder {
 
     private fun createChannel(nm: NotificationManager) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        if (nm.getNotificationChannel(CHANNEL_ID) != null) return
+        for (oldId in OLD_CHANNEL_IDS) {
+            try {
+                if (nm.getNotificationChannel(oldId) != null) {
+                    nm.deleteNotificationChannel(oldId)
+                }
+            } catch (e: Throwable) {
+                // 部分 ROM 不允许删除渠道，忽略即可
+            }
+        }
+        val exist = try {
+            nm.getNotificationChannel(CHANNEL_ID)
+        } catch (e: Throwable) {
+            null
+        }
+        if (exist != null) {
+            if (exist.importance == NotificationManager.IMPORTANCE_NONE) {
+                try {
+                    nm.deleteNotificationChannel(CHANNEL_ID)
+                } catch (e: Throwable) {
+                    return
+                }
+            } else {
+                return
+            }
+        }
         val ch = NotificationChannel(
-            CHANNEL_ID, "吃药提醒", NotificationManager.IMPORTANCE_HIGH
+            CHANNEL_ID, "吃药提醒", NotificationManager.IMPORTANCE_MAX
         )
         ch.description = "每天到点提醒吃药，可点通知上的「已吃药」记录"
         ch.enableVibration(true)
         ch.setShowBadge(true)
+        ch.setBypassDnd(true)
+        ch.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        try {
+            ch.setSound(
+                Settings.System.DEFAULT_NOTIFICATION_URI,
+                android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+                    .build()
+            )
+        } catch (e: Throwable) {
+            // 拿不到默认铃声就交给系统默认行为
+        }
         nm.createNotificationChannel(ch)
     }
 
