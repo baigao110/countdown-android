@@ -32,6 +32,7 @@ class AboutActivity : Activity() {
     private lateinit var notifyBtn: Button
     private lateinit var testBtn: Button
     private lateinit var batteryBtn: Button
+    private lateinit var notifyCheckBtn: Button
     private lateinit var checkStateTv: TextView
     private lateinit var medToggleBtn: Button
     private lateinit var medTimeBtn: Button
@@ -59,6 +60,7 @@ class AboutActivity : Activity() {
         notifyBtn = findViewById(R.id.notifyBtn)
         testBtn = findViewById(R.id.testBtn)
         batteryBtn = findViewById(R.id.batteryBtn)
+        notifyCheckBtn = findViewById(R.id.notifyCheckBtn)
         checkStateTv = findViewById(R.id.checkStateTv)
         medToggleBtn = findViewById(R.id.medToggleBtn)
         medTimeBtn = findViewById(R.id.medTimeBtn)
@@ -98,6 +100,8 @@ class AboutActivity : Activity() {
         }
         // 「允许后台运行」：关掉电池优化，后台检查才不会被系统掐断
         batteryBtn.setOnClickListener { requestIgnoreBattery() }
+        // 「通知体检」：把「退出后收不到通知」拆成一项项可查、可一键修的开关
+        notifyCheckBtn.setOnClickListener { NotifyGuard.showReport(this@AboutActivity) }
 
         // ---- 吃药提醒：开关 / 提醒时间 / 吃药日历 ----
         medToggleBtn.setOnClickListener {
@@ -261,6 +265,15 @@ class AboutActivity : Activity() {
         lines.add("")
         lines.add("已经做了四重保障：系统闹钟 + 精确闹钟 + 每日重复闹钟 +")
         lines.add("两路后台巡检（到点后 2 分钟 / 30 分钟还会各补响一次）。")
+        // 通知体检：把「权限 / 渠道 / 后台」这些看不见的闸门一并告知，
+        // 否则用户只能猜——而这些环节任何一个断了，代码层面都是彻底静默的。
+        val bad = NotifyGuard.lines(this).filter { it.startsWith("✖") }
+        if (bad.isEmpty()) {
+            lines.add("通知体检：全部正常（权限、渠道、后台都通）")
+        } else {
+            lines.add("通知体检：有 ${bad.size} 项会挡住通知 ——")
+            bad.forEach { lines.add("  $it") }
+        }
         lines.add("若仍然不提醒，多半是手机把本应用「强制停止」了：")
         lines.add("  1. 别从最近任务里划掉本应用的卡片（或在最近任务里给它加锁）；")
         lines.add("  2. 系统设置 → 应用管理 → 本应用，打开「自启动 / 后台运行」；")
