@@ -52,12 +52,16 @@ class UpdateCheckReceiver : BroadcastReceiver() {
         private const val TAG = "UpdateCheckReceiver"
         private const val REQ = 20318
         const val ACTION = "com.baigao.countdown.CHECK_UPDATE"
-        /** 后台检查间隔：2 小时（另有 JobScheduler 每 15 分钟一趟，双路并行）。 */
-        const val INTERVAL = 2 * 60 * 60 * 1000L
-        /** 拉取失败后的重试间隔：30 分钟。 */
-        const val RETRY_INTERVAL = 30 * 60 * 1000L
-        /** 首次排程时留一点缓冲（刚装 / 刚开机网络可能还没就绪）。 */
-        const val FIRST_DELAY = 10 * 60 * 1000L
+        /**
+         * 后台检查间隔：20 分钟。
+         * 原来是 2 小时，发新版后用户可能要等两小时才知道；现在和 JobScheduler
+         * （系统硬限制最小 15 分钟）基本同频，有新版本基本能在半小时内通知到。
+         */
+        const val INTERVAL = 20 * 60 * 1000L
+        /** 拉取失败后的重试间隔：10 分钟。 */
+        const val RETRY_INTERVAL = 10 * 60 * 1000L
+        /** 开机 / 解锁 / 覆盖安装后先很快查一次（网络没就绪会失败重试，不影响）。 */
+        const val FIRST_DELAY = 60 * 1000L
 
         private fun pendingIntent(context: Context): PendingIntent {
             val i = Intent(context, UpdateCheckReceiver::class.java)
