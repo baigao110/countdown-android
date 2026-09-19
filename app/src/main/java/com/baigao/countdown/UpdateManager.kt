@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.0.24"
+    const val CURRENT_VERSION_NAME = "1.0.0.25"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -57,6 +57,15 @@ object UpdateManager {
         "https://raw.githubusercontent.com/$OWNER/$REPO/main/update.json"
 
     private val handler = Handler(Looper.getMainLooper())
+
+    /** 更新提示延后拉起的毫秒数：避开「一开 App 就弹窗」这个开屏广告判定特征。 */
+    private const val UPDATE_PROMPT_DELAY = 800L
+    private const val EXTRA_UPD_NUM = "upd_num"
+    private const val EXTRA_UPD_NAME = "upd_name"
+    private const val EXTRA_UPD_APK = "upd_apk"
+    private const val EXTRA_UPD_NOTE = "upd_note"
+    private const val EXTRA_UPD_HTML = "upd_html"
+    private const val EXTRA_UPD_DATE = "upd_date"
 
     /** 已下载、等待用户授予安装权限的 APK。 */
     private var pendingApk: File? = null
@@ -269,15 +278,34 @@ object UpdateManager {
      * @param content 往内容容器里填视图（容器本身可滚动，内容过高时自动限高）。
      * @return 已显示的对话框，便于调用方关闭或更新内容。
      */
-    fun showStyledDialog(
+    /** 一张玻璃卡片的句柄：拿到就能改标题、换内容、动按钮。 */
+    class StyledCard(
+        val root: View,
+        val title: TextView,
+        val host: LinearLayout,
+        val positive: Button,
+        val negative: Button
+    )
+
+    /**
+     * 生成「深色圆角底 + 青色标题 + 青色胶囊按钮」的卡片视图本身。
+     *
+     * 对话框（showStyledDialog）与更新页面（UpdateActivity）共用这一段，外观完全一致。
+     * 后者之所以不用对话框：一批「跳过开屏广告 / 弹窗拦截 / 广告过滤」工具靠无障碍服务
+     * 盯 Dialog 窗口，一开 App 就弹出的那种尤其容易被当成弹窗广告替用户点掉；
+     * 换成普通 Activity 页面之后，它们就无从下手了。
+     *
+     * @param content 往内容容器里填视图（容器本身可滚动，内容过高时自动限高）。
+     */
+    fun buildStyledCard(
         activity: Activity,
         title: String,
         positiveText: String,
         negativeText: String? = null,
-        cancelable: Boolean = true,
         onPositive: (() -> Unit)? = null,
+        onNegative: (() -> Unit)? = null,
         content: (LinearLayout) -> Unit
-    ): AlertDialog {
+    ): StyledCard {
         val root = activity.layoutInflater.inflate(R.layout.dialog_styled, null)
         val titleTv = root.findViewById<TextView>(R.id.dialogTitle)
         val host = root.findViewById<LinearLayout>(R.id.dialogContent)
@@ -291,9 +319,9 @@ object UpdateManager {
         val dm = activity.resources.displayMetrics
         val winW = (dm.widthPixels * 0.92).toInt()
         // 内容区最多占屏幕高度的 45%：加上标题、按钮和内外边距，整框稳稳落在屏幕内。
-        // 关键是必须在 show() 「之前」离屏量一次内容高度，超了就直接把滚动区定高 ——
-        // 这样窗口生成时拿到的就是受限后的尺寸。等到弹出之后再去补救是没用的：
-        // 窗口高度在 show() 那一刻就按完整内容定死了，居中显示会把上下都切掉。
+        // 关键是必须在显示「之前」离屏量一次内容高度，超了就直接把滚动区定高 ——
+        // 这样窗口生成时拿到的就是受限后的尺寸。等到显示之后再去补救是没用的：
+        // 高度在那一刻就按完整内容定死了，居中显示会把上下都切掉。
         val padH = (20 * dm.density).toInt() * 2   // dialog_styled 左右各 20dp 内边距
         host.measure(
             android.view.View.MeasureSpec.makeMeasureSpec(
@@ -313,13 +341,43 @@ object UpdateManager {
         } else {
             negBtn.text = negativeText
         }
+        negBtn.setOnClickListener { onNegative?.invoke() }
+        posBtn.setOnClickListener { onPositive?.invoke() }
+
+        return StyledCard(root, titleTv, host, posBtn, negBtn)
+    }
+
+    /**
+     * 与「关于」页同风格的对话框：深色圆角底 + 青色标题 + 青色胶囊按钮。
+     *
+     * @param content 往内容容器里填视图（容器本身可滚动，内容过高时自动限高）。
+     * @return 已显示的对话框，便于调用方关闭或更新内容。
+     */
+    fun showStyledDialog(
+        activity: Activity,
+        title: String,
+        positiveText: String,
+        negativeText: String? = null,
+        cancelable: Boolean = true,
+        onPositive: (() -> Unit)? = null,
+        content: (LinearLayout) -> Unit
+    ): AlertDialog {
+        var ref: AlertDialog? = null
+        val card = buildStyledCard(
+            activity = activity,
+            title = title,
+            positiveText = positiveText,
+            negativeText = negativeText,
+            onPositive = { ref?.dismiss(); onPositive?.invoke() },
+            onNegative = { ref?.dismiss() },
+            content = content
+        )
+        val root = card.root
+        val dm = activity.resources.displayMetrics
+        val winW = (dm.widthPixels * 0.92).toInt()
 
         val dialog = AlertDialog.Builder(activity).setView(root).setCancelable(cancelable).create()
-        negBtn.setOnClickListener { dialog.dismiss() }
-        posBtn.setOnClickListener {
-            dialog.dismiss()
-            onPositive?.invoke()
-        }
+        ref = dialog
         // 去掉系统默认的白色面板底，露出布局自带的深色圆角背景
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         dialog.show()
@@ -331,6 +389,7 @@ object UpdateManager {
             val maxH = (dm.heightPixels * 0.8).toInt()
             if (root.height > maxH) {
                 dialog.window?.setLayout(winW, maxH)
+                val scroll = root.findViewById<ScrollView>(R.id.dialogScroll)
                 scroll.layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
                 )
@@ -342,43 +401,86 @@ object UpdateManager {
 
     // ---------------- 强制更新弹窗 ----------------
 
-    /** 强制弹出更新日志对话框，用户点「立即更新」开始下载安装。 */
+    /**
+     * 弹出更新提示，用户点「立即更新」开始下载安装。
+     *
+     * ---------- v1.0.0.25：为什么不再用对话框 ----------
+     * 原先是一个 AlertDialog，被一批「跳过开屏广告 / 弹窗拦截 / 广告过滤」工具当成弹窗广告
+     * 自动关掉了 —— 它们靠无障碍服务盯 Dialog 窗口，而「一打开 App 就弹窗」正是开屏广告的
+     * 典型特征，于是更新提示根本没机会被看见。
+     * 这里改成**启动一个普通的 Activity 页面**（透明底 + 同一张玻璃卡片，外观不变），
+     * 并延后 800 毫秒再拉起，既躲开 Dialog 窗口这一层，也不再命中开屏广告的判定。
+     */
     fun showUpdateDialog(activity: Activity, info: UpdateInfo) {
-        if (activity.isFinishing) return
-        showStyledDialog(
-            activity = activity,
-            title = "发现新版本 v${info.name}",
-            positiveText = "立即更新",
-            negativeText = "稍后再说",
-            onPositive = { downloadAndInstall(activity, info) }
-        ) { host ->
-            host.addView(kvRow(activity, "发布日期", info.date.ifEmpty { "未知" }))
-            host.addView(kvRow(activity, "当前版本", "v$CURRENT_VERSION_NAME"))
-            host.addView(sectionTitle(activity, "更新日志"))
-            host.addView(
-                bodyText(
-                    activity,
-                    if (info.note.isBlank()) "暂无更新说明" else info.note
-                )
-            )
-        }
+        if (activity.isFinishing || activity.isDestroyed) return
+        handler.postDelayed({
+            if (activity.isFinishing || activity.isDestroyed) return@postDelayed
+            activity.startActivity(updateIntent(activity, info))
+        }, UPDATE_PROMPT_DELAY)
+    }
+
+    /** 更新提示页的 Intent（UpdateActivity 用）。 */
+    fun updateIntent(ctx: Context, info: UpdateInfo): Intent =
+        Intent(ctx, UpdateActivity::class.java)
+            .putExtra(EXTRA_UPD_NUM, info.num)
+            .putExtra(EXTRA_UPD_NAME, info.name)
+            .putExtra(EXTRA_UPD_APK, info.apkUrl)
+            .putExtra(EXTRA_UPD_NOTE, info.note)
+            .putExtra(EXTRA_UPD_HTML, info.htmlUrl)
+            .putExtra(EXTRA_UPD_DATE, info.date)
+
+    /** 从 Intent 还原版本信息（UpdateActivity 用）；缺字段返回 null。 */
+    fun infoFromIntent(intent: Intent): UpdateInfo? {
+        val name = intent.getStringExtra(EXTRA_UPD_NAME) ?: return null
+        return UpdateInfo(
+            num = intent.getIntExtra(EXTRA_UPD_NUM, 0),
+            name = name,
+            apkUrl = intent.getStringExtra(EXTRA_UPD_APK) ?: "",
+            note = intent.getStringExtra(EXTRA_UPD_NOTE) ?: "",
+            htmlUrl = intent.getStringExtra(EXTRA_UPD_HTML) ?: "",
+            date = intent.getStringExtra(EXTRA_UPD_DATE) ?: ""
+        )
+    }
+
+    /** 更新提示的内容：发布日期 / 当前版本 / 更新日志（对话框与更新页共用）。 */
+    fun fillUpdateContent(ctx: Context, host: LinearLayout, info: UpdateInfo) {
+        host.addView(kvRow(ctx, "发布日期", info.date.ifEmpty { "未知" }))
+        host.addView(kvRow(ctx, "当前版本", "v$CURRENT_VERSION_NAME"))
+        host.addView(sectionTitle(ctx, "更新日志"))
+        host.addView(bodyText(ctx, if (info.note.isBlank()) "暂无更新说明" else info.note))
     }
 
     /** 下载 APK 并在下载完成后拉起安装界面，下载期间显示进度对话框。 */
-    fun downloadAndInstall(activity: Activity, info: UpdateInfo) {
-        val canceled = AtomicBoolean(false)
+    /**
+     * 下载 APK 并拉起安装。
+     *
+     * @param onProgress 传了就走「页面内进度」（不另弹对话框，避免再被当成广告弹窗关掉）；
+     *                   不传则沿用原来的进度对话框。
+     * @param canceled   页面内进度模式下的取消开关。
+     * @param onDone     下载收尾（成功拉起安装 / 失败）后的回调。
+     */
+    fun downloadAndInstall(
+        activity: Activity,
+        info: UpdateInfo,
+        onProgress: ((String) -> Unit)? = null,
+        canceled: AtomicBoolean = AtomicBoolean(false),
+        onDone: (() -> Unit)? = null
+    ) {
         var progressTv: TextView? = null
-        val dialog = showStyledDialog(
-            activity = activity,
-            title = "正在下载 v${info.name}",
-            positiveText = "取消",
-            negativeText = null,
-            cancelable = false,
-            onPositive = { canceled.set(true) }
-        ) { host ->
-            val tv = bodyText(activity, "准备中...")
-            progressTv = tv
-            host.addView(tv)
+        var dialog: AlertDialog? = null
+        if (onProgress == null) {
+            dialog = showStyledDialog(
+                activity = activity,
+                title = "正在下载 v${info.name}",
+                positiveText = "取消",
+                negativeText = null,
+                cancelable = false,
+                onPositive = { canceled.set(true) }
+            ) { host ->
+                val tv = bodyText(activity, "准备中...")
+                progressTv = tv
+                host.addView(tv)
+            }
         }
 
         Thread {
@@ -404,7 +506,10 @@ object UpdateManager {
                         var lastPost = 0L
                         while (input.read(buf).also { read = it } > 0) {
                             if (canceled.get()) {
-                                handler.post { if (dialog.isShowing) dialog.dismiss() }
+                                handler.post {
+                                    dialog?.let { if (it.isShowing) it.dismiss() }
+                                    onDone?.invoke()
+                                }
                                 return@Thread
                             }
                             out.write(buf, 0, read)
@@ -415,26 +520,28 @@ object UpdateManager {
                                 val mb = "%.1f".format(sum / 1024.0 / 1024.0)
                                 val percent = if (total > 0) sum * 100 / total else -1
                                 handler.post {
-                                    if (dialog.isShowing) {
-                                        progressTv?.text =
-                                            if (percent >= 0) "已下载 $percent%（$mb MB）"
-                                            else "已下载 $mb MB"
-                                    }
+                                    val txt =
+                                        if (percent >= 0) "已下载 $percent%（$mb MB）"
+                                        else "已下载 $mb MB"
+                                    if (onProgress != null) onProgress(txt)
+                                    else progressTv?.text = txt
                                 }
                             }
                         }
                     }
                 }
                 handler.post {
-                    if (dialog.isShowing) dialog.dismiss()
+                    dialog?.let { if (it.isShowing) it.dismiss() }
                     installApk(activity, file)
+                    onDone?.invoke()
                 }
             } catch (e: Throwable) {
                 e.printStackTrace()
                 handler.post {
-                    if (dialog.isShowing) dialog.dismiss()
+                    dialog?.let { if (it.isShowing) it.dismiss() }
                     Toast.makeText(activity, "下载失败，请检查网络后重试", Toast.LENGTH_SHORT).show()
                     openInBrowser(activity, info)
+                    onDone?.invoke()
                 }
             }
         }.start()
@@ -501,6 +608,13 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.25", "2026-09-19",
+            "更新提示不再用对话框，改成独立页面（外观完全不变）——\n" +
+            "  原先一打开 App 就弹的对话框，被「跳过开屏广告 / 弹窗拦截 / 广告过滤」类工具\n" +
+            "    当成弹窗广告自动点掉，更新提示根本没机会被看见\n" +
+            "  现在改成一个透明底的普通页面 + 同一张玻璃卡片，并延后 800 毫秒再拉起，\n" +
+            "    既躲开对话框窗口这一层，也不再命中「一开 App 就弹窗」的开屏广告特征\n" +
+            "  下载进度同样直接显示在这张卡片上，不再另弹一个对话框"),
         ChangelogItem("v1.0.0.24", "2026-09-18",
             "继续加固「改了下次提醒时间之后，退出 / 关闭软件就收不到提醒」：\n" +
             "  到点后 2 分钟、30 分钟各补响一次 —— 主路被系统推迟或清掉也能兜住\n" +
