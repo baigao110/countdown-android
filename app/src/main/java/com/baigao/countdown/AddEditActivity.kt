@@ -68,10 +68,16 @@ class AddEditActivity : Activity() {
         // 日期时间也可以改 —— 只要改了目标时间，该条就转为普通倒计时（BuiltIn.NONE），
         // 不再由系统每天 / 每月滚动，避免用户自己指定的时刻被下一帧覆盖掉。
         val builtInEdit = c != null && c.isBuiltIn()
+        // 进入本页时的内置类型：模式下拉框按它过滤（当日倒计时没有天数模式）。
+        // 注意用户在页面里改了目标时间会让该条降级为普通倒计时，但下拉框已按此列表铺好，
+        // 保存时仍用同一个列表还原模式号，两者不会错位。
+        val startBuiltIn = c?.builtIn ?: BuiltIn.NONE
 
         colorSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, colorNames)
         (colorSpinner.adapter as ArrayAdapter<*>).setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        modeSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, CountdownFormatter.MODE_NAMES)
+        modeSpinner.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_item, CountdownFormatter.modeNames(startBuiltIn)
+        )
         (modeSpinner.adapter as ArrayAdapter<*>).setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         animSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, AnimStyle.NAMES)
         (animSpinner.adapter as ArrayAdapter<*>).setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -89,10 +95,7 @@ class AddEditActivity : Activity() {
             var ci = colors.indexOfFirst { it == c.customColorArgb }
             if (ci < 0) ci = 0
             colorSpinner.setSelection(ci)
-            modeSpinner.setSelection(
-                CountdownFormatter.normalizeMode(c.displayMode)
-                    .coerceIn(0, CountdownFormatter.MODE_NAMES.size - 1)
-            )
+            modeSpinner.setSelection(CountdownFormatter.modeIndex(c.displayMode, startBuiltIn))
             animSpinner.setSelection(c.animStyle.coerceIn(0, AnimStyle.NAMES.size - 1))
             remarkEt.setText(c.remark)
             soundBtn.text = if (c.soundUri != null) {
@@ -149,7 +152,8 @@ class AddEditActivity : Activity() {
                     existing.targetTime = target
                     if (existing.builtIn != BuiltIn.NONE && target != sysTarget) existing.builtIn = BuiltIn.NONE
                     existing.customColorArgb = colors[colorSpinner.selectedItemPosition]
-                    existing.displayMode = modeSpinner.selectedItemPosition
+                    existing.displayMode =
+                        CountdownFormatter.modeAt(modeSpinner.selectedItemPosition, startBuiltIn)
                     existing.animStyle = animSpinner.selectedItemPosition
                     existing.remark = remarkEt.text.toString()
                 }
@@ -159,7 +163,9 @@ class AddEditActivity : Activity() {
                         title = titleEt.text.toString(),
                         targetTime = target,
                         customColorArgb = colors[colorSpinner.selectedItemPosition],
-                        displayMode = modeSpinner.selectedItemPosition,
+                        displayMode = CountdownFormatter.modeAt(
+                            modeSpinner.selectedItemPosition, startBuiltIn
+                        ),
                         animStyle = animSpinner.selectedItemPosition,
                         remark = remarkEt.text.toString()
                     )
