@@ -271,7 +271,10 @@ class MainActivity : Activity() {
         i?.removeExtra(EXTRA_SHOW_UPDATE)
         i?.removeExtra(EXTRA_UPDATE_NOW)
         updateCheckedOnce = true
-        UpdateManager.check(this, forceDialog = show, notify = false) { info ->
+        // 用户是主动点通知进来的：无论如何都把更新提示页弹出来（不受拦截降级影响）
+        UpdateManager.check(
+            this, forceDialog = show, notify = false, forcePage = true
+        ) { info ->
             if (info != null && now) UpdateManager.downloadAndInstall(this, info)
         }
     }
