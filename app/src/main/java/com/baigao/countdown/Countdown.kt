@@ -149,7 +149,8 @@ data class Countdown(
 
     fun remainingText(now: Long = AlignedClock.now()): String {
         refreshBuiltInTarget()
-        return CountdownFormatter.remaining(targetTime, displayMode, now)
+        // 内置项的「标准模式」含义按类型定制（见 effectiveMode），所以必须把 builtIn 一起传下去
+        return CountdownFormatter.remaining(targetTime, displayMode, now, builtIn)
     }
 }
 
@@ -168,6 +169,10 @@ fun millisToNextSecond(now: Long = System.currentTimeMillis()): Long {
  * 显示模式名称与倒计时段文本生成（移植自桌面版 TimerData，并补齐安卓所需的全部模式）。
  */
 object CountdownFormatter {
+
+    /** 模式号常量：MODE_NAMES 的索引即值，只能在末尾追加。 */
+    const val MODE_STANDARD = 0
+    const val MODE_DAY = 4      // 天数模式：当日倒计时永远 0 天，对它已下线
 
     val MODE_NAMES = arrayOf(
         "标准模式",     // 0  xx周xx天xx时xx分xx秒
@@ -201,10 +206,51 @@ object CountdownFormatter {
      */
     fun normalizeMode(mode: Int): Int = if (mode in MODE_NAMES.indices) mode else 0
 
-    fun modeName(mode: Int): String =
-        if (mode in MODE_NAMES.indices) MODE_NAMES[mode] else MODE_NAMES[0]
+    fun modeName(mode: Int, builtIn: Int = BuiltIn.NONE): String =
+        MODE_NAMES[normalizeMode(mode).coerceIn(0, MODE_NAMES.size - 1)]
 
-    fun remaining(targetTime: Long, mode: Int, now: Long = System.currentTimeMillis()): String {
+    /**
+     * 内置「当日 / 每周」倒计时的周期长度决定哪个模式才有意义：
+     *
+     * - **当日倒计时**（目标 = 次日 00:00，最多 24 小时）：周、天永远是 0，
+     *   所以「标准模式」直接给 **xx时xx分xx秒**；「天数模式」同样没有意义，一并作废。
+     * - **每周倒计时**（目标 = 下周一 00:00，最多 7 天）：周永远是 0，
+     *   所以「标准模式」给 **xx天xx时xx分xx秒**。
+     *
+     * 其余倒计时、其余模式**一律原样返回**，行为不变。
+     */
+    fun effectiveMode(mode: Int, builtIn: Int): Int = when (builtIn) {
+        BuiltIn.DAY -> if (mode == 0 || mode == 4) 5 else mode  // 标准 / 天数 → 时分秒
+        BuiltIn.WEEK -> if (mode == 0) 6 else mode              // 标准 → 天时分秒
+        else -> mode
+    }
+
+    /** 该条目可选的模式号列表：当日倒计时不含「天数模式」。 */
+    fun availableModes(builtIn: Int): List<Int> =
+        MODE_NAMES.indices.filter { m -> builtIn != BuiltIn.DAY || m != MODE_DAY }
+
+    /** 该条目可选模式的名称（编辑页下拉框用）。 */
+    fun modeNames(builtIn: Int): Array<String> =
+        availableModes(builtIn).map { MODE_NAMES[it] }.toTypedArray()
+
+    /** 模式号在可选列表中的位置（编辑页下拉框用）；不在列表里时退回第 0 项。 */
+    fun modeIndex(mode: Int, builtIn: Int): Int {
+        val i = availableModes(builtIn).indexOf(normalizeMode(mode))
+        return if (i >= 0) i else 0
+    }
+
+    /** 把下拉框选中位置还原成模式号。 */
+    fun modeAt(index: Int, builtIn: Int): Int {
+        val list = availableModes(builtIn)
+        return list[index.coerceIn(0, list.size - 1)]
+    }
+
+    fun remaining(
+        targetTime: Long,
+        mode: Int,
+        now: Long = System.currentTimeMillis(),
+        builtIn: Int = BuiltIn.NONE
+    ): String {
         // 关键：目标时间与当前时刻都对齐到「整秒」再相减。
         // 若直接用 (targetTime - now) / 1000，各条目目标时间的毫秒尾数不同（历史数据常见，
         // 例如 .237 / .881 / .512），同一瞬间算出的秒数会彼此错开 1 秒，且每个条目都在
@@ -212,7 +258,7 @@ object CountdownFormatter {
         // 对齐整秒后，所有倒计时都在墙上时钟过整秒的同一瞬间一起跳秒。
         var s = Math.floorDiv(targetTime, 1000L) - Math.floorDiv(now, 1000L)
         if (s < 0) s = 0
-        return when (mode) {
+        return when (effectiveMode(mode, builtIn)) {
             0 -> weekDayHms(s)
             1 -> String.format("%d时", s / 3600)
             2 -> String.format("%d分", s / 60)
