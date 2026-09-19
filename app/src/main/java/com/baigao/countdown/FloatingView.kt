@@ -137,7 +137,8 @@ class FloatingView(
             timeHead.setTextColor(data.customColorArgb)
             timeLast.setTextColor(data.customColorArgb)
             timeTail.setTextColor(data.customColorArgb)
-            modeTv.text = CountdownFormatter.modeName(data.displayMode) + " | " + AnimStyle.name(data.animStyle)
+            modeTv.text = CountdownFormatter.modeName(data.displayMode, data.builtIn) +
+                " | " + AnimStyle.name(data.animStyle)
             data.refreshBuiltInTarget() // 内置项对齐目标时间，保证「目标:」显示当前周期
             targetTv.text = "目标: " +
                     SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(data.targetTime))
@@ -215,9 +216,10 @@ class FloatingView(
     fun getPosition(): Pair<Int, Int> = params.x to params.y
 
     private fun shiftMode(delta: Int) {
-        val n = CountdownFormatter.MODE_NAMES.size
-        val cur = data.displayMode
-        val next = ((cur + delta) % n + n) % n
+        // 与主界面的模式按钮一致：只在可用模式里循环
+        val modes = CountdownFormatter.availableModes(data.builtIn)
+        val i = modes.indexOf(data.displayMode)
+        val next = modes[((i + delta) % modes.size + modes.size) % modes.size]
         onModeChange(data, next)
     }
 
