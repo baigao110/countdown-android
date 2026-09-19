@@ -1,6 +1,8 @@
 package com.baigao.countdown
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Activity
+import android.view.accessibility.AccessibilityManager
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
@@ -47,7 +49,81 @@ import java.util.concurrent.atomic.AtomicBoolean
 object UpdateManager {
 
     /** 当前版本号，发版时与 app/build.gradle 的 versionName 保持一致。 */
-    const val CURRENT_VERSION_NAME = "1.0.0.26"
+    // ---------------- 更新提示方式 ----------------
+
+    /**
+     * 更新提示怎么出现。
+     *
+     * 背景：那些「跳过开屏广告 / 弹窗拦截 / 广告过滤」类工具是**靠无障碍服务盯着窗口**，
+     * 一发现像弹窗的窗口就替用户点掉。对话框（v25 之前）会被盯上，独立页面也一样可能被盯上。
+     * 但**通知栏通知它们关不掉** —— 所以给出「只发通知」这条路，并且能自动降级。
+     */
+    enum class UpdatePromptMode(val key: String, val label: String, val desc: String) {
+        AUTO("auto", "自动", "检测到弹窗拦截类工具时自动改成只发通知"),
+        PAGE("page", "弹出提示", "总是弹出更新提示页（可能被拦截工具关掉）"),
+        NOTIFY("notify", "只发通知", "不弹任何界面，只在通知栏发一条（最不容易被拦）")
+    }
+
+    private const val PREF_PROMPT = "update_prompt"
+    private const val KEY_PROMPT = "mode"
+
+    fun promptMode(ctx: Context): UpdatePromptMode {
+        val v = ctx.getSharedPreferences(PREF_PROMPT, Context.MODE_PRIVATE)
+            .getString(KEY_PROMPT, UpdatePromptMode.AUTO.key) ?: UpdatePromptMode.AUTO.key
+        return UpdatePromptMode.values().firstOrNull { it.key == v } ?: UpdatePromptMode.AUTO
+    }
+
+    fun setPromptMode(ctx: Context, mode: UpdatePromptMode) {
+        ctx.getSharedPreferences(PREF_PROMPT, Context.MODE_PRIVATE)
+            .edit().putString(KEY_PROMPT, mode.key).apply()
+    }
+
+    /** 「关于」页按钮用：点一下切到下一个模式，返回新的模式。 */
+    fun nextPromptMode(ctx: Context): UpdatePromptMode {
+        val order = listOf(
+            UpdatePromptMode.AUTO, UpdatePromptMode.PAGE, UpdatePromptMode.NOTIFY
+        )
+        val idx = order.indexOf(promptMode(ctx))
+        val next = order[(idx + 1) % order.size]
+        setPromptMode(ctx, next)
+        return next
+    }
+
+    /**
+     * 系统里是否开着「弹窗拦截类」无障碍服务。
+     * 这类工具（跳过开屏广告等）必须开无障碍服务才能替用户点掉窗口，
+     * 所以只要开着非系统/非输入法的无障碍服务，就按「有拦截风险」处理。
+     */
+    fun hasSuspiciousAccessibility(ctx: Context): Boolean {
+        return try {
+            val am = ctx.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
+            val list = am.getEnabledAccessibilityServiceList(
+                AccessibilityServiceInfo.FEEDBACK_ALL_MASK
+            )
+            list.any { si ->
+                val pkg = si.resolveInfo?.serviceInfo?.packageName ?: return@any false
+                when {
+                    pkg == ctx.packageName -> false
+                    pkg == "android" -> false
+                    pkg.startsWith("com.android.") -> false          // 系统自带
+                    pkg.startsWith("com.google.") -> false           // TalkBack 等
+                    pkg.startsWith("com.android.inputmethod") -> false
+                    else -> true
+                }
+            }
+        } catch (e: Throwable) {
+            false
+        }
+    }
+
+    /** 当前是否应该弹更新提示页（false 就只发通知栏通知）。 */
+    fun shouldShowPage(ctx: Context): Boolean = when (promptMode(ctx)) {
+        UpdatePromptMode.AUTO -> !hasSuspiciousAccessibility(ctx)
+        UpdatePromptMode.PAGE -> true
+        UpdatePromptMode.NOTIFY -> false
+    }
+
+    const val CURRENT_VERSION_NAME = "1.0.0.27"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -59,7 +135,8 @@ object UpdateManager {
     private val handler = Handler(Looper.getMainLooper())
 
     /** 更新提示延后拉起的毫秒数：避开「一开 App 就弹窗」这个开屏广告判定特征。 */
-    private const val UPDATE_PROMPT_DELAY = 800L
+    /** 延后再拉起更新提示页：避开「一开 App 就弹窗」这个开屏广告判定特征。 */
+    private const val UPDATE_PROMPT_DELAY = 1500L
     private const val EXTRA_UPD_NUM = "upd_num"
     private const val EXTRA_UPD_NAME = "upd_name"
     private const val EXTRA_UPD_APK = "upd_apk"
@@ -107,6 +184,10 @@ object UpdateManager {
         activity: Activity,
         forceDialog: Boolean,
         notify: Boolean = true,
+        /** 用户主动要看（点了通知 / 点了「检查更新」）时传 true，此时不受拦截降级影响。
+         *  注意：必须排在 onResult 之前 —— 调用方用尾随 lambda 传 onResult，
+         *  尾随 lambda 只能落在形参列表最后一位。 */
+        forcePage: Boolean = false,
         onResult: ((UpdateInfo?) -> Unit)? = null
     ) {
         Thread {
@@ -115,7 +196,7 @@ object UpdateManager {
                 val newest = if (info != null && info.num > CURRENT_VERSION_NUM) info else null
                 onResult?.invoke(newest)
                 if (newest != null && notify) UpdateNotifier.notifyUpdate(activity, newest)
-                if (forceDialog && newest != null) showUpdateDialog(activity, newest)
+                if (forceDialog && newest != null) showUpdateDialog(activity, newest, forcePage)
             }
         }.start()
     }
@@ -411,8 +492,19 @@ object UpdateManager {
      * 这里改成**启动一个普通的 Activity 页面**（透明底 + 同一张玻璃卡片，外观不变），
      * 并延后 800 毫秒再拉起，既躲开 Dialog 窗口这一层，也不再命中开屏广告的判定。
      */
-    fun showUpdateDialog(activity: Activity, info: UpdateInfo) {
+    /**
+     * 弹出更新提示（或只发通知）。
+     *
+     * @param forcePage true 表示是用户主动点进来的（比如点了通知），此时无论如何都弹页面。
+     */
+    fun showUpdateDialog(activity: Activity, info: UpdateInfo, forcePage: Boolean = false) {
         if (activity.isFinishing || activity.isDestroyed) return
+        if (!forcePage && !shouldShowPage(activity)) {
+            // 检测到弹窗拦截类工具（或用户选了「只发通知」）：改成通知栏通知。
+            // 通知栏不在那些工具能关掉的窗口范围内，是最稳的一条路。
+            UpdateNotifier.notifyUpdate(activity, info, force = true)
+            return
+        }
         handler.postDelayed({
             if (activity.isFinishing || activity.isDestroyed) return@postDelayed
             activity.startActivity(updateIntent(activity, info))
@@ -608,6 +700,16 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.27", "2026-09-19",
+            "有新版本要尽快知道 + 更新提示不再被拦截软件关掉：\n" +
+            "  后台检查间隔从 2 小时缩短到 20 分钟（与系统调度同频），开机 / 解锁 / 升级后\n" +
+            "    1 分钟就先查一次 —— 发新版后基本能在半小时内收到通知\n" +
+            "  新增「更新提示方式」（关于页按钮）：自动 / 弹出提示 / 只发通知\n" +
+            "    自动模式会检查系统里是否开着「跳过开屏广告 / 弹窗拦截」类的无障碍服务，\n" +
+            "    一旦开着就自动改成只发通知栏通知 —— 通知栏不在那些工具能关掉的窗口范围内\n" +
+            "  更新提示页延后时间 800 毫秒 -> 1.5 秒，进一步避开开屏广告的判定特征\n" +
+            "  点通知或手动点「检查更新」进来时照旧直接弹出提示页（用户主动要看，不降级）\n" +
+            "  通知体检新增「后台巡检」一项：直接看出后台到底跑没跑"),
         ChangelogItem("v1.0.0.26", "2026-09-19",
             "修复「退出 / 关闭软件后就收不到通知」（吃药提醒、版本更新通知都在此列）：\n" +
             "  新增「通知体检」（关于页）：逐项检查通知总开关、通知权限、吃药提醒渠道、\n" +
