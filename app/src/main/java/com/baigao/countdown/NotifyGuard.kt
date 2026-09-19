@@ -27,11 +27,19 @@ import java.util.Locale
  */
 object NotifyGuard {
 
-    /** 一项体检结果。fix 为空表示这一项没法在应用内修（只能由系统决定）。 */
+    /**
+     * 一项体检结果。
+     *
+     * @param no   显示序号（按实际出现的顺序编排：不同系统版本项数不同，写死的序号会错位）。
+     * @param hard true 表示这一项一旦不过，通知**一定**发不出来（用来决定是否自动弹体检报告）。
+     * @param fix  为空表示这一项没法在应用内跳转修复。
+     */
     class Item(
         val ok: Boolean,
+        val no: Int,
         val title: String,
         val detail: String,
+        val hard: Boolean = false,
         val fixLabel: String? = null,
         val fix: (() -> Unit)? = null
     )
@@ -41,91 +49,107 @@ object NotifyGuard {
     private const val KEY_COUNT = "warn_count"
     private const val MAX_WARN = 3
 
-    /** 逐项检查，顺序即「最容易出问题」的顺序。 */
+    /** 逐项检查，顺序即「最容易出问题」的顺序；序号按实际项数动态编排。 */
     fun items(ctx: Context): List<Item> {
         val out = ArrayList<Item>()
+        var n = 0
         val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        // ① 系统通知总开关：关掉后 notify() 照样执行，但系统一条都不显示
+        // 系统通知总开关：关掉后 notify() 照样执行，但系统一条都不显示
+        n++
         val master = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             nm.areNotificationsEnabled()
         } else true
         out.add(
             Item(
-                master, "① 系统通知总开关",
-                if (master) "已开启" else "已关闭 —— 所有通知都不会显示（吃药提醒、版本更新都在此列）",
-                if (master) null else "去打开", { openNotificationSettings(ctx) }
+                master, n, "系统通知总开关",
+                if (master) "已开启"
+                else "已关闭 —— 所有通知都不会显示（吃药提醒、版本更新都在此列）",
+                hard = true,
+                fixLabel = if (master) null else "去打开",
+                fix = if (master) null else ({ openNotificationSettings(ctx) })
             )
         )
 
-        // ② Android 13+ 运行时权限：没授予时代码直接跳过发通知，连日志都没有
+        // Android 13+ 运行时权限：没授予时代码直接跳过发通知，连日志都没有
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            n++
             val p = UpdateNotifier.hasPermission(ctx)
             out.add(
                 Item(
-                    p, "② 通知权限（Android 13+）",
+                    p, n, "通知权限（Android 13+）",
                     if (p) "已授予" else "未授予 —— 发通知会被直接跳过，且不会有任何报错",
-                    if (p) null else "去授予", { openNotificationSettings(ctx) }
+                    hard = true,
+                    fixLabel = if (p) null else "去授予",
+                    fix = if (p) null else ({ openNotificationSettings(ctx) })
                 )
             )
         }
 
-        // ③④ 通知渠道：重要性一旦由系统/用户定下来就不能就地改（Android 限制），
+        // 通知渠道：重要性一旦由系统/用户定下来就不能就地改（Android 限制），
         //     被降为「无声」或「关闭」后，通知会被静默丢弃 —— 这是国产 ROM 上最常见的一击。
-        out.add(channelItem(ctx, nm, MedicineReminder.CHANNEL_ID, "③ 吃药提醒渠道"))
-        out.add(channelItem(ctx, nm, UpdateNotifier.CHANNEL_ID, "④ 版本更新渠道"))
+        n++; out.add(channelItem(ctx, nm, n, MedicineReminder.CHANNEL_ID, "吃药提醒渠道", hard = true))
+        n++; out.add(channelItem(ctx, nm, n, UpdateNotifier.CHANNEL_ID, "版本更新渠道", hard = true))
 
-        // ⑤ 精确闹钟：拿不到也不致命（有系统闹钟 + 重复闹钟 + 巡检兜底），但到点会偏
+        // 精确闹钟：拿不到也不致命（有系统闹钟 + 重复闹钟 + 巡检兜底），但到点会偏
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            n++
             val am = ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             val can = am.canScheduleExactAlarms()
             out.add(
                 Item(
-                    can, "⑤ 精确闹钟",
+                    can, n, "精确闹钟",
                     if (can) "已允许（到点准时）"
                     else "未允许 —— 已自动改用系统闹钟 + 每日重复闹钟 + 后台巡检兜底，仍能提醒",
-                    if (can) null else "去打开", { openExactAlarmSettings(ctx) }
+                    fixLabel = if (can) null else "去打开",
+                    fix = if (can) null else ({ openExactAlarmSettings(ctx) })
                 )
             )
         }
 
-        // ⑥ 电池优化：不关的话，后台可能被系统冻结，闹钟与巡检根本跑不起来
+        // 电池优化：不关的话，后台可能被系统冻结，闹钟与巡检根本跑不起来
+        n++
         val pm = ctx.getSystemService(Context.POWER_SERVICE) as PowerManager
         val ignoring = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             pm.isIgnoringBatteryOptimizations(ctx.packageName)
         } else true
         out.add(
             Item(
-                ignoring, "⑥ 电池优化",
+                ignoring, n, "电池优化",
                 if (ignoring) "已关闭（后台不被掐断）"
                 else "未关闭 —— 后台可能被系统冻结，到点就没人去发通知",
-                if (ignoring) null else "去关闭", { openBatterySettings(ctx) }
+                fixLabel = if (ignoring) null else "去关闭",
+                fix = if (ignoring) null else ({ openBatterySettings(ctx) })
             )
         )
 
-        // ⑦ 后台活动限制（Android 9+）：被限制后本应用几乎不能在后台做任何事
+        // 后台活动限制（Android 9+）：被限制后本应用几乎不能在后台做任何事
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            n++
             val am2 = ctx.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
             val r = am2.isBackgroundRestricted()
             out.add(
                 Item(
-                    !r, "⑦ 后台活动限制",
+                    !r, n, "后台活动限制",
                     if (r) "被限制 —— 后台几乎跑不起来，通知自然发不出" else "未限制",
-                    if (r) "去设置" else null, { openAppDetails(ctx) }
+                    fixLabel = if (r) "去设置" else null,
+                    fix = if (r) ({ openAppDetails(ctx) }) else null
                 )
             )
         }
-        // ⑧ 后台巡检到底跑没跑：这是判断「触发链路活着吗」最直接的证据
+        // 后台巡检到底跑没跑：这是判断「触发链路活着吗」最直接的证据
+        n++
         val t = UpdateCheckState.lastTime(ctx)
         val ago = if (t <= 0L) "从未" else agoText(t)
         val fresh = t > 0L && System.currentTimeMillis() - t < 3 * 60 * 60 * 1000L
         out.add(
             Item(
-                fresh, "⑧ 后台巡检",
+                fresh, n, "后台巡检",
                 if (t <= 0L) "还没跑过 —— 打开一次应用后开始生效"
                 else if (fresh) "正常（最近一次：$ago）"
                 else "已经 $ago 没跑了 —— 多半是后台被限制，到点就没人去发通知",
-                if (fresh) null else "去设置", { openAppDetails(ctx) }
+                fixLabel = if (fresh) null else "去设置",
+                fix = if (fresh) null else ({ openAppDetails(ctx) })
             )
         )
         return out
@@ -133,16 +157,25 @@ object NotifyGuard {
 
     /** 给文本型自检用的一行行描述。 */
     fun lines(ctx: Context): List<String> =
-        items(ctx).map { "${if (it.ok) "✔" else "✖"} ${it.title}：${it.detail}" }
+        items(ctx).map {
+            "${if (it.ok) "✔" else "✖"} ${circle(it.no)} ${it.title}：${it.detail}"
+        }
+
+    /** 第 n 项的圈号（①②③…），超出范围退化为数字。 */
+    private fun circle(no: Int): String {
+        val cs = "\u2460\u2461\u2462\u2463\u2464\u2465\u2466\u2467\u2468\u2469"
+        return if (no >= 1 && no <= cs.length) cs[no - 1].toString() else "$no."
+    }
 
     /** 是否全部通过。 */
     fun allOk(ctx: Context): Boolean = items(ctx).all { it.ok }
 
     private fun channelItem(
-        ctx: Context, nm: NotificationManager, id: String, title: String
+        ctx: Context, nm: NotificationManager, no: Int, id: String, title: String,
+        hard: Boolean = false
     ): Item {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            return Item(true, title, "（本系统版本无通知渠道概念）")
+            return Item(true, no, title, "（本系统版本无通知渠道概念）")
         }
         val ch = try {
             nm.getNotificationChannel(id)
@@ -150,20 +183,22 @@ object NotifyGuard {
             null
         }
         return when {
-            ch == null -> Item(true, title, "尚未创建，首次发通知时会自动建立")
+            ch == null -> Item(true, no, title, "尚未创建，首次发通知时会自动建立")
             ch.importance == NotificationManager.IMPORTANCE_NONE ->
                 Item(
-                    false, title,
+                    false, no, title,
                     "已被关闭 —— 通知会被系统静默丢弃，请在系统设置里重新打开",
-                    "去打开", { openChannelSettings(ctx, id) }
+                    hard = hard,
+                    fixLabel = "去打开", fix = { openChannelSettings(ctx, id) }
                 )
             ch.importance < NotificationManager.IMPORTANCE_HIGH ->
                 Item(
-                    false, title,
+                    false, no, title,
                     "级别偏低（${impName(ch.importance)}）—— 可能被收进无声通知，不响铃、不出横幅",
-                    "去调高", { openChannelSettings(ctx, id) }
+                    hard = hard,
+                    fixLabel = "去调高", fix = { openChannelSettings(ctx, id) }
                 )
-            else -> Item(true, title, "正常（${impName(ch.importance)}，会响铃并弹横幅）")
+            else -> Item(true, no, title, "正常（${impName(ch.importance)}，会响铃并弹横幅）")
         }
     }
 
@@ -201,10 +236,7 @@ object NotifyGuard {
             if (sp.getString(KEY_DATE, "") == today()) return
             val list = items(activity)
             // 只有「一定会让通知发不出」的项才自动弹；精确闹钟/电池优化属于「可能延迟」
-            val hard = list.firstOrNull {
-                !it.ok && (it.title.startsWith("①") || it.title.startsWith("②") ||
-                        it.title.startsWith("③") || it.title.startsWith("④"))
-            } ?: return
+            val hard = list.firstOrNull { !it.ok && it.hard } ?: return
             sp.edit()
                 .putString(KEY_DATE, today())
                 .putInt(KEY_COUNT, sp.getInt(KEY_COUNT, 0) + 1)
@@ -215,18 +247,45 @@ object NotifyGuard {
         }
     }
 
-    /** 弹一份体检报告：每项一行，不合格的项下面带一个直达按钮。 */
+    /**
+     * 弹一份体检报告：每项一行，不合格的项下面带一个直达按钮。
+     *
+     * 底部主按钮**写明第一个待修项的序号**（「去修第 N 项」），点一下直达那一项的设置位置；
+     * 全部正常时没有可修的，主按钮直接不显示，只留一个居中的「关闭」。
+     */
     fun showReport(activity: Activity, list: List<Item> = items(activity)) {
         if (activity.isFinishing) return
         val dm = activity.resources.displayMetrics
+        val bad = list.filter { !it.ok }
+        val first = bad.firstOrNull()
         UpdateManager.showStyledDialog(
             activity = activity,
             title = "通知体检",
-            positiveText = "去修第一项",
+            positiveText = if (first == null) "" else "去修第 ${first.no} 项",
             negativeText = "关闭",
             cancelable = true,
-            onPositive = { firstFix(activity, list) }
+            onPositive = { first?.let { jumpToFix(activity, it) } }
         ) { host ->
+            val lead = TextView(activity)
+            lead.text = if (first == null) {
+                "全部正常 —— 通知能正常送达，无需处理。"
+            } else {
+                "共 ${bad.size} 项需要处理，先看第 ${first.no} 项：${first.title}。"
+            }
+            lead.setTextColor(
+                android.graphics.Color.parseColor(
+                    if (first == null) "#FFB9F6D0" else "#FFFFE0A8"
+                )
+            )
+            lead.textSize = 13f
+            lead.setLineSpacing(3f, 1.15f)
+            lead.setShadowLayer(2f, 0f, 1f, android.graphics.Color.parseColor("#CC000000"))
+            lead.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = (10 * dm.density).toInt() }
+            host.addView(lead)
+
             for (one in list) {
                 val row = LinearLayout(activity)
                 row.orientation = LinearLayout.VERTICAL
@@ -236,7 +295,7 @@ object NotifyGuard {
                 ).apply { bottomMargin = (8 * dm.density).toInt() }
 
                 val tv = TextView(activity)
-                tv.text = "${if (one.ok) "✔" else "✖"} ${one.title}\n    ${one.detail}"
+                tv.text = "${if (one.ok) "✔" else "✖"} ${circle(one.no)} ${one.title}\n    ${one.detail}"
                 tv.setTextColor(
                     android.graphics.Color.parseColor(
                         if (one.ok) "#FFB9F6D0" else "#FFFFB4A8"
@@ -250,7 +309,7 @@ object NotifyGuard {
                 val fix = one.fix
                 if (!one.ok && fix != null) {
                     val btn = Button(activity)
-                    btn.text = one.fixLabel ?: "去设置"
+                    btn.text = "第 ${one.no} 项·${one.fixLabel ?: "去设置"}"
                     btn.textSize = 12f
                     btn.isAllCaps = false
                     btn.setTextColor(android.graphics.Color.parseColor("#FF001018"))
@@ -269,8 +328,9 @@ object NotifyGuard {
         }
     }
 
-    private fun firstFix(ctx: Context, list: List<Item>) {
-        val f = list.firstOrNull { !it.ok && it.fix != null }?.fix
+    /** 跳到某一项对应的设置位置；该项无法跳转时退到通知设置总页。 */
+    private fun jumpToFix(ctx: Context, item: Item) {
+        val f = item.fix
         if (f != null) f.invoke() else openNotificationSettings(ctx)
     }
 
