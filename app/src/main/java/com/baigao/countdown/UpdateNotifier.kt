@@ -48,13 +48,18 @@ object UpdateNotifier {
     }
 
     /** 发出「发现新版本」通知；无权限或今天已经提示过该版本则跳过。 */
-    fun notifyUpdate(context: Context, info: UpdateManager.UpdateInfo) {
+    fun notifyUpdate(
+        context: Context,
+        info: UpdateManager.UpdateInfo,
+        /** 传 true 时跳过「同一版本每天一次」的去重：用户主动要看 / 弹窗被拦截时的补救。 */
+        force: Boolean = false
+    ) {
         if (!hasPermission(context)) {
             // 没权限时 notify() 压根不会被调用，这里留个记号，自检时能一眼看出
             android.util.Log.w("UpdateNotifier", "notifyUpdate: 没有通知权限，已跳过")
             return
         }
-        if (!shouldNotify(context, info.name)) return
+        if (!force && !shouldNotify(context, info.name)) return
         try {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             createChannel(nm)
