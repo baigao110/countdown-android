@@ -10,6 +10,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <!-- 通知（归零提示 / 服务常驻） -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 吃药提醒：允许通知在息屏 / 锁屏时直接弹出（Android 14+ 需显式声明） -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!-- 提醒震动 -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <!-- 后台检查更新：忽略电池优化，避免系统掐断后台网络 -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- 每日吃药提醒：到点准时弹通知（精确闹钟；拿不到权限时自动退化为重复闹钟） -->
@@ -50,9 +54,12 @@
             android:name=".AboutActivity"
             android:exported="false" />
 
+        <!-- 吃药提醒的全屏意图会拉起本页：允许在锁屏上显示并点亮屏幕 -->
         <activity
             android:name=".MedicineCalendarActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true" />
 
         <!-- 悬浮倒计时前台服务：specialUse 子类型说明必须作为 <service> 的子元素，
              否则 Android 14 调用 startForegroundService 会抛 MissingForegroundServiceTypeException 导致崩溃 -->
@@ -72,12 +79,22 @@
             android:exported="false"
             android:grantUriPermissions="true" />
 
+        <!-- 恢复后台任务的时机越多，通知断掉的机会越少：
+             开机 / 覆盖安装（升级后闹钟会被系统清掉，必须重挂）/ 解锁 /
+             用户改时间 / 改时区 / 跨天 —— 这些都是闹钟与巡检会失效的时刻。
+             directBootAware 让它在「未解锁」阶段也能收到广播（此时不读偏好设置）。 -->
         <receiver
             android:name=".BootReceiver"
+            android:directBootAware="true"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.USER_PRESENT" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
             </intent-filter>
         </receiver>
 
