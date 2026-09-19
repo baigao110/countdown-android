@@ -1,8 +1,8 @@
 {
-  "versionCode": 37,
-  "versionName": "1.0.0.27",
+  "versionCode": 38,
+  "versionName": "1.0.0.28",
   "date": "2026-09-19",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.25/countdown-android-v1.0.0.25-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.25",
-  "note": "· 有新版本要尽快收到通知：后台检查间隔 2 小时 -> 20 分钟，开机/解锁/升级后 1 分钟先查一次\n· 新增「更新提示方式」（关于页）：自动 / 弹出提示 / 只发通知 —— 自动模式会识别「跳过开屏广告 / 弹窗拦截」类无障碍服务，命中就改成只发通知栏通知\n· 更新提示页延后 800ms -> 1.5s，进一步避开开屏广告判定特征\n· 点通知或手动「检查更新」进来仍直接弹提示页\n· 通知体检新增「后台巡检」一项，直接看出后台到底跑没跑"
+  "note": "通知体检：底部按钮写明要修第几项，点击直达对应设置页;每项按钮带序号;全部正常时不显示去修按钮、关闭按钮居中"
 }
