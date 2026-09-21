@@ -36,6 +36,8 @@ class MedicineCalendarActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_medicine)
+        // 点开通知本体进到吃药日历：常驻提醒的使命完成，清掉它（点「已吃药」也会清）
+        MedicineReminder.cancelNotification(this)
 
         monthTv = findViewById(R.id.monthTv)
         grid = findViewById(R.id.gridContainer)
