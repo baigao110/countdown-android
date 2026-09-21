@@ -13,6 +13,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.provider.Settings
 import android.util.Log
+import android.media.AudioAttributes
 import android.view.WindowManager
 import java.util.ArrayList
 
@@ -219,6 +220,7 @@ class CountdownService : Service() {
             .setSmallIcon(R.drawable.ic_stat)
             .setContentIntent(pi)
             .setOngoing(true)
+            .setCategory(Notification.CATEGORY_ALARM)
             .build()
     }
 
@@ -233,22 +235,63 @@ class CountdownService : Service() {
         }
     }
 
+    /** 倒计时归零：以系统闹钟 / 计时器的方式常驻提醒，直到手动「停止」。 */
     private fun notifyFinished(c: Countdown) {
-        createChannel()
-        val intent = Intent(this, MainActivity::class.java)
-        val pi = PendingIntent.getActivity(
-            this, 2, intent,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        createFinishChannel(nm)
+        val contentPi = PendingIntent.getActivity(
+            this, 5,
+            Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            piFlags()
         )
-        val n = Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle("倒计时归零")
-            .setContentText("「${c.title}」已到达目标时间")
+        val dismissPi = PendingIntent.getBroadcast(
+            this, 6,
+            Intent(this, CountdownFinishReceiver::class.java)
+                .setAction(ACTION_FINISH_DISMISS).putExtra(EXTRA_FINISH_ID, c.id),
+            piFlags()
+        )
+        val n = Notification.Builder(this, CHANNEL_FINISH)
             .setSmallIcon(R.drawable.ic_stat)
-            .setContentIntent(pi)
+            .setContentTitle("倒计时结束 · ${c.title}")
+            .setContentText("「${c.title}」已到达目标时间")
+            .setContentIntent(contentPi)
+            .addAction(R.drawable.ic_stat, "停止", dismissPi)
+            .setOngoing(true)
+            .setCategory(Notification.CATEGORY_ALARM)
+            .setPriority(Notification.PRIORITY_MAX)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setDefaults(Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE)
             .build()
-        (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-            .notify(c.id.hashCode(), n)
+        nm.notify(c.id.hashCode(), n)
     }
+
+    /** 归零提醒专用渠道：最高级 + 免打扰也响 + 锁屏可见 + 闹钟铃声。 */
+    private fun createFinishChannel(nm: NotificationManager) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        if (nm.getNotificationChannel(CHANNEL_FINISH) != null) return
+        val ch = NotificationChannel(
+            CHANNEL_FINISH, "倒计时结束", NotificationManager.IMPORTANCE_MAX
+        )
+        ch.description = "倒计时归零时以闹钟方式常驻提醒"
+        ch.enableVibration(true)
+        ch.setShowBadge(true)
+        ch.setBypassDnd(true)
+        ch.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        try {
+            ch.setSound(
+                Settings.System.DEFAULT_ALARM_ALERT_URI,
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .build()
+            )
+        } catch (e: Throwable) {
+            // 拿不到闹钟铃声就交给系统默认
+        }
+        nm.createNotificationChannel(ch)
+    }
+
+    private fun piFlags(): Int = PendingIntent.FLAG_UPDATE_CURRENT or
+            (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
 
     override fun onDestroy() {
         running = false
@@ -264,7 +307,10 @@ class CountdownService : Service() {
         const val ACTION_REFRESH = "com.baigao.countdown.REFRESH"
         const val ACTION_DATA_CHANGED = "com.baigao.countdown.DATA_CHANGED"
         private const val CHANNEL_ID = "countdown_channel"
+        private const val CHANNEL_FINISH = "countdown_finish_v30"
         private const val NOTIF_ID = 1001
+        internal const val ACTION_FINISH_DISMISS = "com.baigao.countdown.FINISH_DISMISS"
+        internal const val EXTRA_FINISH_ID = "finish_id"
         private const val TAG = "CountdownService"
     }
 
