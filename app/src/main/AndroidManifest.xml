@@ -104,6 +104,11 @@
             android:name=".MedicineAlarmReceiver"
             android:exported="false" />
 
+        <!-- 倒计时归零常驻通知的「停止」按钮 -->
+        <receiver
+            android:name=".CountdownFinishReceiver"
+            android:exported="false" />
+
         <receiver
             android:name=".UpdateCheckReceiver"
             android:exported="false" />
