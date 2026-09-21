@@ -123,7 +123,7 @@ object UpdateManager {
         UpdatePromptMode.NOTIFY -> false
     }
 
-    const val CURRENT_VERSION_NAME = "1.0.0.29"
+    const val CURRENT_VERSION_NAME = "1.0.0.30"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -711,6 +711,13 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.30", "2026-09-21",
+            "通知全面对齐安卓系统内置闹钟 / 计时器：\n" +
+            "  吃药提醒、版本更新、倒计时归零三类通知改为「常驻」—— 不会被随手划掉，\n" +
+            "    退出或关闭软件后也一直在通知栏（由闹钟 / 广播 / 前台服务在后台发出）\n" +
+            "  统一使用闹钟样式：CATEGORY_ALARM + 最高重要性 + 免打扰也响 + 锁屏可见\n" +
+            "  吃药提醒点「已吃药」或点开吃药日历即消失；版本更新进 App 即消失；\n" +
+            "    倒计时归零出现「停止」按钮，点一下清除"),
         ChangelogItem("v1.0.0.29", "2026-09-19",
             "内置倒计时的显示模式按各自周期定制，不再一律显示「周天时分秒」：\n" +
             "  当日倒计时（目标是次日 0 点，最多 24 小时）—— 标准模式改为「xx时xx分xx秒」，\n" +
