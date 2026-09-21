@@ -226,10 +226,10 @@ object UpdateNotifier {
             .setContentText("当前 v${UpdateManager.CURRENT_VERSION_NAME}，点击查看更新日志")
             .setContentIntent(contentPi)
             .addAction(R.drawable.ic_stat, "立即更新", nowPi)
-            .setAutoCancel(true)
-            // 高优先级：有声音 + 横幅，息屏后台检查到更新时用户才真的能看到
+            // 与系统闹钟 / 计时器一致：常驻通知，不会被随手划掉；息屏 / 后台也能持续提醒
+            .setOngoing(true)
             .setPriority(Notification.PRIORITY_MAX)
-            .setCategory(Notification.CATEGORY_MESSAGE)
+            .setCategory(Notification.CATEGORY_ALARM)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setDefaults(Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE)
         if (note.isNotEmpty()) {
