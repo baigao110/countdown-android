@@ -448,7 +448,8 @@ object MedicineReminder {
                 .setFullScreenIntent(fullPi, true)
                 .addAction(R.drawable.ic_stat, "已吃药", takenPi(ctx))
                 .setCategory(Notification.CATEGORY_ALARM)
-                .setAutoCancel(true)
+                // 与系统闹钟一致：常驻通知，直到点「已吃药」才消失；退出 / 关闭软件也一直在
+                .setOngoing(true)
                 .setPriority(Notification.PRIORITY_MAX)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setDefaults(Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE)
