@@ -123,7 +123,7 @@ object UpdateManager {
         UpdatePromptMode.NOTIFY -> false
     }
 
-    const val CURRENT_VERSION_NAME = "1.0.0.30"
+    const val CURRENT_VERSION_NAME = "1.0.0.31"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -711,6 +711,13 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.31", "2026-09-23",
+            "继续沿用 v1.0.0.30 的通知常驻方案（通知逻辑未改动，仅升版本号重新发布）：\n" +
+            "  吃药提醒、版本更新、倒计时归零三类通知与系统闹钟 / 计时器一致，\n" +
+            "    退出或关闭软件后持续常驻通知栏，不会被随手划掉\n" +
+            "  统一闹钟样式：CATEGORY_ALARM + 最高重要性 + 免打扰也响 + 锁屏可见\n" +
+            "  吃药提醒点「已吃药」或点开吃药日历即消失；版本更新进 App 即消失；\n" +
+            "    倒计时归零出现「停止」按钮，点一下清除"),
         ChangelogItem("v1.0.0.30", "2026-09-21",
             "通知全面对齐安卓系统内置闹钟 / 计时器：\n" +
             "  吃药提醒、版本更新、倒计时归零三类通知改为「常驻」—— 不会被随手划掉，\n" +
