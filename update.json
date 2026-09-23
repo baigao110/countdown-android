@@ -1,8 +1,8 @@
 {
   "versionCode": 41,
-  "versionName": "1.0.0.31",
+  "versionName": "1.0.0.30",
   "date": "2026-09-23",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.31/countdown-android-v1.0.0.31-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.31",
-  "note": "通知全面对齐安卓系统内置闹钟/计时器（与 v1.0.0.30 一致，持续常驻）：吃药提醒、版本更新、倒计时归零三类通知退出或关闭软件后也一直在通知栏；统一闹钟样式（CATEGORY_ALARM+最高重要性+免打扰也响+锁屏可见）；吃药提醒点已吃药或点开吃药日历即消失，版本更新进App即消失，倒计时归零有停止按钮"
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.30/countdown-android-v1.0.0.30-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.30",
+  "note": "通知全面对齐安卓系统内置闹钟/计时器：吃药提醒、版本更新、倒计时归零三类通知改为常驻（退出或关闭软件后也一直在通知栏）；统一闹钟样式（CATEGORY_ALARM+最高重要性+免打扰也响+锁屏可见）；吃药提醒点已吃药或点开吃药日历即消失，版本更新进App即消失，倒计时归零有停止按钮"
 }
