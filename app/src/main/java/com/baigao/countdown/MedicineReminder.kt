@@ -54,6 +54,10 @@ object MedicineReminder {
     const val CHANNEL_ID = "medicine_reminder_v26"
     /** 历代旧渠道，一律清掉。 */
     private val OLD_CHANNEL_IDS = listOf("medicine_reminder", "medicine_reminder_high")
+    /** 常驻状态通知渠道：开启吃药提醒时显示「已开启」状态，不响铃（避免每次刷新都响）。 */
+    const val STATUS_CHANNEL_ID = "medicine_reminder_status_v33"
+    /** 闹钟通知当前是否正在展示：存展示当天日期，非空=展示中；跨天即视为过期失效。 */
+    private const val KEY_ALARM_DATE = "alarm_showing_date"
     const val ACTION_ALARM = "com.baigao.countdown.action.MEDICINE_ALARM"
     const val ACTION_TAKEN = "com.baigao.countdown.action.MEDICINE_TAKEN"
 
@@ -88,6 +92,15 @@ object MedicineReminder {
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
 
+    /** 当前闹钟通知展示的是哪一天（非空=正在展示；跨天即过期）。 */
+    private fun alarmShowingDate(ctx: Context): String =
+        prefs(ctx).getString(KEY_ALARM_DATE, "") ?: ""
+
+    /** 标记闹钟通知是否正在展示（展示中记当天日期，false 则清空）。 */
+    private fun setAlarmShowing(ctx: Context, showing: Boolean) {
+        prefs(ctx).edit().putString(KEY_ALARM_DATE, if (showing) todayKey() else "").apply()
+    }
+
     // ---------------- 开关与提醒时间 ----------------
 
     fun isEnabled(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_ENABLED, false)
@@ -99,12 +112,13 @@ object MedicineReminder {
 
     fun setEnabled(ctx: Context, enabled: Boolean) {
         prefs(ctx).edit().putBoolean(KEY_ENABLED, enabled).apply()
-        if (enabled) schedule(ctx) else cancel(ctx)
+        if (enabled) { schedule(ctx); syncMedicineNotification(ctx) } else cancel(ctx)
     }
 
     fun setTime(ctx: Context, hour: Int, minute: Int) {
         prefs(ctx).edit().putInt(KEY_HOUR, hour).putInt(KEY_MINUTE, minute).apply()
         schedule(ctx)
+        syncMedicineNotification(ctx)
     }
 
     // ---------------- 吃药记录 ----------------
@@ -171,6 +185,7 @@ object MedicineReminder {
     fun setNextCustom(ctx: Context, millis: Long) {
         prefs(ctx).edit().putLong(KEY_NEXT_CUSTOM, millis).apply()
         schedule(ctx)
+        syncMedicineNotification(ctx)
     }
 
     /** 取消手动设定，恢复「每天固定时刻」。 */
@@ -283,6 +298,7 @@ object MedicineReminder {
         }
         schedule(ctx)
         maybeNotify(ctx)
+        syncMedicineNotification(ctx)
     }
 
     /** JobScheduler 巡检：补挂闹钟 + 错过就补发。 */
@@ -290,6 +306,7 @@ object MedicineReminder {
         if (!isEnabled(ctx)) return
         ensureAlarms(ctx)
         maybeNotify(ctx)
+        syncMedicineNotification(ctx)
     }
 
     /**
@@ -300,6 +317,7 @@ object MedicineReminder {
         if (!isEnabled(ctx)) return
         schedule(ctx)
         maybeNotify(ctx)
+        syncMedicineNotification(ctx)
     }
 
     /**
@@ -455,6 +473,7 @@ object MedicineReminder {
                 .setDefaults(Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE)
                 .build()
             nm.notify(NOTIF_ID, n)
+            setAlarmShowing(ctx, true)
             true
         } catch (e: Throwable) {
             android.util.Log.w("MedicineReminder", "notifyNow: ${e.message}")
@@ -463,12 +482,96 @@ object MedicineReminder {
     }
 
     fun cancelNotification(ctx: Context) {
+        setAlarmShowing(ctx, false)
         try {
             (ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
                 .cancel(NOTIF_ID)
         } catch (e: Throwable) {
             // 忽略
         }
+    }
+
+    /**
+     * 常驻状态通知：吃药提醒开启时显示「每日吃药提醒 · 已开启」+ 下次提醒时间；
+     * 关闭时由 [syncMedicineNotification] 取消。不响铃、不震动、不弹全屏，仅作状态常驻。
+     */
+    fun postStatusNotification(ctx: Context) {
+        if (!UpdateNotifier.hasPermission(ctx)) return
+        try {
+            val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            createStatusChannel(nm)
+            val openPi = PendingIntent.getActivity(
+                ctx, REQ_OPEN,
+                Intent(ctx, MedicineCalendarActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                piFlags()
+            )
+            val taken = isTaken(ctx)
+            val title = "每日吃药提醒 · 已开启"
+            val text = if (taken) {
+                "今日已吃药 ✓ · 下次提醒 ${nextTriggerText(ctx)}"
+            } else {
+                "下次提醒 ${nextTriggerText(ctx)}（点开可看吃药日历）"
+            }
+            val n = Notification.Builder(ctx, STATUS_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_stat)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setContentIntent(openPi)
+                .setCategory(Notification.CATEGORY_ALARM)
+                .setOngoing(true)
+                .setPriority(Notification.PRIORITY_MAX)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .build()
+            setAlarmShowing(ctx, false)
+            nm.notify(NOTIF_ID, n)
+        } catch (e: Throwable) {
+            android.util.Log.w("MedicineReminder", "postStatusNotification: ${e.message}")
+        }
+    }
+
+    /** 状态渠道：不响铃、不震动，仅常驻显示状态（避免每次刷新都响铃）。 */
+    private fun createStatusChannel(nm: NotificationManager) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        try {
+            if (nm.getNotificationChannel(STATUS_CHANNEL_ID) != null) return
+        } catch (e: Throwable) {
+            return
+        }
+        val ch = NotificationChannel(
+            STATUS_CHANNEL_ID, "吃药提醒状态", NotificationManager.IMPORTANCE_DEFAULT
+        )
+        ch.description = "吃药提醒开启时的常驻状态提示（不响铃）"
+        ch.enableVibration(false)
+        try {
+            ch.setSound(null, null)
+        } catch (e: Throwable) {
+            // 忽略
+        }
+        ch.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        try {
+            nm.createNotificationChannel(ch)
+        } catch (e: Throwable) {
+            // 忽略
+        }
+    }
+
+    /**
+     * 根据开关与提醒状态同步「每日吃药提醒」通知：
+     * - 关闭 → 取消通知（需求①）；
+     * - 开启 → 显示「已开启」状态通知（需求②③，通知内容同步显示启动 / 关闭状态）。
+     * 已点「已吃药」或当天已发过提醒时，展示状态通知而非闹钟通知。
+     */
+    fun syncMedicineNotification(ctx: Context) {
+        // 昨天的闹钟通知已过期：清掉标记，让下方按今天的状态重新刷新
+        val ad = alarmShowingDate(ctx)
+        if (ad.isNotEmpty() && ad != todayKey()) setAlarmShowing(ctx, false)
+        if (!isEnabled(ctx)) {
+            cancelNotification(ctx)   // 关闭 → 取消每日吃药提醒通知
+            return
+        }
+        if (alarmShowingDate(ctx).isNotEmpty()) return  // 当前闹钟通知正在展示，先不动它
+        postStatusNotification(ctx)  // 开启 → 启动并显示「已开启」状态通知
     }
 
     private fun createChannel(nm: NotificationManager) {
