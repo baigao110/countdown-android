@@ -34,6 +34,7 @@ class AboutActivity : Activity() {
     private lateinit var batteryBtn: Button
     private lateinit var notifyCheckBtn: Button
     private lateinit var updateModeBtn: Button
+    private lateinit var disclaimerBtn: Button
     private lateinit var checkStateTv: TextView
     private lateinit var updateModeDescTv: TextView
     private lateinit var medToggleBtn: Button
@@ -61,6 +62,7 @@ class AboutActivity : Activity() {
         val backBtn = findViewById<TextView>(R.id.backBtn)
         val changelogBtn = findViewById<Button>(R.id.changelogBtn)
         val helpBtn = findViewById<Button>(R.id.helpBtn)
+        disclaimerBtn = findViewById<Button>(R.id.disclaimerBtn)
         notifyBtn = findViewById(R.id.notifyBtn)
         testBtn = findViewById(R.id.testBtn)
         batteryBtn = findViewById(R.id.batteryBtn)
@@ -82,6 +84,7 @@ class AboutActivity : Activity() {
         backBtn.setOnClickListener { finish() }
         changelogBtn.setOnClickListener { UpdateManager.showChangelog(this) }
         helpBtn.setOnClickListener { UpdateManager.showHelp(this) }
+        disclaimerBtn.setOnClickListener { DisclaimerManager.show(this) }
         // 手动点「检查更新」属于用户主动要看，强制弹页面
         updateBtn.setOnClickListener { checkUpdate(forceDialog = true, forcePage = true) }
 
