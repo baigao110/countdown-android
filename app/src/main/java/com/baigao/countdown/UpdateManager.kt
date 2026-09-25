@@ -123,7 +123,7 @@ object UpdateManager {
         UpdatePromptMode.NOTIFY -> false
     }
 
-    const val CURRENT_VERSION_NAME = "1.0.0.30"
+    const val CURRENT_VERSION_NAME = "1.0.0.31"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -711,6 +711,11 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.31", "2026-09-25",
+            "吃药提醒默认改为关闭状态：\n" +
+            "  关闭时「关于」页只保留开关与提醒时间，\n" +
+            "    隐藏「吃药日历」「下次提醒」「测试提醒」「后台自检」等子功能\n" +
+            "  打开开关后这些功能自动恢复显示"),
         ChangelogItem("v1.0.0.30", "2026-09-21",
             "通知全面对齐安卓系统内置闹钟 / 计时器：\n" +
             "  吃药提醒、版本更新、倒计时归零三类通知改为「常驻」—— 不会被随手划掉，\n" +
