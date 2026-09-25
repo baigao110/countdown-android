@@ -123,7 +123,7 @@ object UpdateManager {
         UpdatePromptMode.NOTIFY -> false
     }
 
-    const val CURRENT_VERSION_NAME = "1.0.0.33"
+    const val CURRENT_VERSION_NAME = "1.0.0.34"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -174,6 +174,28 @@ object UpdateManager {
     /** 该版本是否比当前 App 新（后台定期检查用，避免外部拿到私有的版本数值）。 */
     fun hasNewVersion(info: UpdateInfo?): Boolean =
         info != null && info.num > CURRENT_VERSION_NUM
+
+    /**
+     * 「忽略更新」：非持久化的临时忽略。
+     *
+     * 用户在「发现新版本」提示框里点「忽略更新」后，调用 setIgnored 记下被忽略的版本，
+     * 「关于」页回到前台时据此把状态显示为「已是最新版本」。
+     *
+     * 注意：这**不是**「永久忽略该版本」—— 下次手动点「检查更新」会重新拉取远程版本，
+     * 仍然会发现新版本并再次弹出提示框，从而满足「忽略 → 已是最新 → 再查 → 再提示 → 再忽略」的循环。
+     */
+    private var ignoredVersionName: String? = null
+
+    fun setIgnored(versionName: String) {
+        ignoredVersionName = versionName
+    }
+
+    /** 取出并清空「被忽略的版本」（只消费一次，避免重复处理）。 */
+    fun consumeIgnored(): String? {
+        val v = ignoredVersionName
+        ignoredVersionName = null
+        return v
+    }
 
     /**
      * 异步检查更新。
@@ -711,6 +733,8 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.34", "2026-09-25",
+            "检查更新新增「忽略更新」：在「发现新版本」提示框里点「忽略更新」后，当前显示回退为「已是最新版本」；下次再点「检查更新」仍会重新检测并再次弹出提示框（忽略不持久化，每次检查都重新拉取远程版本）"),
         ChangelogItem("v1.0.0.33", "2026-09-25",
             "吃药提醒通知：关闭状态下取消每日吃药提醒通知；开启状态下显示「已开启」状态通知，通知内容同步显示启动 / 关闭状态（已开启时显示「每日吃药提醒 · 已开启」+ 下次提醒时间）"),
         ChangelogItem("v1.0.0.32", "2026-09-25",
