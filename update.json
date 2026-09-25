@@ -4,5 +4,5 @@
   "date": "2026-09-25",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.32/countdown-android-v1.0.0.32-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.32",
-  "note": "吃药提醒默认改为关闭；关闭状态下「关于」页隐藏吃药日历、下次提醒、测试提醒、后台自检等子功能，仅保留开关与提醒时间。"
+  "note": "更新提示方式：在「关于」页新增三种模式的行为说明（自动 / 弹出提示 / 只发通知，并标明各自含义）；吃药提醒关闭时「关于」页隐藏提醒时间、状态等全部子项，仅保留开关。"
 }
