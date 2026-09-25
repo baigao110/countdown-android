@@ -123,7 +123,7 @@ object UpdateManager {
         UpdatePromptMode.NOTIFY -> false
     }
 
-    const val CURRENT_VERSION_NAME = "1.0.0.35"
+    const val CURRENT_VERSION_NAME = "1.0.0.36"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -733,6 +733,8 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.36", "2026-09-25",
+            "修复「免责声明」提示框换行显示异常（去掉字面换行符），版本升级至 v1.0.0.36。"),
         ChangelogItem("v1.0.0.35", "2026-09-25",
             "「关于」页新增「免责声明」按钮（位于「检查更新 / 说明 / 更新日志」下方），点开即弹出免责声明；首次安装或升级到新版本后，打开软件会自动弹出一次免责声明（看过即记录，不再重复打扰）"),
         ChangelogItem("v1.0.0.34", "2026-09-25",
