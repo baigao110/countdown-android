@@ -58,7 +58,7 @@ object DisclaimerManager {
                 "因不可抗力或第三方原因导致的内容问题，本应用不承担直接责任，但会积极配合处理。"
             )
             val tv = TextView(activity).apply {
-                text = lines.joinToString("\\n")
+                text = lines.joinToString("\n")
                 setTextColor(Color.parseColor("#FFE4EEFF"))
                 textSize = 14f
                 setLineSpacing(0f, 1.25f)
