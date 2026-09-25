@@ -540,6 +540,15 @@ class AboutActivity : Activity() {
         super.onResume()
         // 从「允许安装未知应用」设置页返回后，继续之前挂起的安装
         if (UpdateManager.consumePendingInstall(this)) return
+        // 若用户在此前弹出的「发现新版本」提示框里点了「忽略更新」，
+        // 回到「关于」页就显示「已是最新版本」（临时忽略，下次手动检查仍会重新提示）。
+        val ignored = UpdateManager.consumeIgnored()
+        if (ignored != null) {
+            statusTv.text = "已是最新版本 v${UpdateManager.CURRENT_VERSION_NAME}"
+            updateBtn.text = "检查更新"
+            updateBtn.setOnClickListener { checkUpdate(forceDialog = true, forcePage = true) }
+            Toast.makeText(this, "已是最新版本", Toast.LENGTH_SHORT).show()
+        }
         refreshState()
         if (!autoChecked) {
             autoChecked = true
