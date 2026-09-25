@@ -123,7 +123,7 @@ object UpdateManager {
         UpdatePromptMode.NOTIFY -> false
     }
 
-    const val CURRENT_VERSION_NAME = "1.0.0.32"
+    const val CURRENT_VERSION_NAME = "1.0.0.33"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -711,6 +711,8 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.33", "2026-09-25",
+            "吃药提醒通知：关闭状态下取消每日吃药提醒通知；开启状态下显示「已开启」状态通知，通知内容同步显示启动 / 关闭状态（已开启时显示「每日吃药提醒 · 已开启」+ 下次提醒时间）"),
         ChangelogItem("v1.0.0.32", "2026-09-25",
             "更新提示方式：在「关于」页新增三种方式的行为说明：\n" +
             "  自动：检测到弹窗拦截类工具时自动改成只发通知\n" +
