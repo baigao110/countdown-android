@@ -192,6 +192,17 @@
             android:background="@drawable/circle_btn" />
 
         <TextView
+            android:id="@+id/updateModeDescTv"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:lineSpacingExtra="3dp"
+            android:textColor="#FFC6D5EF"
+            android:textSize="12sp"
+            android:text="" />
+
+        <TextView
             android:id="@+id/checkStateTv"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
