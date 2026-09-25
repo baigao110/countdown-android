@@ -35,6 +35,7 @@ class AboutActivity : Activity() {
     private lateinit var notifyCheckBtn: Button
     private lateinit var updateModeBtn: Button
     private lateinit var checkStateTv: TextView
+    private lateinit var updateModeDescTv: TextView
     private lateinit var medToggleBtn: Button
     private lateinit var medTimeBtn: Button
     private lateinit var medCalendarBtn: Button
@@ -65,6 +66,7 @@ class AboutActivity : Activity() {
         batteryBtn = findViewById(R.id.batteryBtn)
         notifyCheckBtn = findViewById(R.id.notifyCheckBtn)
         updateModeBtn = findViewById(R.id.updateModeBtn)
+        updateModeDescTv = findViewById(R.id.updateModeDescTv)
         checkStateTv = findViewById(R.id.checkStateTv)
         medToggleBtn = findViewById(R.id.medToggleBtn)
         medTimeBtn = findViewById(R.id.medTimeBtn)
@@ -161,6 +163,7 @@ class AboutActivity : Activity() {
         // 「下次提醒」：手动指定下一次提醒的具体日期与时刻
         medNextBtn.setOnClickListener { showNextReminderPicker() }
         refreshMedicine()
+        refreshUpdateMode()
     }
 
     @Suppress("DEPRECATION")
@@ -213,6 +216,14 @@ class AboutActivity : Activity() {
         } else {
             "更新提示：${m.label}"
         }
+        // 在按钮下方显示三种更新提示方式各自的行为含义，当前选中的用 ● 标出
+        val sb = StringBuilder()
+        sb.append("更新提示方式（点上方按钮切换）：\n")
+        for (mode in UpdateManager.UpdatePromptMode.values()) {
+            val mark = if (mode == m) "● " else "○ "
+            sb.append(mark).append(mode.label).append("：").append(mode.desc).append("\n")
+        }
+        updateModeDescTv.text = sb.toString().trimEnd()
     }
 
     /** 刷新「后台检查 / 通知权限」状态行。 */
@@ -233,6 +244,9 @@ class AboutActivity : Activity() {
         val on = MedicineReminder.isEnabled(this)
         medToggleBtn.text = if (on) "吃药提醒：已开启" else "吃药提醒：已关闭"
         val medVis = if (on) android.view.View.VISIBLE else android.view.View.GONE
+        // 关闭状态下隐藏提醒时间与状态等全部子项，仅保留开关
+        medTimeBtn.visibility = medVis
+        medStateTv.visibility = medVis
         medRowCalendar.visibility = medVis
         medRowTools.visibility = medVis
         medTimeBtn.text = "提醒时间 ${MedicineReminder.timeText(this)}"
