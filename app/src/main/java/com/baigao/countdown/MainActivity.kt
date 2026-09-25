@@ -214,6 +214,8 @@ class MainActivity : Activity() {
                 if (!isFinishing) UpdateManager.check(this, forceDialog = true)
             }, delay)
         }
+        // 首次安装或升级到新版本后，打开软件自动弹出一次免责声明（看过即记录，不再重复打扰）
+        window.decorView.postDelayed({ DisclaimerManager.showOnLaunchIfNeeded(this) }, 300)
     }
 
     /**
