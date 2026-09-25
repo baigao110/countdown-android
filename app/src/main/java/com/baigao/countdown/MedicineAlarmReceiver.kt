@@ -19,7 +19,7 @@ class MedicineAlarmReceiver : BroadcastReceiver() {
         when (intent.action) {
             MedicineReminder.ACTION_TAKEN -> {
                 MedicineReminder.setTaken(context, true)
-                MedicineReminder.cancelNotification(context)
+                MedicineReminder.postStatusNotification(context)
                 try {
                     Toast.makeText(context, "已记录今天吃药", Toast.LENGTH_SHORT).show()
                 } catch (e: Throwable) {
