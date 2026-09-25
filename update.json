@@ -1,8 +1,8 @@
 {
-  "versionCode": 43,
-  "versionName": "1.0.0.32",
+  "versionCode": 44,
+  "versionName": "1.0.0.33",
   "date": "2026-09-25",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.32/countdown-android-v1.0.0.32-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.32",
-  "note": "更新提示方式：在「关于」页新增三种模式的行为说明（自动 / 弹出提示 / 只发通知，并标明各自含义）；吃药提醒关闭时「关于」页隐藏提醒时间、状态等全部子项，仅保留开关。"
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.33/countdown-android-v1.0.0.33-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.33",
+  "note": "吃药提醒通知：关闭状态下取消每日吃药提醒通知；开启状态下显示「已开启」状态通知，通知内容同步显示启动/关闭状态（已开启时显示「每日吃药提醒 · 已开启」+ 下次提醒时间）。"
 }
