@@ -22,7 +22,7 @@ import java.util.Locale
  * 2. 点「已吃药」把当天记进吃药记录，通知自动消失；
  * 3. 记录以「yyyy-MM-dd」为键存在 SharedPreferences 里，供「吃药日历」按天显示。
  *
- * 开关与提醒时间都在「关于」页里改（默认开启、09:00）；关掉后闹钟一并取消。
+ * 开关与提醒时间都在「关于」页里改（默认关闭）；关掉后闹钟一并取消。
  *
  * ---------- v1.0.0.21：为什么退出 App 后就不提醒了 ----------
  * 只挂一个 AlarmManager 精确闹钟，在下面几种情况里会「静默失效」：
@@ -90,7 +90,7 @@ object MedicineReminder {
 
     // ---------------- 开关与提醒时间 ----------------
 
-    fun isEnabled(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_ENABLED, true)
+    fun isEnabled(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_ENABLED, false)
     fun hour(ctx: Context): Int = prefs(ctx).getInt(KEY_HOUR, 9)
     fun minute(ctx: Context): Int = prefs(ctx).getInt(KEY_MINUTE, 0)
 
