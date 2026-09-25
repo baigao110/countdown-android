@@ -123,7 +123,7 @@ object UpdateManager {
         UpdatePromptMode.NOTIFY -> false
     }
 
-    const val CURRENT_VERSION_NAME = "1.0.0.31"
+    const val CURRENT_VERSION_NAME = "1.0.0.32"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -711,6 +711,12 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.32", "2026-09-25",
+            "更新提示方式：在「关于」页新增三种方式的行为说明：\n" +
+            "  自动：检测到弹窗拦截类工具时自动改成只发通知\n" +
+            "  弹出提示：总是弹出更新提示页（可能被拦截工具关掉）\n" +
+            "  只发通知：不弹任何界面，只在通知栏发一条（最不容易被拦）\n" +
+            "吃药提醒：关闭状态下「关于」页隐藏提醒时间、状态等全部子项，仅保留开关"),
         ChangelogItem("v1.0.0.31", "2026-09-25",
             "吃药提醒默认改为关闭状态：\n" +
             "  关闭时「关于」页只保留开关与提醒时间，\n" +
