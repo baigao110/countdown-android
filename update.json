@@ -1,8 +1,8 @@
 {
-  "versionCode": 46,
-  "versionName": "1.0.0.35",
+  "versionCode": 47,
+  "versionName": "1.0.0.36",
   "date": "2026-09-25",
-  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.35/countdown-android-v1.0.0.34-release.apk",
-  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.34",
-  "note": "「关于」页新增「免责声明」按钮（位于「检查更新 / 说明 / 更新日志」下方），点开即弹出免责声明；首次安装或升级到新版本后，打开软件会自动弹出一次免责声明（看过即记录，不再重复打扰）。"
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.36/countdown-android-v1.0.0.36-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.36",
+  "note": "修复「免责声明」提示框换行显示异常（去掉字面换行符），版本升级至 v1.0.0.36。"
 }
