@@ -1,11 +1,14 @@
 package com.baigao.countdown
 
 import android.app.Activity
+import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.TextView
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -48,6 +51,25 @@ class UpdateActivity : Activity() {
             onPositive = { startDownload(info) },
             onNegative = { finish() }
         ) { host -> UpdateManager.fillUpdateContent(this, host, info) }
+
+        // 「忽略更新」：点一下把这次提示当成「已是最新版本」处理，但**不**永久忽略——
+        // 下次手动「检查更新」会重新拉取远程版本，依旧会发现新版本并再次弹出提示框。
+        val btnRow = card.negative.parent as LinearLayout
+        val ignoreBtn = Button(this).apply {
+            text = "忽略更新"
+            textSize = 15f
+            setTextColor(card.negative.currentTextColor)
+            background = card.negative.background
+            setTypeface(card.negative.typeface, Typeface.BOLD)
+            val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+            lp.marginStart = (12 * resources.displayMetrics.density).toInt()
+            layoutParams = lp
+            setOnClickListener {
+                UpdateManager.setIgnored(info.name)
+                finish()
+            }
+        }
+        btnRow.addView(ignoreBtn, 1)  // 插在「稍后再说」与「立即更新」之间
 
         // 卡片自己吃掉点击，别穿透到空白处把页面关掉
         card.root.isClickable = true
