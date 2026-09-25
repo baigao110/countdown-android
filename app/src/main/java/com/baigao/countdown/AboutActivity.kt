@@ -42,6 +42,8 @@ class AboutActivity : Activity() {
     private lateinit var medTestBtn: Button
     private lateinit var medCheckBtn: Button
     private lateinit var medNextBtn: Button
+    private lateinit var medRowCalendar: LinearLayout
+    private lateinit var medRowTools: LinearLayout
 
     private var checking = false
     /** 本次进入页面是否已自动检查过（避免 onResume 反复弹窗）。 */
@@ -70,6 +72,8 @@ class AboutActivity : Activity() {
         medTestBtn = findViewById(R.id.medTestBtn)
         medCheckBtn = findViewById(R.id.medCheckBtn)
         medNextBtn = findViewById(R.id.medNextBtn)
+        medRowCalendar = findViewById(R.id.medRowCalendar)
+        medRowTools = findViewById(R.id.medRowTools)
         medStateTv = findViewById(R.id.medStateTv)
 
         versionTv.text = "版本 v${UpdateManager.CURRENT_VERSION_NAME}"
@@ -228,6 +232,9 @@ class AboutActivity : Activity() {
         if (!::medToggleBtn.isInitialized) return
         val on = MedicineReminder.isEnabled(this)
         medToggleBtn.text = if (on) "吃药提醒：已开启" else "吃药提醒：已关闭"
+        val medVis = if (on) android.view.View.VISIBLE else android.view.View.GONE
+        medRowCalendar.visibility = medVis
+        medRowTools.visibility = medVis
         medTimeBtn.text = "提醒时间 ${MedicineReminder.timeText(this)}"
         medStateTv.text = MedicineReminder.statusText(this)
         medNextBtn.text = "下次提醒\n${MedicineReminder.nextTriggerText(this)}"
