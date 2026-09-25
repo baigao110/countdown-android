@@ -251,6 +251,7 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/medRowCalendar"
                 android:layout_width="260dp"
                 android:layout_height="52dp"
                 android:layout_gravity="center_horizontal"
@@ -283,6 +284,7 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/medRowTools"
                 android:layout_width="260dp"
                 android:layout_height="52dp"
                 android:layout_gravity="center_horizontal"
