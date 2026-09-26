@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.text.SpannableStringBuilder
 import android.os.Bundle
 import android.provider.Settings
 import android.app.AlertDialog
@@ -45,6 +46,7 @@ class AboutActivity : Activity() {
     private lateinit var medTestBtn: Button
     private lateinit var medCheckBtn: Button
     private lateinit var medNextBtn: Button
+    private lateinit var medScheduleTv: TextView
     private lateinit var medRowCalendar: LinearLayout
     private lateinit var medRowTools: LinearLayout
 
@@ -81,6 +83,7 @@ class AboutActivity : Activity() {
         medRowCalendar = findViewById(R.id.medRowCalendar)
         medRowTools = findViewById(R.id.medRowTools)
         medStateTv = findViewById(R.id.medStateTv)
+        medScheduleTv = findViewById(R.id.medScheduleTv)
 
         versionTv.text = "版本 v${UpdateManager.CURRENT_VERSION_NAME}"
         backBtn.setOnClickListener { finish() }
@@ -160,7 +163,7 @@ class AboutActivity : Activity() {
             val ok = MedicineReminder.notifyNow(this)
             Toast.makeText(
                 this,
-                if (ok) "已发出吃药提醒测试通知（每天 ${MedicineReminder.timesPerDay(this)} 次）" else "通知被拦截：请先在上方点「开启通知」",
+                if (ok) "已发出吃药提醒测试通知（每天 ${MedicineReminder.timesPerDay(this)} 次：${MedicineReminder.doseScheduleText(this)}）" else "通知被拦截：请先在上方点「开启通知」",
                 Toast.LENGTH_LONG
             ).show()
         }
@@ -258,6 +261,10 @@ class AboutActivity : Activity() {
         medTimeBtn.text = "首剂时间 ${MedicineReminder.timeText(this)}"
         medTimesBtn.text = "每天次数 ${MedicineReminder.timesPerDay(this)} 次"
         medTimesBtn.visibility = medVis
+        val schedN = MedicineReminder.timesPerDay(this)
+        medScheduleTv.text = SpannableStringBuilder("每天 ${schedN} 次：")
+            .append(MedicineReminder.doseScheduleSpannable(this))
+        medScheduleTv.visibility = medVis
         medStateTv.text = MedicineReminder.statusText(this)
         medNextBtn.text = "下次提醒\n${MedicineReminder.nextTriggerText(this)}"
     }
@@ -302,13 +309,17 @@ class AboutActivity : Activity() {
     /** 吃药提醒自检：退出 / 关闭 App 后不提醒，基本都能在这里看出卡在哪一环。 */
     private fun showMedicineSelfCheck() {
         if (isFinishing) return
-        val lines = mutableListOf<String>()
+        val lines = mutableListOf<CharSequence>()
         lines.add(
             if (MedicineReminder.nextIsCustom(this))
                 "下次提醒：${MedicineReminder.nextTriggerText(this)}（已手动改，这次响过即恢复常规）"
             else "下次提醒：${MedicineReminder.nextTriggerText(this)}"
         )
-        lines.add("每日次数：${MedicineReminder.timesPerDay(this)} 次（${MedicineReminder.doseScheduleText(this)}）")
+        val schedN = MedicineReminder.timesPerDay(this)
+        lines.add(
+            SpannableStringBuilder("每日次数：${schedN} 次（")
+                .append(MedicineReminder.doseScheduleSpannable(this)).append("）")
+        )
         lines.add("闹钟挂载：${MedicineReminder.lastScheduleText(this)}")
         lines.add("上次发出提醒：${MedicineReminder.lastNotifyText(this)}")
         lines.add(
@@ -345,7 +356,9 @@ class AboutActivity : Activity() {
             onPositive = { if (needBattery) requestIgnoreBattery() else openAppDetails() }
         ) { host ->
             val tv = TextView(this).apply {
-                text = lines.joinToString("\n")
+                text = SpannableStringBuilder().apply {
+                    lines.forEach { append(it); append("\n") }
+                }
                 setTextColor(android.graphics.Color.parseColor("#FFE4EEFF"))
                 textSize = 13f
                 setLineSpacing(4f, 1.2f)
