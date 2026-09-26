@@ -65,9 +65,12 @@ object MedicineReminder {
     private const val KEY_ENABLED = "enabled"
     private const val KEY_HOUR = "hour"
     private const val KEY_MINUTE = "minute"
+    private const val KEY_TIMES_PER_DAY = "times_per_day"
     private const val KEY_TAKEN = "taken"
-    /** 已经提醒过的日期（yyyy-MM-dd）：三路冗余同时触发时靠它保证一天只打扰一次。 */
-    private const val KEY_LAST_NOTIFY = "last_notify"
+    /** 各剂次已提醒记录：set of "yyyy-MM-dd#i"，保证同一剂一天只发一次。 */
+    private const val KEY_NOTIFIED_DOSES = "notified_doses"
+    /** 漏服超过此窗口（默认 4 小时）视为已漏，不再补发，避免补发骚扰。 */
+    private const val LATE_WINDOW = 4L * 60 * 60 * 1000
     /** 上次挂载闹钟的时刻（自检页显示用）。 */
     private const val KEY_LAST_SCHEDULE = "last_schedule"
     /** 用户手动指定的「下一次提醒」时刻（毫秒；0 = 未指定，按每天固定时刻推算）。 */
@@ -110,6 +113,43 @@ object MedicineReminder {
     fun timeText(ctx: Context): String =
         String.format(Locale.getDefault(), "%02d:%02d", hour(ctx), minute(ctx))
 
+    fun timesPerDay(ctx: Context): Int =
+        prefs(ctx).getInt(KEY_TIMES_PER_DAY, 1).coerceIn(1, 4)
+
+    fun setTimesPerDay(ctx: Context, n: Int) {
+        prefs(ctx).edit().putInt(KEY_TIMES_PER_DAY, n.coerceIn(1, 4)).apply()
+        schedule(ctx)
+        syncMedicineNotification(ctx)
+    }
+
+    /** 今天各次服药时刻（按一天内时间先后排序）。首剂 = 用户在「提醒时间」设的时间，
+     *  之后每剂间隔 24h/N 均匀铺开（环绕到次日不影响当天触发计算）。 */
+    fun doseTimes(ctx: Context): List<Pair<Int, Int>> {
+        val n = timesPerDay(ctx)
+        val base = hour(ctx) * 60 + minute(ctx)
+        return (0 until n).map { i ->
+            val tot = (base + i * (1440 / n)) % 1440
+            (tot / 60) to (tot % 60)
+        }.sortedBy { it.first * 60 + it.second }
+    }
+
+    /** 今天各次服药的毫秒值（与 doseTimes 顺序一致）。 */
+    private fun todayDoseMillis(ctx: Context): List<Long> {
+        val baseDay = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        return doseTimes(ctx).map { (h, m) -> baseDay + (h * 60 + m) * 60_000L }
+    }
+
+    /** 把「每天 N 次」的时刻拼成可读串，如「09:00 15:00 21:00」。 */
+    fun doseScheduleText(ctx: Context): String =
+        doseTimes(ctx).joinToString(" ") { (h, m) ->
+            String.format(Locale.getDefault(), "%02d:%02d", h, m)
+        }
+
     fun setEnabled(ctx: Context, enabled: Boolean) {
         prefs(ctx).edit().putBoolean(KEY_ENABLED, enabled).apply()
         if (enabled) { schedule(ctx); syncMedicineNotification(ctx) } else cancel(ctx)
@@ -143,12 +183,17 @@ object MedicineReminder {
         prefs(ctx).edit().putStringSet(KEY_TAKEN, set).apply()
     }
 
-    private fun lastNotifyKey(ctx: Context): String =
-        prefs(ctx).getString(KEY_LAST_NOTIFY, "") ?: ""
+    private fun notifiedDoses(ctx: Context): MutableSet<String> =
+        LinkedHashSet(prefs(ctx).getStringSet(KEY_NOTIFIED_DOSES, emptySet()) ?: emptySet())
 
-    private fun setLastNotifyKey(ctx: Context, key: String) {
+    private fun isDoseNotified(ctx: Context, date: String, i: Int): Boolean =
+        notifiedDoses(ctx).contains("$date#$i")
+
+    private fun markDoseNotified(ctx: Context, date: String, i: Int) {
+        val set = notifiedDoses(ctx)
+        set.add("$date#$i")
         prefs(ctx).edit()
-            .putString(KEY_LAST_NOTIFY, key)
+            .putStringSet(KEY_NOTIFIED_DOSES, set)
             .putLong(KEY_LAST_NOTIFY_TIME, System.currentTimeMillis())
             .apply()
     }
@@ -169,8 +214,12 @@ object MedicineReminder {
         val custom = nextCustomMillis(ctx)
         val now = System.currentTimeMillis()
         if (custom > now) return custom
-        val today = todayTriggerMillis(ctx)
-        return if (today > now) today else today + 24 * 60 * 60 * 1000L
+        var best = Long.MAX_VALUE
+        for (t in todayDoseMillis(ctx)) {
+            val cand = if (t > now) t else t + 24 * 60 * 60 * 1000L
+            if (cand < best) best = cand
+        }
+        return best
     }
 
     // ---------------- 手动指定「下一次提醒」 ----------------
@@ -280,7 +329,7 @@ object MedicineReminder {
             // 忽略
         }
 
-        // ⑤ JobScheduler 巡检：闹钟被清掉时补挂、错过提醒时补发
+        // ⑤ JobScheduler 巡检：闹钟被清掉时补挂、错过就补发
         MedicineCheckJobService.schedule(ctx)
 
         try {
@@ -321,10 +370,10 @@ object MedicineReminder {
     }
 
     /**
-     * 到点才发通知，一天最多一次。
+     * 到点才发通知，每天按设定次数分别提醒（每剂一天最多一次）。
      *
      * 唯一例外：**用户手动指定的「下一次提醒」到期时无条件提醒一次** ——
-     * 「今天已提醒过」「今天已记过『已吃药』」都不拦。改时间就是为了再收一次，
+     * 「今天已提醒过」「今天已记过「已吃药」」都不拦。改时间就是为了再收一次，
      * 若被去重逻辑吞掉，表现出来就是「改了下次提醒时间，退出软件后反倒收不到了」。
      *
      * @param force 无视一切直接发（「测试提醒」用，不写去重标记）。
@@ -336,32 +385,59 @@ object MedicineReminder {
         val custom = nextCustomMillis(ctx)
         val customDue = custom > 0L && now >= custom   // 手动指定的那一次到期了
         var late = false
+        var doseIndex = -1
         if (!force) {
             if (customDue) {
-                // 用户点名要的这一次：不看去重、不看记录，到点就发
                 late = now - custom > 5 * 60 * 1000L
             } else {
                 if (isTaken(ctx, today)) return          // 今天已经点了「已吃药」，不再打扰
-                if (lastNotifyKey(ctx) == today) return  // 今天已经提醒过（三路冗余去重）
-                val due = if (custom > now) custom else todayTriggerMillis(ctx)
-                if (now < due) return                    // 还没到点（改过时间就等改后的时刻）
-                late = now - due > 5 * 60 * 1000L         // 晚了 5 分钟以上算补发
+                doseIndex = dueDoseIndex(ctx, now)
+                if (doseIndex < 0) return                // 现在没有该响的剂次
+                late = now - todayDoseMillis(ctx)[doseIndex] > 5 * 60 * 1000L
             }
+        } else {
+            // 测试提醒：展示最近一次还没过的剂次，找不到就用第 1 剂
+            val doses = todayDoseMillis(ctx)
+            doseIndex = doses.indexOfFirst { it > now }
+            if (doseIndex < 0) doseIndex = 0
         }
         if (!UpdateNotifier.hasPermission(ctx)) {
-            // 没通知权限：手动指定的那次直接作废，免得一直卡在「已手动改」状态
             if (customDue) {
                 clearNextCustom(ctx)
                 schedule(ctx)
             }
             return
         }
-        if (notifyNow(ctx, late)) setLastNotifyKey(ctx, today)
-        if (customDue || (custom > 0L && custom <= now)) {
-            // 这次手动指定的提醒已兑现（或时刻已过、那会儿没开机）：作废，回到每天固定时刻
-            clearNextCustom(ctx)
-            schedule(ctx)
+        if (notifyNow(ctx, doseIndex, late)) {
+            if (!force) {
+                if (customDue || (custom > 0L && custom <= now)) {
+                    clearNextCustom(ctx)                 // 手动指定的那次已兑现，回到每天固定时刻
+                } else if (doseIndex >= 0) {
+                    markDoseNotified(ctx, today, doseIndex)
+                }
+                schedule(ctx)
+            } else {
+                prefs(ctx).edit().putLong(KEY_LAST_NOTIFY_TIME, now).apply()
+            }
         }
+    }
+
+    /**
+     * 找出「现在应当响」的那一剂：今天该时刻已过、今天尚未提醒过、且在迟到窗口内。
+     * 太早（未来）不响；漏掉太久（超过窗口）先静默标记为已提醒，避免补发骚扰。
+     */
+    private fun dueDoseIndex(ctx: Context, now: Long): Int {
+        val date = todayKey()
+        val doses = todayDoseMillis(ctx)
+        for (i in doses.indices) {
+            if (isDoseNotified(ctx, date, i)) continue
+            val t = doses[i]
+            if (now >= t) {
+                if (now - t <= LATE_WINDOW) return i
+                markDoseNotified(ctx, date, i)   // 漏掉的太早一剂：静默记掉，不再补
+            }
+        }
+        return -1
     }
 
     fun cancel(ctx: Context) {
@@ -429,7 +505,7 @@ object MedicineReminder {
     // ---------------- 通知 ----------------
 
     /** 到点发通知：点本体进吃药日历，点「已吃药」直接记录今天。 */
-    fun notifyNow(ctx: Context, late: Boolean = false): Boolean {
+    fun notifyNow(ctx: Context, doseIndex: Int = -1, late: Boolean = false): Boolean {
         if (!UpdateNotifier.hasPermission(ctx)) return false
         return try {
             val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -440,11 +516,13 @@ object MedicineReminder {
                     .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
                 piFlags()
             )
-            val title = if (late) "该吃药了（补发提醒）" else "该吃药了"
+            val doses = timesPerDay(ctx)
+            val doseLabel = if (doseIndex >= 0 && doses > 1) "（第 ${doseIndex + 1}/$doses 次）" else ""
+            val title = (if (late) "该吃药了（补发提醒）" else "该吃药了") + doseLabel
             val text = if (late) {
                 "刚才没能按时弹出，现在补上；点「已吃药」记录今天"
             } else {
-                "点「已吃药」记录今天，也可进吃药日历查看往日记录"
+                "每天 $doses 次提醒（${doseScheduleText(ctx)}）；点「已吃药」记录今天"
             }
             // 全屏意图：息屏 / 锁屏时把吃药页直接弹到眼前（闹钟类通知才有的待遇）。
             // 普通通知在国产 ROM 上很容易被收进「无声通知」，这个能真正把人叫到。
@@ -677,9 +755,8 @@ object MedicineReminder {
 
     /** 上次真正发出提醒通知的时刻描述（自检用：「没发过」说明确实没发出来）。 */
     fun lastNotifyText(ctx: Context): String {
-        val key = lastNotifyKey(ctx)
         val t = prefs(ctx).getLong(KEY_LAST_NOTIFY_TIME, 0L)
-        if (key.isEmpty() || t <= 0L) return "还没发过"
+        if (t <= 0L) return "还没发过"
         return SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(t))
     }
 
@@ -688,7 +765,9 @@ object MedicineReminder {
         val on = isEnabled(ctx)
         if (!on) return "提醒已关闭 · 已记录 ${takenCount(ctx)} 天"
         val today = if (isTaken(ctx)) "已吃药 ✓" else "未吃药"
+        val n = timesPerDay(ctx)
+        val sched = if (n > 1) "\n每日 $n 次：${doseScheduleText(ctx)}" else ""
         val tail = if (nextIsCustom(ctx)) "（已手动改）" else ""
-        return "今日：$today · 已记录 ${takenCount(ctx)} 天\n下次提醒 ${nextTriggerText(ctx)}$tail"
+        return "今日：$today · 已记录 ${takenCount(ctx)} 天\n下次提醒 ${nextTriggerText(ctx)}$tail$sched"
     }
 }
