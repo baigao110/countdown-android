@@ -69,7 +69,22 @@ object MedicineReminder {
     private const val KEY_HOUR = "hour"
     private const val KEY_MINUTE = "minute"
     private const val KEY_TIMES_PER_DAY = "times_per_day"
+    private const val KEY_DOSE_TIMES = "dose_times"
+    private const val KEY_DOSE_CONTEXTS = "dose_contexts"
     private const val KEY_TAKEN = "taken"
+
+    /** 8 种「服药时机」选项（在吃药时间面板里 8 选 1）。 */
+    val DOSE_CONTEXTS = arrayOf("空腹服", "餐前服", "随餐服", "餐后服", "晨服", "睡前服", "间隔固定服", "发作前服")
+    val DOSE_CONTEXT_DESC = arrayOf(
+        "空腹服：餐前1小时或餐后2小时，适合左甲状腺素钠、阿仑膦酸钠等受食物干扰大的药物。",
+        "餐前服：餐前30分钟，适合胃黏膜保护药、促胃动力药，能让药物提前接触起效部位。",
+        "随餐服：吃饭的同时服药，适合部分降糖药、脂溶性维生素，可增强吸收或降低胃肠刺激。",
+        "餐后服：餐后15-30分钟，适合阿司匹林、布洛芬等刺激性药物，减少胃肠道不适。",
+        "晨服：早晨6-8点，适合激素类药物，模拟人体自然分泌节律，大幅降低副作用。",
+        "睡前服：入睡前15-30分钟，适合安眠药、助眠类抗过敏药、他汀类降脂药，匹配夜间药效需求。",
+        "间隔固定服：按每6/8/12小时均匀间隔服用，适合抗生素、部分降压药，维持稳定血药浓度。",
+        "发作前服：晕车药上车前半小时、止喘药哮喘易发时段前服用，提前覆盖症状高峰。"
+    )
     /** 各剂次已提醒记录：set of "yyyy-MM-dd#i"，保证同一剂一天只发一次。 */
     private const val KEY_NOTIFIED_DOSES = "notified_doses"
     /** 漏服超过此窗口（默认 4 小时）视为已漏，不再补发，避免补发骚扰。 */
@@ -120,21 +135,90 @@ object MedicineReminder {
         prefs(ctx).getInt(KEY_TIMES_PER_DAY, 1).coerceIn(1, 4)
 
     fun setTimesPerDay(ctx: Context, n: Int) {
-        prefs(ctx).edit().putInt(KEY_TIMES_PER_DAY, n.coerceIn(1, 4)).apply()
+        val nn = n.coerceIn(1, 4)
+        prefs(ctx).edit().putInt(KEY_TIMES_PER_DAY, nn).apply()
+        regenerateDosePlan(ctx, nn)
         schedule(ctx)
         syncMedicineNotification(ctx)
     }
 
-    /** 今天各次服药时刻（按一天内时间先后排序）。首剂 = 用户在「提醒时间」设的时间，
-     *  之后每剂间隔 24h/N 均匀铺开（环绕到次日不影响当天触发计算）。 */
-    fun doseTimes(ctx: Context): List<Pair<Int, Int>> {
-        val n = timesPerDay(ctx)
+    /** 重新生成「每天 N 次」的均匀时刻表（以首剂时间铺底）与默认服药时机（间隔固定服）。 */
+    private fun regenerateDosePlan(ctx: Context, n: Int) {
         val base = hour(ctx) * 60 + minute(ctx)
-        return (0 until n).map { i ->
+        val gen = (0 until n).map { i ->
             val tot = (base + i * (1440 / n)) % 1440
             (tot / 60) to (tot % 60)
-        }.sortedBy { it.first * 60 + it.second }
+        }
+        setDoseTimes(ctx, gen)
+        prefs(ctx).edit().putString(KEY_DOSE_CONTEXTS, (0 until n).joinToString(",") { "6" }).apply()
     }
+
+    /** 读取各次服药时刻（存储优先；缺失则按均匀铺开生成并落盘）。 */
+    fun getDoseTimesList(ctx: Context): List<Pair<Int, Int>> {
+        val n = timesPerDay(ctx)
+        val raw = prefs(ctx).getString(KEY_DOSE_TIMES, "") ?: ""
+        val list = if (raw.isBlank()) emptyList() else raw.split(",").mapNotNull { seg ->
+            val parts = seg.split(":")
+            if (parts.size == 2) parts[0].toIntOrNull() to parts[1].toIntOrNull() else null
+        }.filter { it.first != null && it.second != null }.map { (h, m) -> (h ?: 0) to (m ?: 0) }
+        if (list.size == n) return list
+        val base = hour(ctx) * 60 + minute(ctx)
+        val gen = (0 until n).map { i ->
+            val tot = (base + i * (1440 / n)) % 1440
+            (tot / 60) to (tot % 60)
+        }
+        setDoseTimes(ctx, gen)
+        return gen
+    }
+
+    private fun setDoseTimes(ctx: Context, list: List<Pair<Int, Int>>) {
+        val str = list.joinToString(",") { "%02d:%02d".format(Locale.getDefault(), it.first, it.second) }
+        prefs(ctx).edit().putString(KEY_DOSE_TIMES, str).apply()
+    }
+
+    /** 修改某一次（index）的服药时刻，并同步首剂时间（index=0 时）。 */
+    fun setDoseTime(ctx: Context, index: Int, h: Int, m: Int) {
+        val list = getDoseTimesList(ctx).toMutableList()
+        while (list.size <= index) list.add(0 to 0)
+        list[index] = h.coerceIn(0, 23) to m.coerceIn(0, 59)
+        setDoseTimes(ctx, list)
+        if (index == 0) prefs(ctx).edit().putInt(KEY_HOUR, h).putInt(KEY_MINUTE, m).apply()
+        schedule(ctx)
+        syncMedicineNotification(ctx)
+    }
+
+    /** 读取某次服药时机索引（默认间隔固定服=6）。 */
+    fun doseContextOf(ctx: Context, index: Int): Int {
+        val raw = prefs(ctx).getString(KEY_DOSE_CONTEXTS, "") ?: ""
+        return raw.split(",").getOrNull(index)?.toIntOrNull() ?: 6
+    }
+
+    fun doseContextLabel(ctx: Context, index: Int): String =
+        DOSE_CONTEXTS.getOrElse(doseContextOf(ctx, index)) { DOSE_CONTEXTS[6] }
+
+    /** 修改某次服药时机索引。 */
+    fun setDoseContext(ctx: Context, index: Int, ctxIndex: Int) {
+        val n = timesPerDay(ctx)
+        val arr = (0 until n).map { doseContextOf(ctx, it) }.toMutableList()
+        while (arr.size <= index) arr.add(6)
+        arr[index] = ctxIndex.coerceIn(0, DOSE_CONTEXTS.size - 1)
+        prefs(ctx).edit().putString(KEY_DOSE_CONTEXTS, arr.joinToString(",")).apply()
+        schedule(ctx)
+        syncMedicineNotification(ctx)
+    }
+
+    /** 一次性保存全部各次的时刻与服药时机，并刷新闹钟与常驻通知。 */
+    fun applyDosePlan(ctx: Context, times: List<Pair<Int, Int>>, ctxIdx: List<Int>) {
+        setDoseTimes(ctx, times)
+        if (times.isNotEmpty())
+            prefs(ctx).edit().putInt(KEY_HOUR, times[0].first).putInt(KEY_MINUTE, times[0].second).apply()
+        prefs(ctx).edit().putString(KEY_DOSE_CONTEXTS, ctxIdx.joinToString(",")).apply()
+        schedule(ctx)
+        syncMedicineNotification(ctx)
+    }
+
+    /** 今天各次服药时刻，按服药次序（第 1 次、第 2 次……）排列；取自存储，可逐次自行调整。 */
+    fun doseTimes(ctx: Context): List<Pair<Int, Int>> = getDoseTimesList(ctx)
 
     /** 今天各次服药的毫秒值（与 doseTimes 顺序一致）。 */
     private fun todayDoseMillis(ctx: Context): List<Long> {
@@ -155,28 +239,38 @@ object MedicineReminder {
         intArrayOf(0xFF5AC8FA.toInt(), 0xFFFF9F0A.toInt(), 0xFF30D158.toInt(), 0xFFBF5AF2.toInt())
             .getOrElse(i) { 0xFF9AA0B5.toInt() }
 
-    /** 把「每天 N 次」的时刻拼成可读串，如「① 09:00 ② 21:00」（含次数标记）。 */
+    /** 把「每天 N 次」的时刻拼成可读串，含次数标记与服药时机，如「① 09:00 空腹服 ② 21:00 睡前服」。 */
     fun doseScheduleText(ctx: Context): String =
         doseTimes(ctx).mapIndexed { i, (h, m) ->
-            "${doseMarker(i)} ${String.format(Locale.getDefault(), "%02d:%02d", h, m)}"
+            "${doseMarker(i)} ${String.format(Locale.getDefault(), "%02d:%02d", h, m)} ${doseContextLabel(ctx, i)}"
         }.joinToString(" ")
 
-    /** 同上，但每个时刻按次数上色，用于 TextView / 对话框富文本。 */
+    /** 同上，但每个时刻按次数上色、其后附上服药时机（浅灰），用于 TextView / 对话框富文本。 */
     fun doseScheduleSpannable(ctx: Context): SpannableString {
         val times = doseTimes(ctx)
         val sb = StringBuilder()
         val spans = ArrayList<Pair<Int, Int>>()
+        val ctxSpans = ArrayList<Pair<Int, Int>>()
         times.forEachIndexed { i, (h, m) ->
             if (i > 0) sb.append("   ")
             val start = sb.length
             sb.append(doseMarker(i)).append(' ')
                 .append(String.format(Locale.getDefault(), "%02d:%02d", h, m))
             spans.add(start to sb.length)
+            val ctxStart = sb.length + 1
+            sb.append(' ').append(doseContextLabel(ctx, i))
+            ctxSpans.add(ctxStart to sb.length)
         }
         val ss = SpannableString(sb.toString())
         spans.forEachIndexed { i, (s, e) ->
             ss.setSpan(
                 ForegroundColorSpan(doseColor(i)), s, e,
+                SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+        ctxSpans.forEach { (s, e) ->
+            ss.setSpan(
+                ForegroundColorSpan(0xFFC6D5EF.toInt()), s, e,
                 SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE
             )
         }
