@@ -317,6 +317,18 @@
                     android:background="@drawable/circle_btn" />
             </LinearLayout>
 
+            <TextView
+                android:id="@+id/medScheduleTv"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="10dp"
+                android:gravity="center"
+                android:lineSpacingExtra="3dp"
+                android:textColor="#FFC6D5EF"
+                android:textSize="13sp"
+                android:text="" />
+
             <LinearLayout
                 android:id="@+id/medRowTools"
                 android:layout_width="260dp"
