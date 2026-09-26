@@ -11,6 +11,7 @@ import android.widget.TextView
 import android.widget.Toast
 import java.util.Calendar
 import java.util.Locale
+import android.text.SpannableStringBuilder
 
 /**
  * 吃药日历：按月显示哪天吃了药、哪天没吃。
@@ -135,9 +136,15 @@ class MedicineCalendarActivity : Activity() {
             if (taken.contains(key)) took++ else missed++
         }
         val medN = MedicineReminder.timesPerDay(this)
-        val schedLine = if (medN > 1) "\n每日提醒 ${medN} 次：${MedicineReminder.doseScheduleText(this)}" else ""
-        statTv.text = ("本月已吃药 ${took} 天 · 未吃药 ${missed} 天" +
-                if (missed > 0) "（未吃药的日子可在日历里补记）" else "") + schedLine
+        val statBase = SpannableStringBuilder(
+            "本月已吃药 ${took} 天 · 未吃药 ${missed} 天" +
+                    if (missed > 0) "（未吃药的日子可在日历里补记）" else ""
+        )
+        if (medN > 1) {
+            statBase.append("\n每日提醒 ${medN} 次：")
+                .append(MedicineReminder.doseScheduleSpannable(this))
+        }
+        statTv.text = statBase
 
         // ---------- 今日按钮 ----------
         todayBtn.text = if (MedicineReminder.isTaken(this)) "撤销今日记录" else "今日已吃药"
