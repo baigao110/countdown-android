@@ -13,6 +13,9 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import android.text.SpannableString
+import android.text.SpannableStringBuilder
+import android.text.style.ForegroundColorSpan
 
 /**
  * 每日吃药提醒（纯框架实现，零第三方依赖）。
@@ -144,11 +147,41 @@ object MedicineReminder {
         return doseTimes(ctx).map { (h, m) -> baseDay + (h * 60 + m) * 60_000L }
     }
 
-    /** 把「每天 N 次」的时刻拼成可读串，如「09:00 15:00 21:00」。 */
+    /** 第 i 次服药的标记（① / ② / ③ / ④），在日历与提醒里区分不同次数。 */
+    fun doseMarker(i: Int): String = arrayOf("①", "②", "③", "④").getOrElse(i) { "${i + 1}." }
+
+    /** 第 i 次服药的颜色：亮蓝 / 橙 / 绿 / 紫，肉眼可区分。 */
+    fun doseColor(i: Int): Int =
+        intArrayOf(0xFF5AC8FA.toInt(), 0xFFFF9F0A.toInt(), 0xFF30D158.toInt(), 0xFFBF5AF2.toInt())
+            .getOrElse(i) { 0xFF9AA0B5.toInt() }
+
+    /** 把「每天 N 次」的时刻拼成可读串，如「① 09:00 ② 21:00」（含次数标记）。 */
     fun doseScheduleText(ctx: Context): String =
-        doseTimes(ctx).joinToString(" ") { (h, m) ->
-            String.format(Locale.getDefault(), "%02d:%02d", h, m)
+        doseTimes(ctx).mapIndexed { i, (h, m) ->
+            "${doseMarker(i)} ${String.format(Locale.getDefault(), "%02d:%02d", h, m)}"
+        }.joinToString(" ")
+
+    /** 同上，但每个时刻按次数上色，用于 TextView / 对话框富文本。 */
+    fun doseScheduleSpannable(ctx: Context): SpannableString {
+        val times = doseTimes(ctx)
+        val sb = StringBuilder()
+        val spans = ArrayList<Pair<Int, Int>>()
+        times.forEachIndexed { i, (h, m) ->
+            if (i > 0) sb.append("   ")
+            val start = sb.length
+            sb.append(doseMarker(i)).append(' ')
+                .append(String.format(Locale.getDefault(), "%02d:%02d", h, m))
+            spans.add(start to sb.length)
         }
+        val ss = SpannableString(sb.toString())
+        spans.forEachIndexed { i, (s, e) ->
+            ss.setSpan(
+                ForegroundColorSpan(doseColor(i)), s, e,
+                SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+        return ss
+    }
 
     fun setEnabled(ctx: Context, enabled: Boolean) {
         prefs(ctx).edit().putBoolean(KEY_ENABLED, enabled).apply()
