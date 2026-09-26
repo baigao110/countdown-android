@@ -39,6 +39,7 @@ class AboutActivity : Activity() {
     private lateinit var updateModeDescTv: TextView
     private lateinit var medToggleBtn: Button
     private lateinit var medTimeBtn: Button
+    private lateinit var medTimesBtn: Button
     private lateinit var medCalendarBtn: Button
     private lateinit var medStateTv: TextView
     private lateinit var medTestBtn: Button
@@ -72,6 +73,7 @@ class AboutActivity : Activity() {
         checkStateTv = findViewById(R.id.checkStateTv)
         medToggleBtn = findViewById(R.id.medToggleBtn)
         medTimeBtn = findViewById(R.id.medTimeBtn)
+        medTimesBtn = findViewById(R.id.medTimesBtn)
         medCalendarBtn = findViewById(R.id.medCalendarBtn)
         medTestBtn = findViewById(R.id.medTestBtn)
         medCheckBtn = findViewById(R.id.medCheckBtn)
@@ -149,6 +151,7 @@ class AboutActivity : Activity() {
             refreshMedicine()
         }
         medTimeBtn.setOnClickListener { showMedicineTimePicker() }
+        medTimesBtn.setOnClickListener { showTimesPerDayPicker() }
         medCalendarBtn.setOnClickListener {
             startActivity(Intent(this, MedicineCalendarActivity::class.java))
         }
@@ -157,7 +160,7 @@ class AboutActivity : Activity() {
             val ok = MedicineReminder.notifyNow(this)
             Toast.makeText(
                 this,
-                if (ok) "已发出吃药提醒通知" else "通知被拦截：请先在上方点「开启通知」",
+                if (ok) "已发出吃药提醒测试通知（每天 ${MedicineReminder.timesPerDay(this)} 次）" else "通知被拦截：请先在上方点「开启通知」",
                 Toast.LENGTH_LONG
             ).show()
         }
@@ -252,7 +255,9 @@ class AboutActivity : Activity() {
         medStateTv.visibility = medVis
         medRowCalendar.visibility = medVis
         medRowTools.visibility = medVis
-        medTimeBtn.text = "提醒时间 ${MedicineReminder.timeText(this)}"
+        medTimeBtn.text = "首剂时间 ${MedicineReminder.timeText(this)}"
+        medTimesBtn.text = "每天次数 ${MedicineReminder.timesPerDay(this)} 次"
+        medTimesBtn.visibility = medVis
         medStateTv.text = MedicineReminder.statusText(this)
         medNextBtn.text = "下次提醒\n${MedicineReminder.nextTriggerText(this)}"
     }
@@ -303,6 +308,7 @@ class AboutActivity : Activity() {
                 "下次提醒：${MedicineReminder.nextTriggerText(this)}（已手动改，这次响过即恢复常规）"
             else "下次提醒：${MedicineReminder.nextTriggerText(this)}"
         )
+        lines.add("每日次数：${MedicineReminder.timesPerDay(this)} 次（${MedicineReminder.doseScheduleText(this)}）")
         lines.add("闹钟挂载：${MedicineReminder.lastScheduleText(this)}")
         lines.add("上次发出提醒：${MedicineReminder.lastNotifyText(this)}")
         lines.add(
@@ -458,9 +464,10 @@ class AboutActivity : Activity() {
             host.addView(tp)
 
             val tip = TextView(this).apply {
-                text = "改的是「下一次」提醒的时间，这次响过之后自动恢复为每天 " +
-                    MedicineReminder.timeText(this@AboutActivity) + "；\n" +
-                    "想改每天的固定时刻，请用上面的「提醒时间」按钮。"
+                text = "改的是「下一次」提醒的时间，这次响过之后自动恢复为每天固定时刻（每天 " +
+                    MedicineReminder.timesPerDay(this@AboutActivity) + " 次：" +
+                    MedicineReminder.doseScheduleText(this@AboutActivity) + "）；\n" +
+                    "想改每天的固定时刻与次数，请用上方的「提醒时间 / 每天次数」按钮。"
                 setTextColor(android.graphics.Color.parseColor("#FFC6D5EF"))
                 textSize = 13f
                 setShadowLayer(2f, 0f, 1f, android.graphics.Color.parseColor("#CC000000"))
@@ -525,7 +532,7 @@ class AboutActivity : Activity() {
             picker = tp
             host.addView(tp)
             val tip = TextView(this).apply {
-                text = "每天到点提醒一次；点通知上的「已吃药」即可记录当天。"
+                text = "这是「每天第 1 次」的提醒时间；其余次数会按 24 小时÷次数 均匀分布在当天其余时段。点通知上的「已吃药」即可记录当天（覆盖全部次数）。"
                 setTextColor(android.graphics.Color.parseColor("#FFC6D5EF"))
                 textSize = 13f
                 val lp = LinearLayout.LayoutParams(
@@ -537,6 +544,27 @@ class AboutActivity : Activity() {
             }
             host.addView(tip)
         }
+    }
+
+    /** 「每天次数」选择：1/2/3/4 次，首剂时间不变、其余均匀分布在当天。 */
+    private fun showTimesPerDayPicker() {
+        if (isFinishing) return
+        val opts = arrayOf("1 次 / 天", "2 次 / 天", "3 次 / 天", "4 次 / 天")
+        val cur = MedicineReminder.timesPerDay(this) - 1
+        AlertDialog.Builder(this)
+            .setTitle("每天提醒几次")
+            .setSingleChoiceItems(opts, cur) { d, which ->
+                MedicineReminder.setTimesPerDay(this, which + 1)
+                refreshMedicine()
+                d.dismiss()
+                Toast.makeText(
+                    this,
+                    "已设为每天 ${which + 1} 次（首剂 ${MedicineReminder.timeText(this)}，其余均匀分布在当天）",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            .setNegativeButton("取消", null)
+            .show()
     }
 
     override fun onResume() {
