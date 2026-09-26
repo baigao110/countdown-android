@@ -4,5 +4,5 @@
   "date": "2026-09-26",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.37/countdown-android-v1.0.0.37-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.37",
-  "note": "吃药提醒新增「每天次数」选择（1/2/3/4 次 / 天），各次按 24 小时÷次数 均匀分布在当天；「关于」页、吃药日历、下次提醒与后台自检同步展示每日服药时刻。版本升级至 v1.0.0.37。"
+  "note": "吃药提醒新增「每天次数」选择（1/2/3/4 次 / 天），可逐次自定义时刻与「服药时机」（空腹服/餐前服/随餐服/餐后服/晨服/睡前服/间隔固定服/发作前服）；「关于」页与吃药日历同步展示各次彩色时刻与时机。版本升级至 v1.0.0.37。"
 }
