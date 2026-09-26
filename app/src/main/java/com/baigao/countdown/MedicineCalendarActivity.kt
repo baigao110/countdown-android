@@ -1,6 +1,7 @@
 package com.baigao.countdown
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
@@ -66,6 +67,10 @@ class MedicineCalendarActivity : Activity() {
                 Toast.LENGTH_SHORT
             ).show()
             render()
+        }
+        findViewById<Button>(R.id.timesBtn).setOnClickListener { showTimesPicker() }
+        findViewById<Button>(R.id.doseEditBtn).setOnClickListener {
+            DoseEditor.showDialog(this) { render() }
         }
         render()
     }
@@ -144,6 +149,7 @@ class MedicineCalendarActivity : Activity() {
             statBase.append("\n每日提醒 ${medN} 次：")
                 .append(MedicineReminder.doseScheduleSpannable(this))
         }
+        statBase.append("\n服药时机：${MedicineReminder.DOSE_CONTEXTS.joinToString(" / ")}")
         statTv.text = statBase
 
         // ---------- 今日按钮 ----------
@@ -212,4 +218,21 @@ class MedicineCalendarActivity : Activity() {
 
     private fun monthLabel(day: Int): String =
         "${shown.get(Calendar.MONTH) + 1}月${day}日"
+
+    /** 「每天次数」选择：1/2/3/4 次（与「关于」页同一逻辑）。 */
+    private fun showTimesPicker() {
+        if (isFinishing) return
+        val opts = arrayOf("1 次 / 天", "2 次 / 天", "3 次 / 天", "4 次 / 天")
+        val cur = MedicineReminder.timesPerDay(this) - 1
+        AlertDialog.Builder(this)
+            .setTitle("每天提醒几次")
+            .setSingleChoiceItems(opts, cur) { d, which ->
+                MedicineReminder.setTimesPerDay(this, which + 1)
+                render()
+                d.dismiss()
+                Toast.makeText(this, "已设为每天 ${which + 1} 次", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
 }
