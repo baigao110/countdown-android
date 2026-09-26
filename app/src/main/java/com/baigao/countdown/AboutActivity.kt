@@ -153,7 +153,7 @@ class AboutActivity : Activity() {
             }
             refreshMedicine()
         }
-        medTimeBtn.setOnClickListener { showMedicineTimePicker() }
+        medTimeBtn.setOnClickListener { showDoseEditor() }
         medTimesBtn.setOnClickListener { showTimesPerDayPicker() }
         medCalendarBtn.setOnClickListener {
             startActivity(Intent(this, MedicineCalendarActivity::class.java))
@@ -258,11 +258,11 @@ class AboutActivity : Activity() {
         medStateTv.visibility = medVis
         medRowCalendar.visibility = medVis
         medRowTools.visibility = medVis
-        medTimeBtn.text = "首剂时间 ${MedicineReminder.timeText(this)}"
-        medTimesBtn.text = "每天次数 ${MedicineReminder.timesPerDay(this)} 次"
+        val n = MedicineReminder.timesPerDay(this)
+        medTimeBtn.text = if (n >= 2) "吃药时间（每天 $n 次）" else "首剂时间 ${MedicineReminder.timeText(this)}"
+        medTimesBtn.text = "每天次数 $n 次"
         medTimesBtn.visibility = medVis
-        val schedN = MedicineReminder.timesPerDay(this)
-        medScheduleTv.text = SpannableStringBuilder("每天 ${schedN} 次：")
+        medScheduleTv.text = SpannableStringBuilder("每天 $n 次：")
             .append(MedicineReminder.doseScheduleSpannable(this))
         medScheduleTv.visibility = medVis
         medStateTv.text = MedicineReminder.statusText(this)
@@ -517,46 +517,10 @@ class AboutActivity : Activity() {
         dialog
     }
 
-    /** 修改吃药提醒时间：沿用「更新日志」那套深色玻璃对话框，里面放一个 24 小时制 TimePicker。 */
-    private fun showMedicineTimePicker() {
+    /** 吃药时间面板：编辑每天各次的时刻与「服药时机」；2 次及以上时首剂时间按钮即变为它。 */
+    private fun showDoseEditor() {
         if (isFinishing) return
-        var picker: TimePicker? = null
-        UpdateManager.showStyledDialog(
-            activity = this,
-            title = "吃药提醒时间",
-            positiveText = "确定",
-            negativeText = "取消",
-            onPositive = {
-                val p = picker ?: return@showStyledDialog
-                val (h, m) = readTime(p)
-                MedicineReminder.setTime(this, h, m)
-                refreshMedicine()
-                Toast.makeText(this, "吃药提醒时间已设为 ${MedicineReminder.timeText(this)}",
-                    Toast.LENGTH_SHORT).show()
-            }
-        ) { host ->
-            val tp = TimePicker(this)
-            tp.setIs24HourView(true)
-            applyTime(
-                tp,
-                MedicineReminder.hour(this@AboutActivity),
-                MedicineReminder.minute(this@AboutActivity)
-            )
-            picker = tp
-            host.addView(tp)
-            val tip = TextView(this).apply {
-                text = "这是「每天第 1 次」的提醒时间；其余次数会按 24 小时÷次数 均匀分布在当天其余时段。点通知上的「已吃药」即可记录当天（覆盖全部次数）。"
-                setTextColor(android.graphics.Color.parseColor("#FFC6D5EF"))
-                textSize = 13f
-                val lp = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-                lp.topMargin = (8 * resources.displayMetrics.density).toInt()
-                layoutParams = lp
-            }
-            host.addView(tip)
-        }
+        DoseEditor.showDialog(this) { refreshMedicine() }
     }
 
     /** 「每天次数」选择：1/2/3/4 次，首剂时间不变、其余均匀分布在当天。 */
