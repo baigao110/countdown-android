@@ -139,6 +139,37 @@
                 android:textSize="13sp" />
         </LinearLayout>
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <Button
+                android:id="@+id/timesBtn"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="每天次数"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#001018"
+                android:background="@drawable/circle_btn" />
+
+            <Button
+                android:id="@+id/doseEditBtn"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:text="编辑吃药时间"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#001018"
+                android:background="@drawable/circle_btn" />
+        </LinearLayout>
+
         <TextView
             android:id="@+id/statTv"
             android:layout_width="match_parent"
@@ -170,7 +201,7 @@
             android:lineSpacingExtra="3dp"
             android:textColor="#8A93AE"
             android:textSize="12sp"
-            android:text="点过去或今天的日期可以补记 / 撤销，未来日期不可记录。\n提醒时间与开关在「关于」页里改。" />
+            android:text="点过去或今天的日期可以补记 / 撤销，未来日期不可记录。\n提醒时间、次数与服药时机可在「关于」页或上方按钮设置。" />
 
     </LinearLayout>
 
