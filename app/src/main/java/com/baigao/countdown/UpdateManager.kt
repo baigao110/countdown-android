@@ -123,7 +123,7 @@ object UpdateManager {
         UpdatePromptMode.NOTIFY -> false
     }
 
-    const val CURRENT_VERSION_NAME = "1.0.0.36"
+    const val CURRENT_VERSION_NAME = "1.0.0.37"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -733,6 +733,8 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.37", "2026-09-26",
+            "吃药提醒新增「每天次数」选择（1/2/3/4 次 / 天），各次按 24 小时÷次数 均匀分布在当天；「关于」页、吃药日历、下次提醒与后台自检等处同步展示每日服药时刻。版本升级至 v1.0.0.37。"),
         ChangelogItem("v1.0.0.36", "2026-09-25",
             "修复「免责声明」提示框换行显示异常（去掉字面换行符），版本升级至 v1.0.0.36。"),
         ChangelogItem("v1.0.0.35", "2026-09-25",
