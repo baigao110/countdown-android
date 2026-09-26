@@ -272,6 +272,18 @@
                     android:background="@drawable/circle_btn" />
             </LinearLayout>
 
+            <Button
+                android:id="@+id/medTimesBtn"
+                android:layout_width="260dp"
+                android:layout_height="46dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="10dp"
+                android:text="每天次数 1 次"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="#001018"
+                android:background="@drawable/circle_btn" />
+
             <LinearLayout
                 android:id="@+id/medRowCalendar"
                 android:layout_width="260dp"
