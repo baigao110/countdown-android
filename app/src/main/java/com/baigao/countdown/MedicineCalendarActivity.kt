@@ -134,8 +134,10 @@ class MedicineCalendarActivity : Activity() {
             if (isFuture) continue
             if (taken.contains(key)) took++ else missed++
         }
-        statTv.text = "本月已吃药 ${took} 天 · 未吃药 ${missed} 天" +
-                if (missed > 0) "（未吃药的日子可在日历里补记）" else ""
+        val medN = MedicineReminder.timesPerDay(this)
+        val schedLine = if (medN > 1) "\n每日提醒 ${medN} 次：${MedicineReminder.doseScheduleText(this)}" else ""
+        statTv.text = ("本月已吃药 ${took} 天 · 未吃药 ${missed} 天" +
+                if (missed > 0) "（未吃药的日子可在日历里补记）" else "") + schedLine
 
         // ---------- 今日按钮 ----------
         todayBtn.text = if (MedicineReminder.isTaken(this)) "撤销今日记录" else "今日已吃药"
