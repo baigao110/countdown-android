@@ -763,9 +763,9 @@ object MedicineReminder {
 
     /**
      * 根据开关与提醒状态同步「每日吃药提醒」通知：
-     * - 关闭 → 取消通知（需求①）；
-     * - 开启 → 显示「已开启」状态通知（需求②③，通知内容同步显示启动 / 关闭状态）。
-     * 已点「已吃药」或当天已发过提醒时，展示状态通知而非闹钟通知。
+     * - 关闭 → 取消通知；
+     * - 开启 → 不再常驻显示「已开启」状态通知（v1.0.0.37 起取消），仅清掉旧版残留；
+     *   真正到点时由 notifyNow() 弹出「该吃药了」闹钟通知，点「已吃药」后取消。
      */
     fun syncMedicineNotification(ctx: Context) {
         // 昨天的闹钟通知已过期：清掉标记，让下方按今天的状态重新刷新
@@ -776,7 +776,7 @@ object MedicineReminder {
             return
         }
         if (alarmShowingDate(ctx).isNotEmpty()) return  // 当前闹钟通知正在展示，先不动它
-        postStatusNotification(ctx)  // 开启 → 启动并显示「已开启」状态通知
+        cancelNotification(ctx)  // 已取消常驻「已开启」状态通知：清掉旧版残留，不再常驻显示
     }
 
     private fun createChannel(nm: NotificationManager) {
