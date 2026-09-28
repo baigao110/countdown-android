@@ -77,6 +77,8 @@ class MedicineCalendarActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        // 屏幕常亮开关：开启时本应用在前台保持屏幕常亮不锁屏
+        ScreenKeepOn.apply(this)
         today.timeInMillis = System.currentTimeMillis()
         render()
     }
