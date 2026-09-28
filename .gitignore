@@ -1,6 +1,7 @@
 # Gradle / 构建产物
 .gradle/
 app/build/
+app/build*/
 build/
 *.apk
 *.aab
