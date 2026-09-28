@@ -47,6 +47,7 @@ class AboutActivity : Activity() {
     private lateinit var medCheckBtn: Button
     private lateinit var medNextBtn: Button
     private lateinit var medScheduleTv: TextView
+    private lateinit var screenKeepBtn: Button
     private lateinit var medRowCalendar: LinearLayout
     private lateinit var medRowTools: LinearLayout
 
@@ -84,6 +85,7 @@ class AboutActivity : Activity() {
         medRowTools = findViewById(R.id.medRowTools)
         medStateTv = findViewById(R.id.medStateTv)
         medScheduleTv = findViewById(R.id.medScheduleTv)
+        screenKeepBtn = findViewById(R.id.screenKeepBtn)
 
         versionTv.text = "版本 v${UpdateManager.CURRENT_VERSION_NAME}"
         backBtn.setOnClickListener { finish() }
@@ -119,6 +121,19 @@ class AboutActivity : Activity() {
         batteryBtn.setOnClickListener { requestIgnoreBattery() }
         // 「通知体检」：把「退出后收不到通知」拆成一项项可查、可一键修的开关
         notifyCheckBtn.setOnClickListener { NotifyGuard.showReport(this@AboutActivity) }
+        // 「屏幕常亮」：开关开启后，本应用在前台时屏幕保持常亮不锁屏
+        screenKeepBtn.setOnClickListener {
+            val on = !ScreenKeepOn.isOn(this)
+            ScreenKeepOn.setOn(this, on)
+            ScreenKeepOn.apply(this)
+            refreshScreenKeep()
+            Toast.makeText(
+                this,
+                if (on) "屏幕常亮已开启：应用在前台时屏幕保持常亮、不锁屏"
+                else "屏幕常亮已关闭：恢复手机默认熄屏时间",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
         // 「更新提示方式」：弹窗被拦截类软件关掉时，可以改成只在通知栏提醒
         updateModeBtn.setOnClickListener {
             val m = UpdateManager.nextPromptMode(this@AboutActivity)
@@ -173,6 +188,7 @@ class AboutActivity : Activity() {
         medNextBtn.setOnClickListener { showNextReminderPicker() }
         refreshMedicine()
         refreshUpdateMode()
+        refreshScreenKeep()
     }
 
     @Suppress("DEPRECATION")
@@ -267,6 +283,13 @@ class AboutActivity : Activity() {
         medScheduleTv.visibility = medVis
         medStateTv.text = MedicineReminder.statusText(this)
         medNextBtn.text = "下次提醒\n${MedicineReminder.nextTriggerText(this)}"
+    }
+
+    /** 刷新「屏幕常亮」开关按钮文案。 */
+    private fun refreshScreenKeep() {
+        if (!::screenKeepBtn.isInitialized) return
+        val on = ScreenKeepOn.isOn(this)
+        screenKeepBtn.text = if (on) "屏幕常亮：已开启" else "屏幕常亮：已关闭"
     }
 
     /** 读取 TimePicker：API 23+ 用 hour / minute，老版本用已废弃的 currentHour / currentMinute。 */
@@ -558,6 +581,7 @@ class AboutActivity : Activity() {
             Toast.makeText(this, "已是最新版本", Toast.LENGTH_SHORT).show()
         }
         refreshState()
+        refreshScreenKeep()
         if (!autoChecked) {
             autoChecked = true
             checkUpdate(forceDialog = true)
