@@ -341,6 +341,8 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        // 屏幕常亮开关：开启时本应用在前台保持屏幕常亮不锁屏
+        ScreenKeepOn.apply(this)
         // 从「允许安装未知应用」设置页返回后，继续之前挂起的安装
         UpdateManager.consumePendingInstall(this)
         // 已经进到 App 了，清掉通知栏上的更新提醒
