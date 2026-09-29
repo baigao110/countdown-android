@@ -63,10 +63,10 @@ object NotifyGuard {
         out.add(
             Item(
                 master, n, "系统通知总开关",
-                if (master) "已开启"
-                else "已关闭 —— 所有通知都不会显示（吃药提醒、版本更新都在此列）",
+                if (master) "已经开啦"
+                else "已经关掉啦 —— 所有通知都不会显示（吃药提醒、版本更新都在这里面）",
                 hard = true,
-                fixLabel = if (master) null else "去打开",
+                fixLabel = if (master) null else "去打开看看",
                 fix = if (master) null else ({ openNotificationSettings(ctx) })
             )
         )
@@ -78,7 +78,7 @@ object NotifyGuard {
             out.add(
                 Item(
                     p, n, "通知权限（Android 13+）",
-                    if (p) "已授予" else "未授予 —— 发通知会被直接跳过，且不会有任何报错",
+                    if (p) "已经授予啦" else "还没授予 —— 发通知会被直接跳过，而且一点报错都不会有",
                     hard = true,
                     fixLabel = if (p) null else "去授予",
                     fix = if (p) null else ({ openNotificationSettings(ctx) })
@@ -99,9 +99,9 @@ object NotifyGuard {
             out.add(
                 Item(
                     can, n, "精确闹钟",
-                    if (can) "已允许（到点准时）"
-                    else "未允许 —— 已自动改用系统闹钟 + 每日重复闹钟 + 后台巡检兜底，仍能提醒",
-                    fixLabel = if (can) null else "去打开",
+                    if (can) "已经允许啦（到点准时）"
+                    else "还没允许 —— 已经自动改用系统闹钟 + 每日重复闹钟 + 后台巡检兜底，照样能提醒",
+                    fixLabel = if (can) null else "去打开看看",
                     fix = if (can) null else ({ openExactAlarmSettings(ctx) })
                 )
             )
@@ -116,8 +116,8 @@ object NotifyGuard {
         out.add(
             Item(
                 ignoring, n, "电池优化",
-                if (ignoring) "已关闭（后台不被掐断）"
-                else "未关闭 —— 后台可能被系统冻结，到点就没人去发通知",
+                if (ignoring) "已经关掉啦（后台不会被掐断）"
+                else "还没关 —— 后台可能被系统冻住，到点就没人去发通知啦",
                 fixLabel = if (ignoring) null else "去关闭",
                 fix = if (ignoring) null else ({ openBatterySettings(ctx) })
             )
@@ -131,7 +131,7 @@ object NotifyGuard {
             out.add(
                 Item(
                     !r, n, "后台活动限制",
-                    if (r) "被限制 —— 后台几乎跑不起来，通知自然发不出" else "未限制",
+                    if (r) "被限制啦 —— 后台几乎跑不起来，通知自然发不出" else "没被限制",
                     fixLabel = if (r) "去设置" else null,
                     fix = if (r) ({ openAppDetails(ctx) }) else null
                 )
@@ -140,14 +140,14 @@ object NotifyGuard {
         // 后台巡检到底跑没跑：这是判断「触发链路活着吗」最直接的证据
         n++
         val t = UpdateCheckState.lastTime(ctx)
-        val ago = if (t <= 0L) "从未" else agoText(t)
+        val ago = if (t <= 0L) "还没" else agoText(t)
         val fresh = t > 0L && System.currentTimeMillis() - t < 3 * 60 * 60 * 1000L
         out.add(
             Item(
                 fresh, n, "后台巡检",
-                if (t <= 0L) "还没跑过 —— 打开一次应用后开始生效"
-                else if (fresh) "正常（最近一次：$ago）"
-                else "已经 $ago 没跑了 —— 多半是后台被限制，到点就没人去发通知",
+                if (t <= 0L) "还没跑过 —— 打开一次应用后就开始生效"
+                else if (fresh) "正常啦（最近一次：$ago）"
+                else "已经 $ago 没跑啦 —— 多半是后台被限制，到点就没人去发通知",
                 fixLabel = if (fresh) null else "去设置",
                 fix = if (fresh) null else ({ openAppDetails(ctx) })
             )
@@ -189,7 +189,7 @@ object NotifyGuard {
                     false, no, title,
                     "已被关闭 —— 通知会被系统静默丢弃，请在系统设置里重新打开",
                     hard = hard,
-                    fixLabel = "去打开", fix = { openChannelSettings(ctx, id) }
+                    fixLabel = "去打开看看", fix = { openChannelSettings(ctx, id) }
                 )
             ch.importance < NotificationManager.IMPORTANCE_HIGH ->
                 Item(
@@ -218,7 +218,7 @@ object NotifyGuard {
         NotificationManager.IMPORTANCE_DEFAULT -> "中"
         NotificationManager.IMPORTANCE_LOW -> "低"
         NotificationManager.IMPORTANCE_MIN -> "最低"
-        NotificationManager.IMPORTANCE_NONE -> "关闭"
+        NotificationManager.IMPORTANCE_NONE -> "收起"
         else -> "未知($v)"
     }
 
@@ -260,17 +260,17 @@ object NotifyGuard {
         val first = bad.firstOrNull()
         UpdateManager.showStyledDialog(
             activity = activity,
-            title = "通知体检",
+            title = "通知小体检",
             positiveText = if (first == null) "" else "去修第 ${first.no} 项",
-            negativeText = "关闭",
+            negativeText = "收起",
             cancelable = true,
             onPositive = { first?.let { jumpToFix(activity, it) } }
         ) { host ->
             val lead = TextView(activity)
             lead.text = if (first == null) {
-                "全部正常 —— 通知能正常送达，无需处理。"
+                "都正常啦 —— 通知能正常送达，不用处理～"
             } else {
-                "共 ${bad.size} 项需要处理，先看第 ${first.no} 项：${first.title}。"
+                "有 ${bad.size} 项要处理一下，先看第 ${first.no} 项：${first.title}。"
             }
             lead.setTextColor(
                 android.graphics.Color.parseColor(
@@ -309,7 +309,7 @@ object NotifyGuard {
                 val fix = one.fix
                 if (!one.ok && fix != null) {
                     val btn = Button(activity)
-                    btn.text = "第 ${one.no} 项·${one.fixLabel ?: "去设置"}"
+                    btn.text = "第 ${one.no} 项 · ${one.fixLabel ?: "去设置看看"}"
                     btn.textSize = 12f
                     btn.isAllCaps = false
                     btn.setTextColor(android.graphics.Color.parseColor("#FF001018"))
