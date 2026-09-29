@@ -59,9 +59,9 @@ object UpdateManager {
      * 但**通知栏通知它们关不掉** —— 所以给出「只发通知」这条路，并且能自动降级。
      */
     enum class UpdatePromptMode(val key: String, val label: String, val desc: String) {
-        AUTO("auto", "自动", "检测到弹窗拦截类工具时自动改成只发通知"),
-        PAGE("page", "弹出提示", "总是弹出更新提示页（可能被拦截工具关掉）"),
-        NOTIFY("notify", "只发通知", "不弹任何界面，只在通知栏发一条（最不容易被拦）")
+        AUTO("auto", "自动", "要是发现弹窗拦截类工具，就自动改成只发通知"),
+        PAGE("page", "弹出提示", "总是弹出更新提示页（可能会被拦截工具关掉哦）"),
+        NOTIFY("notify", "只发通知", "不弹任何界面，只在通知栏发一条（最不容易被拦住）")
     }
 
     private const val PREF_PROMPT = "update_prompt"
@@ -572,7 +572,7 @@ object UpdateManager {
         host.addView(kvRow(ctx, "发布日期", info.date.ifEmpty { "未知" }))
         host.addView(kvRow(ctx, "当前版本", "v$CURRENT_VERSION_NAME"))
         host.addView(sectionTitle(ctx, "更新日志"))
-        host.addView(bodyText(ctx, if (info.note.isBlank()) "暂无更新说明" else info.note))
+        host.addView(bodyText(ctx, if (info.note.isBlank()) "暂时没有更新说明哦" else info.note))
     }
 
     /** 下载 APK 并在下载完成后拉起安装界面，下载期间显示进度对话框。 */
@@ -596,13 +596,13 @@ object UpdateManager {
         if (onProgress == null) {
             dialog = showStyledDialog(
                 activity = activity,
-                title = "正在下载 v${info.name}",
-                positiveText = "取消",
+                title = "正在下载 v${info.name}…",
+                positiveText = "先不了",
                 negativeText = null,
                 cancelable = false,
                 onPositive = { canceled.set(true) }
             ) { host ->
-                val tv = bodyText(activity, "准备中...")
+                val tv = bodyText(activity, "准备中…")
                 progressTv = tv
                 host.addView(tv)
             }
@@ -646,8 +646,8 @@ object UpdateManager {
                                 val percent = if (total > 0) sum * 100 / total else -1
                                 handler.post {
                                     val txt =
-                                        if (percent >= 0) "已下载 $percent%（$mb MB）"
-                                        else "已下载 $mb MB"
+                                        if (percent >= 0) "已经下载 $percent%（${mb} MB）"
+                                        else "已经下载 ${mb} MB 啦"
                                     if (onProgress != null) onProgress(txt)
                                     else progressTv?.text = txt
                                 }
@@ -664,7 +664,7 @@ object UpdateManager {
                 e.printStackTrace()
                 handler.post {
                     dialog?.let { if (it.isShowing) it.dismiss() }
-                    Toast.makeText(activity, "下载失败，请检查网络后重试", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(activity, "下载没成功，检查下网络再试一次哦", Toast.LENGTH_SHORT).show()
                     openInBrowser(activity, info)
                     onDone?.invoke()
                 }
@@ -680,7 +680,7 @@ object UpdateManager {
     private fun installApk(activity: Activity, file: File) {
         if (!canInstall(activity)) {
             pendingApk = file
-            Toast.makeText(activity, "请先允许安装未知应用", Toast.LENGTH_LONG).show()
+            Toast.makeText(activity, "请先允许安装未知应用哦", Toast.LENGTH_LONG).show()
             try {
                 activity.startActivity(
                     Intent(
@@ -704,7 +704,7 @@ object UpdateManager {
             i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             activity.startActivity(i)
-            Toast.makeText(activity, "请在安装界面点击「安装」", Toast.LENGTH_SHORT).show()
+            Toast.makeText(activity, "请在安装界面点一下「安装」哦", Toast.LENGTH_SHORT).show()
         } catch (e: Throwable) {
             openInBrowser(activity, null)
         }
@@ -718,7 +718,7 @@ object UpdateManager {
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             activity.startActivity(i)
         } catch (e: Throwable) {
-            Toast.makeText(activity, "无法打开下载链接", Toast.LENGTH_SHORT).show()
+            Toast.makeText(activity, "打不开下载链接呢", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -734,7 +734,7 @@ object UpdateManager {
      */
     private val CHANGELOG = listOf(
         ChangelogItem("v1.0.0.38", "2026-09-29",
-            "「关于」页新增 GitHub 项目主页链接（https://github.com/baigao110/countdown-android），点击即可在浏览器打开本项目仓库。版本升级至 v1.0.0.38。"),
+            "界面文字都换成软乎乎的可爱说法啦～提示、按钮、对话框统统变温柔；「关于」页还新增了 GitHub 项目主页链接，点一下就能在浏览器里逛本仓库。版本还是 v1.0.0.38 哦。"),
         ChangelogItem("v1.0.0.37", "2026-09-26",
             "吃药提醒新增「每天次数」选择（1/2/3/4 次 / 天），可逐次自定义时刻与「服药时机」（空腹服/餐前服/随餐服/餐后服/晨服/睡前服/间隔固定服/发作前服）；「关于」页与吃药日历同步展示各次彩色时刻与时机。版本升级至 v1.0.0.37。；通知栏不再常驻显示「每日吃药提醒 · 已开启」状态提示（到点提醒与「已吃药」记录不受影响）。；再次大幅增强跳秒动画表现（第二轮）：缩放/蒸发/坠落/像素化/碎片化/燃烧/震撼的幅度与抖动再加大、更醒目，效果非常明显。"),
         ChangelogItem("v1.0.0.36", "2026-09-25",
@@ -989,8 +989,8 @@ object UpdateManager {
         if (activity.isFinishing) return
         showStyledDialog(
             activity = activity,
-            title = "使用说明",
-            positiveText = "关闭",
+            title = "使用小说明",
+            positiveText = "知道啦",
             negativeText = null
         ) { host ->
 
@@ -1077,7 +1077,7 @@ object UpdateManager {
         showStyledDialog(
             activity = activity,
             title = "更新日志",
-            positiveText = "关闭",
+            positiveText = "知道啦",
             negativeText = null
         ) { host ->
             // 按日期分组，同时保持 CHANGELOG 里「新→旧」的顺序
