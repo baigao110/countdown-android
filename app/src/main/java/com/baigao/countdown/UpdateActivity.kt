@@ -45,9 +45,9 @@ class UpdateActivity : Activity() {
 
         card = UpdateManager.buildStyledCard(
             activity = this,
-            title = "发现新版本 v${info.name}",
-            positiveText = "立即更新",
-            negativeText = "稍后再说",
+            title = "发现新版本啦 v${info.name}",
+            positiveText = "马上更新",
+            negativeText = "等会儿再说",
             onPositive = { startDownload(info) },
             onNegative = { finish() }
         ) { host -> UpdateManager.fillUpdateContent(this, host, info) }
@@ -56,7 +56,7 @@ class UpdateActivity : Activity() {
         // 下次手动「检查更新」会重新拉取远程版本，依旧会发现新版本并再次弹出提示框。
         val btnRow = card.negative.parent as LinearLayout
         val ignoreBtn = Button(this).apply {
-            text = "忽略更新"
+            text = "这次先忽略"
             textSize = 15f
             setTextColor(card.negative.currentTextColor)
             background = card.negative.background
@@ -86,16 +86,16 @@ class UpdateActivity : Activity() {
     /** 原地切成下载进度态：不另弹对话框，省得再被当成广告弹窗。 */
     private fun startDownload(info: UpdateManager.UpdateInfo) {
         val tv = TextView(this).apply {
-            text = "准备中..."
+            text = "准备中…"
             setTextColor(0xFFE6E6F0.toInt())
             textSize = 14f
             setLineSpacing(4f, 1.15f)
         }
         card.host.removeAllViews()
         card.host.addView(tv)
-        card.title.text = "正在下载 v${info.name}"
+        card.title.text = "正在下载 v${info.name}…"
         card.negative.visibility = View.GONE
-        card.positive.text = "取消"
+        card.positive.text = "先不了"
         card.positive.setOnClickListener {
             canceled.set(true)
             finish()
