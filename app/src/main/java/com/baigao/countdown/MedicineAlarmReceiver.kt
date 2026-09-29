@@ -21,7 +21,7 @@ class MedicineAlarmReceiver : BroadcastReceiver() {
                 MedicineReminder.setTaken(context, true)
                 MedicineReminder.cancelNotification(context)
                 try {
-                    Toast.makeText(context, "已记录今天吃药", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "已经记下今天吃药啦", Toast.LENGTH_SHORT).show()
                 } catch (e: Throwable) {
                     // 部分 ROM 不允许后台弹 Toast，忽略
                 }
