@@ -48,7 +48,7 @@ class AddEditActivity : Activity() {
 
         // 顶部返回栏与标题：风格、交互与「关于」页一致
         findViewById<TextView>(R.id.pageTitle).text =
-            if (editId != null) "编辑倒计时" else "添加倒计时"
+            if (editId != null) "编辑小倒计时" else "添加小倒计时"
         findViewById<TextView>(R.id.backBtn).setOnClickListener { finish() }
 
         val titleEt = findViewById<EditText>(R.id.etTitle)
@@ -99,9 +99,9 @@ class AddEditActivity : Activity() {
             animSpinner.setSelection(c.animStyle.coerceIn(0, AnimStyle.NAMES.size - 1))
             remarkEt.setText(c.remark)
             soundBtn.text = if (c.soundUri != null) {
-                "已选择：${ringtoneName(Uri.parse(c.soundUri)) ?: "自定义提示音"}（点击更换）"
+                "已经选好啦：${ringtoneName(Uri.parse(c.soundUri)) ?: "自定义提示音"}（点一下换一个）"
             } else {
-                "使用默认提示音（点击选择）"
+                "用默认提示音（点一下选一个）"
             }
         } else {
             val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_MONTH, 1) }
@@ -113,12 +113,12 @@ class AddEditActivity : Activity() {
         }
 
         if (builtInEdit) {
-            Toast.makeText(this, "内置倒计时可修改：改动日期或时间后将转为普通倒计时", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "小内置倒计时也能改哦：改了日期或时间后会变成普通倒计时", Toast.LENGTH_LONG).show()
         }
 
         soundBtn.setOnClickListener {
             if (c != null) pickSound(c)
-            else Toast.makeText(this, "请先保存后再设置提示音", Toast.LENGTH_SHORT).show()
+            else Toast.makeText(this, "先保存一下，再设置提示音哦", Toast.LENGTH_SHORT).show()
         }
         clearSoundBtn.setOnClickListener {
             if (c != null) {
@@ -127,7 +127,7 @@ class AddEditActivity : Activity() {
                 CountdownStore.save(this, list)
                 c.soundUri = null
             }
-            soundBtn.text = "使用默认提示音（点击选择）"
+            soundBtn.text = "用默认提示音（点一下选一个）"
         }
         saveBtn.setOnClickListener {
             val list = CountdownStore.load(this)
@@ -240,7 +240,7 @@ class AddEditActivity : Activity() {
                 soundBtn?.text = if (picked != null) {
                     "已选择：${ringtoneName(picked) ?: "自定义提示音"}（点击更换）"
                 } else {
-                    "使用默认提示音（点击选择）"
+                    "用默认提示音（点一下选一个）"
                 }
             }
         }
