@@ -88,6 +88,13 @@ class AboutActivity : Activity() {
         screenKeepBtn = findViewById(R.id.screenKeepBtn)
 
         versionTv.text = "版本 v${UpdateManager.CURRENT_VERSION_NAME}"
+        findViewById<TextView>(R.id.githubLinkTv).setOnClickListener {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/baigao110/countdown-android")))
+            } catch (_: Exception) {
+                Toast.makeText(this, "无法打开链接", Toast.LENGTH_SHORT).show()
+            }
+        }
         backBtn.setOnClickListener { finish() }
         changelogBtn.setOnClickListener { UpdateManager.showChangelog(this) }
         helpBtn.setOnClickListener { UpdateManager.showHelp(this) }
