@@ -123,7 +123,7 @@ object UpdateManager {
         UpdatePromptMode.NOTIFY -> false
     }
 
-    const val CURRENT_VERSION_NAME = "1.0.0.37"
+    const val CURRENT_VERSION_NAME = "1.0.0.38"
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
@@ -733,6 +733,8 @@ object UpdateManager {
      * 只有一条的那天直接铺开显示、不显示箭头。
      */
     private val CHANGELOG = listOf(
+        ChangelogItem("v1.0.0.38", "2026-09-29",
+            "「关于」页新增 GitHub 项目主页链接（https://github.com/baigao110/countdown-android），点击即可在浏览器打开本项目仓库。版本升级至 v1.0.0.38。"),
         ChangelogItem("v1.0.0.37", "2026-09-26",
             "吃药提醒新增「每天次数」选择（1/2/3/4 次 / 天），可逐次自定义时刻与「服药时机」（空腹服/餐前服/随餐服/餐后服/晨服/睡前服/间隔固定服/发作前服）；「关于」页与吃药日历同步展示各次彩色时刻与时机。版本升级至 v1.0.0.37。；通知栏不再常驻显示「每日吃药提醒 · 已开启」状态提示（到点提醒与「已吃药」记录不受影响）。；再次大幅增强跳秒动画表现（第二轮）：缩放/蒸发/坠落/像素化/碎片化/燃烧/震撼的幅度与抖动再加大、更醒目，效果非常明显。"),
         ChangelogItem("v1.0.0.36", "2026-09-25",
