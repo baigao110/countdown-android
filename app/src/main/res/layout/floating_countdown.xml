@@ -236,7 +236,7 @@
                 android:layout_height="30dp"
                 android:layout_weight="1"
                 android:layout_marginStart="6dp"
-                android:text="隐藏"
+                android:text="收起"
                 android:textSize="11sp"
                 android:padding="0dp"
                 android:minWidth="0dp"
