@@ -4,5 +4,5 @@
   "date": "2026-09-29",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-  "note": "界面文字全都换成软乎乎的可爱风格啦～ 所有提示、弹窗、通知都更温柔好懂（呀 / 呢 / 哦 / 啦）。「关于」页的 GitHub 项目主页链接也还在哦，点一下就能去逛逛仓库～"
+  "note": "界面文字全都换成软乎乎的可爱风格啦～ 所有提示、弹窗、通知都更温柔好懂（呀 / 呢 / 哦 / 啦）。「关于」页的 GitHub 项目主页链接也还在哦，点一下就能去逛逛仓库～ 顺便修好了「屏幕常亮」关掉后手机不按默认时间熄屏的小问题，现在关掉就乖乖恢复默认啦。"
 }
