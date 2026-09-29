@@ -247,15 +247,15 @@ class MainActivity : Activity() {
             grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
         ) return
         showNotice(
-            "需要通知权限",
-            "没有通知权限，有新版本时不会收到系统通知。\n可以在系统设置里打开本应用的通知权限。",
-            "去设置"
+            "需要先开个通知权限呀",
+            "还没开通知权限呢，有新版本时就收不到系统通知啦。\n可以在系统设置里把本应用的通知权限打开哦。",
+            "去设置看看"
         ) { UpdateNotifier.openSettings(this) }
     }
 
     /** 一行文字的提示对话框（风格与「关于」页一致）。 */
     private fun showNotice(title: String, message: String, positive: String, onOk: () -> Unit) {
-        UpdateManager.showStyledDialog(this, title, positive, "暂不", true, onOk) { host ->
+        UpdateManager.showStyledDialog(this, title, positive, "先不了", true, onOk) { host ->
             val tv = TextView(this)
             tv.text = message
             tv.setTextColor(Color.WHITE)
@@ -392,16 +392,16 @@ class MainActivity : Activity() {
     private fun assistOverlayPermission() {
         if (overlayDialog?.isShowing == true) return
         overlayDialog = AlertDialog.Builder(this)
-            .setTitle("需要“显示在其他应用上层”权限")
-            .setMessage("倒计时悬浮窗需要“显示在其他应用上层”权限，才能在屏幕最上层显示。\n\n请点击「去设置」，在列表中找到本应用「倒计时」并开启开关，然后返回即可自动显示悬浮窗。")
-            .setPositiveButton("去设置") { _, _ ->
+            .setTitle("需要先开「显示在其他应用上层」这个权限呀")
+            .setMessage("悬浮窗需要「显示在其他应用上层」这个权限，才能在屏幕最上层显示哦。\n\n请点「去设置看看」，在列表里找到本应用「倒计时」打开开关，返回就会自动显示悬浮窗啦。")
+            .setPositiveButton("去设置看看") { _, _ ->
                 val i = Intent(
                     Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                     Uri.parse("package:$packageName")
                 )
                 startActivityForResult(i, REQ_OVERLAY)
             }
-            .setNegativeButton("稍后", null)
+            .setNegativeButton("等会儿", null)
             .show()
     }
 
@@ -611,9 +611,9 @@ class MainActivity : Activity() {
 
     fun onDelete(c: Countdown) {
         AlertDialog.Builder(this)
-            .setTitle("确认删除")
-            .setMessage("确定删除「${c.title}」吗？\n（确定将关闭该倒计时显示）")
-            .setPositiveButton("确定") { _, _ ->
+            .setTitle("要和小倒计时说拜拜吗")
+            .setMessage("要把「${c.title}」这个小倒计时收起来吗？它会舍不得你呢～\n（收起后就不显示在列表里啦）")
+            .setPositiveButton("好呀，收掉") { _, _ ->
                 // 内置倒计时同样可以删除（v1.0.0.9 起）：记下类型，之后不再自动补齐。
                 // 先把它的全部设置（主题颜色 / 显示模式 / 动画 / 提示音 / 悬浮窗显隐等）
                 // 存成快照，之后点「恢复内置」时原样还原，不用重新配置一遍。
@@ -626,7 +626,7 @@ class MainActivity : Activity() {
                 rebuildList()
                 syncService()
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton("先留着", null)
             .show()
     }
 
@@ -708,7 +708,7 @@ class MainActivity : Activity() {
     private fun showRestoreBuiltInDialog() {
         val missing = missingBuiltIns()
         if (missing.isEmpty()) {
-            Toast.makeText(this, "五个内置倒计时都在列表里", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "五个小内置倒计时都乖乖在列表里啦", Toast.LENGTH_SHORT).show()
             return
         }
         val checked = BooleanArray(missing.size) { true }
@@ -716,26 +716,26 @@ class MainActivity : Activity() {
 
         UpdateManager.showStyledDialog(
             activity = this,
-            title = "恢复内置倒计时",
-            positiveText = "确定",
-            negativeText = "取消",
+            title = "把小内置倒计时找回来",
+            positiveText = "好呀，收掉",
+            negativeText = "先留着",
             onPositive = {
                 val types = missing.filterIndexed { i, _ -> checked[i] }.map { it.first }
                 if (types.isEmpty()) {
-                    Toast.makeText(this, "没有勾选任何内置倒计时", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "还没勾选任何小内置倒计时呢", Toast.LENGTH_SHORT).show()
                 } else {
                     val restored = types.count { loadBuiltInBackup(it) != null }
                     restoreBuiltIn(*types.toIntArray())
                     val msg = if (restored > 0)
-                        "已恢复 ${types.size} 个内置倒计时（其中 $restored 个还原了原有设置）"
+                        "已经把 ${types.size} 个小内置倒计时找回来啦（其中 $restored 个还原了原来的设置）"
                     else
-                        "已恢复 ${types.size} 个内置倒计时"
+                        "已经把 ${types.size} 个小内置倒计时找回来啦"
                     Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
                 }
             }
         ) { host ->
             host.addView(TextView(this).apply {
-                text = "勾选要恢复的倒计时，确定后按删除前的设置（主题、模式、动画、提示音等）还原。"
+                text = "勾选想找回的小倒计时，确定后按删掉之前的设置（主题、模式、动画、提示音这些）还原哦。"
                 setTextColor(Color.parseColor("#FFE4EEFF"))
                 textSize = 13f
                 setLineSpacing(0f, 1.3f)
@@ -751,8 +751,8 @@ class MainActivity : Activity() {
                 gravity = Gravity.END
                 setPadding(0, dp(8), 0, dp(2))
             }
-            bar.addView(selectAllBtn("全选") { boxes.forEach { it.isChecked = true } })
-            bar.addView(selectAllBtn("全不选") { boxes.forEach { it.isChecked = false } })
+            bar.addView(selectAllBtn("全选上") { boxes.forEach { it.isChecked = true } })
+            bar.addView(selectAllBtn("全不选啦") { boxes.forEach { it.isChecked = false } })
             host.addView(bar)
 
             for ((i, def) in missing.withIndex()) {
@@ -938,7 +938,7 @@ class MainActivity : Activity() {
             c.refreshBuiltInTarget() // 内置项先对齐目标时间，保证「目标:」行显示的是当前周期
             titleTv.text = c.title
             titleTv.setTextColor(c.customColorArgb)
-            subTv.text = "目标: " + sdf.format(Date(c.targetTime)) +
+            subTv.text = "目标： " + sdf.format(Date(c.targetTime)) +
                     " | " + CountdownFormatter.modeName(c.displayMode, c.builtIn)
             lastTimeText = c.remainingText(now)
             applyTimeText(lastTimeText, c.customColorArgb)
@@ -947,11 +947,11 @@ class MainActivity : Activity() {
             AnimStyle.reset(timeLast, c.customColorArgb)
             if (c.remark.isNotEmpty()) {
                 remarkTv.visibility = View.VISIBLE
-                remarkTv.text = "备注: " + c.remark.replace("\n", " ")
+                remarkTv.text = "备注： " + c.remark.replace("\n", " ")
             } else {
                 remarkTv.visibility = View.GONE
             }
-            showBtn.text = if (c.isVisible) "隐藏" else "显示"
+            showBtn.text = if (c.isVisible) "收起" else "展开"
             // 动画效果名称显示在「显示 / 模式」按钮之后
             animBtn.text = AnimStyle.name(c.animStyle)
             // 再后面显示本条倒计时设置的提示音名称；没设过就显示「未设置提示音」
