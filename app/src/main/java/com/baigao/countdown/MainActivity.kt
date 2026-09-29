@@ -376,6 +376,8 @@ class MainActivity : Activity() {
             // 未注册时忽略
         }
         tickHandler.removeCallbacks(tickRunnable)
+        // 离开前台就清掉常亮 Flag，避免关掉开关后 Flag 残留在已暂停的窗口上
+        ScreenKeepOn.onPause(this)
         super.onPause()
     }
 
