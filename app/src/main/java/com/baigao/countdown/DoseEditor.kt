@@ -39,8 +39,8 @@ object DoseEditor {
         )
 
         val tip = TextView(activity).apply {
-            text = "每天 ${MedicineReminder.timesPerDay(activity)} 次，可分别改时刻与服药时机；" +
-                "点「保存」即生效并覆盖全天 24 小时。"
+            text = "每天 ${MedicineReminder.timesPerDay(activity)} 次，可以分别改时刻和服药时机哦；" +
+                "点「保存」就生效，并覆盖全天 24 小时哦。"
             setTextColor(0xFFC6D5EF.toInt())
             textSize = 13f
         }
@@ -131,12 +131,12 @@ object DoseEditor {
 
         UpdateManager.showStyledDialog(
             activity = activity,
-            title = "吃药时间设置",
-            positiveText = "保存",
-            negativeText = "取消",
+            title = "设置吃药时间",
+            positiveText = "存好啦",
+            negativeText = "先不了",
             onPositive = {
                 MedicineReminder.applyDosePlan(activity, times, ctxIdx)
-                Toast.makeText(activity, "已保存并同步 24 小时", Toast.LENGTH_SHORT).show()
+                Toast.makeText(activity, "已经存好，同步覆盖全天 24 小时啦", Toast.LENGTH_SHORT).show()
                 onSaved()
             }
         ) { host: LinearLayout ->
