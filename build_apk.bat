@@ -7,61 +7,61 @@ if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
 set "TOOLCHAIN=C:\Users\BDJ\.workbuddy\binaries\android-toolchain"
 
 echo ============================================================
-echo   µ¹¼ÆÊ± - °²×¿ APK ´ò°ü½Å±¾
+echo   ï¿½ï¿½ï¿½ï¿½Ê± - ï¿½ï¿½×¿ APK ï¿½ï¿½ï¿½ï¿½Å±ï¿½
 echo ============================================================
 echo.
 
-rem ---- 1. ¶¨Î» JDK / Android SDK£¨ÓÅÏÈÓÃ±¾»úÒÑ×°ºÃµÄ toolchain£©----
+rem ---- 1. ï¿½ï¿½Î» JDK / Android SDKï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã±ï¿½ï¿½ï¿½ï¿½ï¿½×°ï¿½Ãµï¿½ toolchainï¿½ï¿½----
 set "JAVA_HOME=%TOOLCHAIN%\jdk\jdk-17"
 set "ANDROID_HOME=%TOOLCHAIN%\android-sdk"
 
 if not exist "%JAVA_HOME%\bin\java.exe" (
-    echo [´íÎó] Î´ÕÒµ½ JDK£º%JAVA_HOME%
-    echo ÇëÈ·ÈÏ¹¤¾ßÁ´ÒÑ°²×°µ½ C:\Users\BDJ\.workbuddy\binaries\android-toolchain\
+    echo [ï¿½ï¿½ï¿½ï¿½] Î´ï¿½Òµï¿½ JDKï¿½ï¿½%JAVA_HOME%
+    echo ï¿½ï¿½È·ï¿½Ï¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ°ï¿½×°ï¿½ï¿½ C:\Users\BDJ\.workbuddy\binaries\android-toolchain\
     echo.
     pause
     exit /b 1
 )
 if not exist "%ANDROID_HOME%" (
-    echo [´íÎó] Î´ÕÒµ½ Android SDK£º%ANDROID_HOME%
+    echo [ï¿½ï¿½ï¿½ï¿½] Î´ï¿½Òµï¿½ Android SDKï¿½ï¿½%ANDROID_HOME%
     echo.
     pause
     exit /b 1
 )
-echo [OK] JDK£º%JAVA_HOME%
-echo [OK] SDK£º%ANDROID_HOME%
+echo [OK] JDKï¿½ï¿½%JAVA_HOME%
+echo [OK] SDKï¿½ï¿½%ANDROID_HOME%
 echo.
 
-rem ---- 2. Ñ¡Ôñ Gradle£¨ÓÅÏÈÓÃÖ±½Ó°²×°µÄ£¬Æä´Î gradlew£©----
+rem ---- 2. Ñ¡ï¿½ï¿½ Gradleï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö±ï¿½Ó°ï¿½×°ï¿½Ä£ï¿½ï¿½ï¿½ï¿½ gradlewï¿½ï¿½----
 set "GRADLE=%TOOLCHAIN%\gradle-8.2\bin\gradle.bat"
 if not exist "%GRADLE%" (
     set "GRADLE=%ROOT%\gradlew.bat"
 )
 if not exist "%GRADLE%" (
-    echo [´íÎó] Î´ÕÒµ½ Gradle£¨¼ÈÎÞÖ±½Ó°²×°£¬Ò²ÎÞ gradlew£©¡£
+    echo [ï¿½ï¿½ï¿½ï¿½] Î´ï¿½Òµï¿½ Gradleï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö±ï¿½Ó°ï¿½×°ï¿½ï¿½Ò²ï¿½ï¿½ gradlewï¿½ï¿½ï¿½ï¿½
     echo.
     pause
     exit /b 1
 )
-echo [OK] Gradle£º%GRADLE%
+echo [OK] Gradleï¿½ï¿½%GRADLE%
 echo.
 
-rem ---- 3. ±àÒë Release APK ----
-echo [1/3] ÕýÔÚ±àÒë Release APK£¨Ê×´Î±àÒëÐèÁªÍøÏÂÔØÒÀÀµ£¬ÇëÄÍÐÄµÈ´ý£©...
+rem ---- 3. ï¿½ï¿½ï¿½ï¿½ Release APK ----
+echo [1/3] ï¿½ï¿½ï¿½Ú±ï¿½ï¿½ï¿½ Release APKï¿½ï¿½ï¿½×´Î±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÄµÈ´ï¿½ï¿½ï¿½...
 echo.
 call "%GRADLE%" assembleRelease --no-daemon
 if errorlevel 1 (
     echo.
-    echo [Ê§°Ü] ±àÒë³ö´í£¬Çë²é¿´ÉÏ·½ Gradle ±¨´íÐÅÏ¢¡£
+    echo [Ê§ï¿½ï¿½] ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½é¿´ï¿½Ï·ï¿½ Gradle ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½
     echo.
     pause
     exit /b 1
 )
 echo.
-echo [2/3] ±àÒë³É¹¦£¬¿ªÊ¼Ç©Ãû APK...
+echo [2/3] ï¿½ï¿½ï¿½ï¿½É¹ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼Ç©ï¿½ï¿½ APK...
 echo.
 
-rem ---- 4. zipalign + Ç©Ãû + ¸´ÖÆ ----
+rem ---- 4. zipalign + Ç©ï¿½ï¿½ + ï¿½ï¿½ï¿½ï¿½ ----
 set "BT=%ANDROID_HOME%\build-tools\34.0.0"
 set "KEYSTORE=%ROOT%\countdown-release.jks"
 set "UNSIGNED=%ROOT%\app\build\outputs\apk\release\app-release-unsigned.apk"
@@ -69,13 +69,13 @@ set "ALIGNED=%ROOT%\app-release-aligned.apk"
 set "OUT=%ROOT%\app-release-signed.apk"
 
 if not exist "%UNSIGNED%" (
-    echo [´íÎó] Î´ÕÒµ½±àÒë²úÎï£º%UNSIGNED%
+    echo [ï¿½ï¿½ï¿½ï¿½] Î´ï¿½Òµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï£º%UNSIGNED%
     echo.
     pause
     exit /b 1
 )
 if not exist "%KEYSTORE%" (
-    echo [´íÎó] Î´ÕÒµ½Ç©ÃûÃÜÔ¿£º%KEYSTORE%
+    echo [ï¿½ï¿½ï¿½ï¿½] Î´ï¿½Òµï¿½Ç©ï¿½ï¿½ï¿½ï¿½Ô¿ï¿½ï¿½%KEYSTORE%
     echo.
     pause
     exit /b 1
@@ -83,7 +83,7 @@ if not exist "%KEYSTORE%" (
 
 call "%BT%\zipalign.exe" -f 4 "%UNSIGNED%" "%ALIGNED%"
 if errorlevel 1 (
-    echo [Ê§°Ü] zipalign ³ö´í¡£
+    echo [Ê§ï¿½ï¿½] zipalign ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     echo.
     pause
     exit /b 1
@@ -91,27 +91,27 @@ if errorlevel 1 (
 
 call "%BT%\apksigner.bat" sign --ks "%KEYSTORE%" --ks-key-alias countdown --ks-pass pass:baigao110 --key-pass pass:baigao110 --out "%OUT%" "%ALIGNED%"
 if errorlevel 1 (
-    echo [Ê§°Ü] Ç©Ãû³ö´í¡£
+    echo [Ê§ï¿½ï¿½] Ç©ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     echo.
     pause
     exit /b 1
 )
 
-copy /Y "%OUT%" "%ROOT%\countdown-android-v1.0.0.37-release.apk"
-echo [3/3] ÕýÔÚ¸´ÖÆµ½ °²×¿°æAPK Ä¿Â¼...
-set "DEST=%ROOT%\..\°²×¿°æAPK"
+copy /Y "%OUT%" "%ROOT%\countdown-android-v1.0.0.38-release.apk"
+echo [3/3] ï¿½ï¿½ï¿½Ú¸ï¿½ï¿½Æµï¿½ ï¿½ï¿½×¿ï¿½ï¿½APK Ä¿Â¼...
+set "DEST=%ROOT%\..\ï¿½ï¿½×¿ï¿½ï¿½APK"
 if not exist "%DEST%" mkdir "%DEST%"
-copy /Y "%OUT%" "%DEST%\µ¹¼ÆÊ±-°²×¿°æ-v1.0.0.37-release.apk"
+copy /Y "%OUT%" "%DEST%\ï¿½ï¿½ï¿½ï¿½Ê±-ï¿½ï¿½×¿ï¿½ï¿½-v1.0.0.38-release.apk"
 if errorlevel 1 (
-    echo [¾¯¸æ] ¸´ÖÆµ½ %DEST% Ê§°Ü£¬APK ÒÑÉú³ÉÔÚ£º%OUT%
+    echo [ï¿½ï¿½ï¿½ï¿½] ï¿½ï¿½ï¿½Æµï¿½ %DEST% Ê§ï¿½Ü£ï¿½APK ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú£ï¿½%OUT%
 ) else (
-    echo [OK] ÒÑÉú³É£º%DEST%\µ¹¼ÆÊ±-°²×¿°æ-v1.0.0.37-release.apk
+    echo [OK] ï¿½ï¿½ï¿½ï¿½ï¿½É£ï¿½%DEST%\ï¿½ï¿½ï¿½ï¿½Ê±-ï¿½ï¿½×¿ï¿½ï¿½-v1.0.0.38-release.apk
 )
 
 echo.
 echo ============================================================
-echo   ´ò°üÍê³É£¡
-echo   °²×°°ü£º%DEST%\µ¹¼ÆÊ±-°²×¿°æ-v1.0.0.37-release.apk
+echo   ï¿½ï¿½ï¿½ï¿½ï¿½É£ï¿½
+echo   ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½%DEST%\ï¿½ï¿½ï¿½ï¿½Ê±-ï¿½ï¿½×¿ï¿½ï¿½-v1.0.0.38-release.apk
 echo ============================================================
 echo.
 pause
