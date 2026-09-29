@@ -83,6 +83,12 @@ class MedicineCalendarActivity : Activity() {
         render()
     }
 
+    override fun onPause() {
+        super.onPause()
+        // 离开前台就清掉常亮 Flag，避免关掉开关后 Flag 残留在已暂停的窗口上
+        ScreenKeepOn.onPause(this)
+    }
+
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
     /** 圆形背景：已吃药（青实心）/ 未吃药（淡红）/ 今天（青描边）/ 未来（淡灰）。 */
