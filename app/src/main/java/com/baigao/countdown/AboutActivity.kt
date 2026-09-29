@@ -92,7 +92,7 @@ class AboutActivity : Activity() {
             try {
                 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/baigao110/countdown-android")))
             } catch (_: Exception) {
-                Toast.makeText(this, "无法打开链接", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "打不开链接呢", Toast.LENGTH_SHORT).show()
             }
         }
         backBtn.setOnClickListener { finish() }
@@ -105,7 +105,7 @@ class AboutActivity : Activity() {
         // 「开启通知」：没权限就申请（Android 13+），老版本直接跳通知设置页
         notifyBtn.setOnClickListener {
             if (UpdateNotifier.hasPermission(this)) {
-                Toast.makeText(this, "通知权限已开启，可点「测试通知」验证", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "通知权限已经开啦，可以点「测试通知」看看通不通", Toast.LENGTH_SHORT).show()
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 requestPermissions(
                     arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIFY
@@ -119,8 +119,8 @@ class AboutActivity : Activity() {
             val ok = UpdateNotifier.sendTest(this)
             Toast.makeText(
                 this,
-                if (ok) "已发出测试通知，若没看到请点「开启通知」检查权限"
-                else "通知被拦截：请点「开启通知」在系统设置里打开通知权限",
+                if (ok) "已经发出测试通知啦，要是没看到，请点「开启通知」检查下权限哦"
+                else "通知被拦住啦：请点「开启通知」在系统设置里把通知权限打开哦",
                 Toast.LENGTH_LONG
             ).show()
         }
@@ -136,8 +136,8 @@ class AboutActivity : Activity() {
             refreshScreenKeep()
             Toast.makeText(
                 this,
-                if (on) "屏幕常亮已开启：应用在前台时屏幕保持常亮、不锁屏"
-                else "屏幕常亮已关闭：恢复手机默认熄屏时间",
+                if (on) "屏幕常亮开啦：应用在前台时屏幕一直亮着、不会锁屏"
+                else "屏幕常亮关啦：恢复手机默认的熄屏时间",
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -147,7 +147,7 @@ class AboutActivity : Activity() {
             refreshUpdateMode()
             Toast.makeText(
                 this@AboutActivity,
-                "更新提示：${m.label}\n${m.desc}",
+                "更新提示方式：${m.label}\n${m.desc}",
                 Toast.LENGTH_LONG
             ).show()
         }
@@ -165,11 +165,11 @@ class AboutActivity : Activity() {
                 } else {
                     UpdateNotifier.openSettings(this)
                 }
-                Toast.makeText(this, "请允许通知权限，吃药提醒才会弹出", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "先允许通知权限，吃药小提醒才能弹出来哦", Toast.LENGTH_LONG).show()
             } else {
                 Toast.makeText(
                     this,
-                    if (on) "吃药提醒已开启（${MedicineReminder.timeText(this)}）" else "吃药提醒已关闭",
+                    if (on) "吃药小提醒开啦（${MedicineReminder.timeText(this)}）" else "吃药小提醒关啦",
                     Toast.LENGTH_SHORT
                 ).show()
             }
@@ -185,7 +185,7 @@ class AboutActivity : Activity() {
             val ok = MedicineReminder.notifyNow(this)
             Toast.makeText(
                 this,
-                if (ok) "已发出吃药提醒测试通知（每天 ${MedicineReminder.timesPerDay(this)} 次：${MedicineReminder.doseScheduleText(this)}）" else "通知被拦截：请先在上方点「开启通知」",
+                if (ok) "已经发出吃药小提醒测试通知啦（每天 ${MedicineReminder.timesPerDay(this)} 次：${MedicineReminder.doseScheduleText(this)}）" else "通知被拦截：请先在上方点「开启通知」",
                 Toast.LENGTH_LONG
             ).show()
         }
@@ -207,7 +207,7 @@ class AboutActivity : Activity() {
         if (grantResults.isNotEmpty() &&
             grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
         ) {
-            Toast.makeText(this, "通知权限已开启", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "通知权限已经开啦", Toast.LENGTH_SHORT).show()
         } else {
             UpdateNotifier.openSettings(this)
         }
@@ -218,12 +218,12 @@ class AboutActivity : Activity() {
     /** 引导关闭电池优化（不关的话系统会在后台限制网络与定时检查）。 */
     private fun requestIgnoreBattery() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            Toast.makeText(this, "系统版本较旧，无需设置", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "系统版本比较旧，这个不用设置哦", Toast.LENGTH_SHORT).show()
             return
         }
         val pm = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
         if (pm.isIgnoringBatteryOptimizations(packageName)) {
-            Toast.makeText(this, "已允许后台运行", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "已经允许后台运行啦", Toast.LENGTH_SHORT).show()
             return
         }
         try {
@@ -232,7 +232,7 @@ class AboutActivity : Activity() {
                     .setData(Uri.parse("package:$packageName"))
             )
         } catch (e: Throwable) {
-            Toast.makeText(this, "请在系统设置里手动关闭本应用的电池优化", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "请在系统设置里手动把本应用的电池优化关掉哦", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -250,7 +250,7 @@ class AboutActivity : Activity() {
         }
         // 在按钮下方显示三种更新提示方式各自的行为含义，当前选中的用 ● 标出
         val sb = StringBuilder()
-        sb.append("更新提示方式（点上方按钮切换）：\n")
+        sb.append("更新提示方式（点上面按钮切换哦）：\n")
         for (mode in UpdateManager.UpdatePromptMode.values()) {
             val mark = if (mode == m) "● " else "○ "
             sb.append(mark).append(mode.label).append("：").append(mode.desc).append("\n")
@@ -260,10 +260,10 @@ class AboutActivity : Activity() {
 
     /** 刷新「后台检查 / 通知权限」状态行。 */
     private fun refreshState() {
-        val perm = if (UpdateNotifier.hasPermission(this)) "通知权限：已开启" else "通知权限：未开启"
+        val perm = if (UpdateNotifier.hasPermission(this)) "通知权限：已经开啦" else "通知权限：还没开"
         val battery = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val pm = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
-            if (pm.isIgnoringBatteryOptimizations(packageName)) "电池优化：已关闭" else "电池优化：未关闭"
+            if (pm.isIgnoringBatteryOptimizations(packageName)) "电池优化：已经关掉啦" else "电池优化：还没关"
         } else ""
         checkStateTv.text = listOf(UpdateCheckState.summary(this), perm, battery)
             .filter { it.isNotEmpty() }.joinToString("\n")
@@ -274,7 +274,7 @@ class AboutActivity : Activity() {
     private fun refreshMedicine() {
         if (!::medToggleBtn.isInitialized) return
         val on = MedicineReminder.isEnabled(this)
-        medToggleBtn.text = if (on) "吃药提醒：已开启" else "吃药提醒：已关闭"
+        medToggleBtn.text = if (on) "吃药提醒：开啦" else "吃药提醒：关啦"
         val medVis = if (on) android.view.View.VISIBLE else android.view.View.GONE
         // 关闭状态下隐藏提醒时间与状态等全部子项，仅保留开关
         medTimeBtn.visibility = medVis
@@ -282,8 +282,8 @@ class AboutActivity : Activity() {
         medRowCalendar.visibility = medVis
         medRowTools.visibility = medVis
         val n = MedicineReminder.timesPerDay(this)
-        medTimeBtn.text = if (n >= 2) "吃药时间（每天 $n 次）" else "首剂时间 ${MedicineReminder.timeText(this)}"
-        medTimesBtn.text = "每天次数 $n 次"
+        medTimeBtn.text = if (n >= 2) "吃药时间（每天 $n 次哦）" else "首剂时间 ${MedicineReminder.timeText(this)}"
+        medTimesBtn.text = "每天 $n 次"
         medTimesBtn.visibility = medVis
         medScheduleTv.text = SpannableStringBuilder("每天 $n 次：")
             .append(MedicineReminder.doseScheduleSpannable(this))
@@ -296,7 +296,7 @@ class AboutActivity : Activity() {
     private fun refreshScreenKeep() {
         if (!::screenKeepBtn.isInitialized) return
         val on = ScreenKeepOn.isOn(this)
-        screenKeepBtn.text = if (on) "屏幕常亮：已开启" else "屏幕常亮：已关闭"
+        screenKeepBtn.text = if (on) "屏幕常亮：开啦" else "屏幕常亮：关啦"
     }
 
     /** 读取 TimePicker：API 23+ 用 hour / minute，老版本用已废弃的 currentHour / currentMinute。 */
@@ -325,7 +325,7 @@ class AboutActivity : Activity() {
                     .setData(Uri.parse("package:$packageName"))
             )
         } catch (e: Throwable) {
-            Toast.makeText(this, "请在系统设置里找到本应用，允许自启动与后台运行", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "请在系统设置里找到本应用，把自启动和后台运行打开哦", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -342,46 +342,46 @@ class AboutActivity : Activity() {
         val lines = mutableListOf<CharSequence>()
         lines.add(
             if (MedicineReminder.nextIsCustom(this))
-                "下次提醒：${MedicineReminder.nextTriggerText(this)}（已手动改，这次响过即恢复常规）"
+                "下次提醒：${MedicineReminder.nextTriggerText(this)}（手动改过啦，这次响过就回到常规）"
             else "下次提醒：${MedicineReminder.nextTriggerText(this)}"
         )
         val schedN = MedicineReminder.timesPerDay(this)
         lines.add(
-            SpannableStringBuilder("每日次数：${schedN} 次（")
+            SpannableStringBuilder("每天次数：${schedN} 次（")
                 .append(MedicineReminder.doseScheduleSpannable(this)).append("）")
         )
-        lines.add("闹钟挂载：${MedicineReminder.lastScheduleText(this)}")
-        lines.add("上次发出提醒：${MedicineReminder.lastNotifyText(this)}")
+        lines.add("闹钟挂好啦：${MedicineReminder.lastScheduleText(this)}")
+        lines.add("上一次发出提醒：${MedicineReminder.lastNotifyText(this)}")
         lines.add(
-            if (UpdateNotifier.hasPermission(this)) "通知权限：已开启"
-            else "通知权限：未开启（必须开启，否则根本弹不出）"
+            if (UpdateNotifier.hasPermission(this)) "通知权限：已经开啦"
+            else "通知权限：还没开（一定要开，不然根本弹不出来）"
         )
         lines.add(
-            if (MedicineReminder.canScheduleExact(this)) "精确闹钟：已允许"
-            else "精确闹钟：未允许（已自动改用系统闹钟 + 重复闹钟，仍能提醒）"
+            if (MedicineReminder.canScheduleExact(this)) "精确闹钟：已经允许啦"
+            else "精确闹钟：还没开哦（已自动改用系统闹钟 + 重复闹钟，一样能提醒你～）"
         )
-        lines.add(if (batteryOptimized()) "电池优化：未关闭（建议关掉）" else "电池优化：已关闭")
+        lines.add(if (batteryOptimized()) "电池优化：还没关（建议关掉哦）" else "电池优化：已经关掉啦")
         lines.add("")
-        lines.add("已经做了四重保障：系统闹钟 + 精确闹钟 + 每日重复闹钟 +")
+        lines.add("已经做了四重保障哦：系统闹钟 + 精确闹钟 + 每日重复闹钟 +")
         lines.add("两路后台巡检（到点后 2 分钟 / 30 分钟还会各补响一次）。")
         // 通知体检：把「权限 / 渠道 / 后台」这些看不见的闸门一并告知，
         // 否则用户只能猜——而这些环节任何一个断了，代码层面都是彻底静默的。
         val bad = NotifyGuard.lines(this).filter { it.startsWith("✖") }
         if (bad.isEmpty()) {
-            lines.add("通知体检：全部正常（权限、渠道、后台都通）")
+            lines.add("通知体检：都正常啦（权限、渠道、后台都通）")
         } else {
-            lines.add("通知体检：有 ${bad.size} 项会挡住通知 ——")
+            lines.add("通知体检：有 ${bad.size} 项会挡住通知——")
             bad.forEach { lines.add("  $it") }
         }
-        lines.add("若仍然不提醒，多半是手机把本应用「强制停止」了：")
-        lines.add("  1. 别从最近任务里划掉本应用的卡片（或在最近任务里给它加锁）；")
-        lines.add("  2. 系统设置 → 应用管理 → 本应用，打开「自启动 / 后台运行」；")
-        lines.add("  3. 重新打开一次本应用，错过的提醒会自动补发。")
+        lines.add("要是还是不提醒，多半是手机把本应用「强制停止」了：")
+        lines.add("  1. 别从最近任务里划掉本应用的卡片（或在最近任务里给它加个锁哦）；")
+        lines.add("  2. 系统设置 → 应用管理 → 本应用，把「自启动 / 后台运行」打开哦；")
+        lines.add("  3. 重新打开一次本应用，错过的提醒会自动补上哒。")
         val needBattery = batteryOptimized()
         UpdateManager.showStyledDialog(
             activity = this,
-            title = "吃药提醒自检",
-            positiveText = if (needBattery) "关闭电池优化" else "去设置",
+            title = "吃药小提醒自检",
+            positiveText = if (needBattery) "关掉电池优化" else "去设置看看",
             negativeText = "关闭",
             onPositive = { if (needBattery) requestIgnoreBattery() else openAppDetails() }
         ) { host ->
@@ -420,25 +420,25 @@ class AboutActivity : Activity() {
         if (isFinishing) return
         val time = MedicineReminder.nextTriggerText(this)
         val text = listOf(
-            "下次提醒已设为 $time（只影响这一次，响过自动恢复常规）",
+            "下次提醒已经设为 $time（只影响这一次，响过就自动回到常规）",
             "",
-            "为确保到点能收到，已经做了这些：",
-            "  1. 系统闹钟 + 精确闹钟（同一时刻双路，能穿透省电模式）",
+            "为了到点一定能收到，已经做了这些：",
+            "  1. 系统闹钟 + 精确闹钟（同一时刻双路，能穿透省电模式哦）",
             "  2. 到点后 2 分钟、30 分钟各补响一次",
-            "  3. 后台每 15 分钟巡检一次，闹钟没了会补挂、错过会补发",
-            "  4. 重新打开本应用时，漏掉的提醒立刻补上",
+            "  3. 后台每 15 分钟巡检一次，闹钟没了会补挂、错过会补上",
+            "  4. 重新打开本应用时，漏掉的提醒立刻补上哒",
             "",
-            "如果这样还是收不到，一般是手机把本应用「强制停止」了：",
-            "  · 别从最近任务里划掉本应用的卡片（或在最近任务里给它加锁）",
-            "  · 系统设置 → 应用管理 → 本应用，打开「自启动 / 后台运行」",
-            "  · 关掉本应用的电池优化"
+            "要是这样还是收不到，一般是手机把本应用「强制停止」了：",
+            "  · 别从最近任务里划掉本应用的卡片（或在最近任务里给它加个锁）",
+            "  · 系统设置 → 应用管理 → 本应用，把「自启动 / 后台运行」打开哦",
+            "  · 把本应用的电池优化关掉哦"
         ).joinToString("\n")
         val needBattery = batteryOptimized()
         UpdateManager.showStyledDialog(
             activity = this,
-            title = "下次提醒已设置",
-            positiveText = if (needBattery) "允许后台运行" else "去应用设置",
-            negativeText = "知道了",
+            title = "下次提醒设好啦",
+            positiveText = if (needBattery) "允许后台运行" else "去应用设置看看",
+            negativeText = "知道啦",
             onPositive = { if (needBattery) requestIgnoreBattery() else openAppDetails() }
         ) { host ->
             val tv = TextView(this).apply {
@@ -470,7 +470,7 @@ class AboutActivity : Activity() {
         }
         dialog = UpdateManager.showStyledDialog(
             activity = this,
-            title = "下次提醒时间",
+            title = "设一下下次提醒时间",
             positiveText = "确定",
             negativeText = "取消",
             onPositive = {
@@ -482,7 +482,7 @@ class AboutActivity : Activity() {
                     set(Calendar.MILLISECOND, 0)
                 }
                 if (target.timeInMillis <= System.currentTimeMillis()) {
-                    Toast.makeText(this, "请选一个晚于现在的时间", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "请选一个比现在晚一点的时间哦", Toast.LENGTH_LONG).show()
                     return@showStyledDialog
                 }
                 MedicineReminder.setNextCustom(this, target.timeInMillis)
@@ -507,10 +507,10 @@ class AboutActivity : Activity() {
             host.addView(tp)
 
             val tip = TextView(this).apply {
-                text = "改的是「下一次」提醒的时间，这次响过之后自动恢复为每天固定时刻（每天 " +
+                text = "改的是「下一次」提醒的时间，响过这一次就自动回到每天固定时刻（每天 " +
                     MedicineReminder.timesPerDay(this@AboutActivity) + " 次：" +
                     MedicineReminder.doseScheduleText(this@AboutActivity) + "）；\n" +
-                    "想改每天的固定时刻与次数，请用上方的「提醒时间 / 每天次数」按钮。"
+                    "想改每天的固定时刻和次数，请用上面的「提醒时间 / 每天次数」按钮哦。"
                 setTextColor(android.graphics.Color.parseColor("#FFC6D5EF"))
                 textSize = 13f
                 setShadowLayer(2f, 0f, 1f, android.graphics.Color.parseColor("#CC000000"))
@@ -524,7 +524,7 @@ class AboutActivity : Activity() {
             host.addView(tip)
 
             val reset = Button(this).apply {
-                text = "恢复常规（每天 ${MedicineReminder.timeText(this@AboutActivity)}）"
+                text = "回到常规（每天 ${MedicineReminder.timeText(this@AboutActivity)}）"
                 textSize = 13f
                 setTextColor(android.graphics.Color.parseColor("#FF001018"))
                 setBackgroundResource(R.drawable.circle_btn)
@@ -540,7 +540,7 @@ class AboutActivity : Activity() {
                 MedicineReminder.schedule(this@AboutActivity)
                 refreshMedicine()
                 dialog?.dismiss()
-                Toast.makeText(this@AboutActivity, "已恢复为每天固定时刻提醒", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@AboutActivity, "已经回到每天固定时刻提醒啦", Toast.LENGTH_SHORT).show()
             }
             host.addView(reset)
         }
@@ -559,14 +559,14 @@ class AboutActivity : Activity() {
         val opts = arrayOf("1 次 / 天", "2 次 / 天", "3 次 / 天", "4 次 / 天")
         val cur = MedicineReminder.timesPerDay(this) - 1
         AlertDialog.Builder(this)
-            .setTitle("每天提醒几次")
+            .setTitle("每天想提醒几次呀")
             .setSingleChoiceItems(opts, cur) { d, which ->
                 MedicineReminder.setTimesPerDay(this, which + 1)
                 refreshMedicine()
                 d.dismiss()
                 Toast.makeText(
                     this,
-                    "已设为每天 ${which + 1} 次（首剂 ${MedicineReminder.timeText(this)}，其余均匀分布在当天）",
+                    "已经设为每天 ${which + 1} 次啦（首剂 ${MedicineReminder.timeText(this)}，其余均匀分布在当天）",
                     Toast.LENGTH_LONG
                 ).show()
             }
@@ -582,10 +582,10 @@ class AboutActivity : Activity() {
         // 回到「关于」页就显示「已是最新版本」（临时忽略，下次手动检查仍会重新提示）。
         val ignored = UpdateManager.consumeIgnored()
         if (ignored != null) {
-            statusTv.text = "已是最新版本 v${UpdateManager.CURRENT_VERSION_NAME}"
+            statusTv.text = "已经是最新版本啦 v${UpdateManager.CURRENT_VERSION_NAME}"
             updateBtn.text = "检查更新"
             updateBtn.setOnClickListener { checkUpdate(forceDialog = true, forcePage = true) }
-            Toast.makeText(this, "已是最新版本", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "已经是最新版本啦", Toast.LENGTH_SHORT).show()
         }
         refreshState()
         refreshScreenKeep()
@@ -599,19 +599,19 @@ class AboutActivity : Activity() {
         if (checking) return
         checking = true
         updateBtn.isEnabled = false
-        statusTv.text = "正在检查更新..."
+        statusTv.text = "正在帮你看看有没有新版本..."
 
         UpdateManager.check(this, forceDialog, forcePage = forcePage) { info ->
             checking = false
             updateBtn.isEnabled = true
             if (info == null) {
                 updateBtn.text = "检查更新"
-                statusTv.text = "已是最新版本 v${UpdateManager.CURRENT_VERSION_NAME}"
+                statusTv.text = "已经是最新版本啦 v${UpdateManager.CURRENT_VERSION_NAME}"
                 if (forceDialog) {
-                    Toast.makeText(this, "已是最新版本", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "已经是最新版本啦", Toast.LENGTH_SHORT).show()
                 }
             } else {
-                statusTv.text = "发现新版本 v${info.name}"
+                statusTv.text = "发现新版本啦 v${info.name}"
                 updateBtn.text = "下载并安装 v${info.name}"
                 updateBtn.setOnClickListener { UpdateManager.downloadAndInstall(this, info) }
             }
