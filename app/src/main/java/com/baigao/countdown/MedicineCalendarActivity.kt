@@ -63,7 +63,7 @@ class MedicineCalendarActivity : Activity() {
             MedicineReminder.setTaken(this, !taken)
             Toast.makeText(
                 this,
-                if (taken) "已撤销今天的记录" else "已记录今天吃药",
+                if (taken) "已经撤销今天的记录啦" else "已经记下今天吃药啦",
                 Toast.LENGTH_SHORT
             ).show()
             render()
@@ -144,18 +144,18 @@ class MedicineCalendarActivity : Activity() {
         }
         val medN = MedicineReminder.timesPerDay(this)
         val statBase = SpannableStringBuilder(
-            "本月已吃药 ${took} 天 · 未吃药 ${missed} 天" +
-                    if (missed > 0) "（未吃药的日子可在日历里补记）" else ""
+            "本月吃过 ${took} 天 · 还没吃 ${missed} 天" +
+                    if (missed > 0) "（没吃药的日子可以在日历里补记哦）" else ""
         )
         if (medN > 1) {
-            statBase.append("\n每日提醒 ${medN} 次：")
+            statBase.append("\n每天会提醒 ${medN} 次哦：")
                 .append(MedicineReminder.doseScheduleSpannable(this))
         }
         statBase.append("\n服药时机：${MedicineReminder.DOSE_CONTEXTS.joinToString(" / ")}")
         statTv.text = statBase
 
         // ---------- 今日按钮 ----------
-        todayBtn.text = if (MedicineReminder.isTaken(this)) "撤销今日记录" else "今日已吃药"
+        todayBtn.text = if (MedicineReminder.isTaken(this)) "撤销今天记录" else "今天已吃药"
     }
 
     private fun cellView(day: Int, fmt: java.text.SimpleDateFormat, taken: Set<String>): FrameLayout {
@@ -209,7 +209,7 @@ class MedicineCalendarActivity : Activity() {
                 MedicineReminder.setTaken(this, !nowTaken, key)
                 Toast.makeText(
                     this,
-                    if (nowTaken) "已撤销 ${monthLabel(day)} 的记录" else "已补记 ${monthLabel(day)}",
+                    if (nowTaken) "已经撤销 ${monthLabel(day)} 的记录啦" else "已经补记 ${monthLabel(day)} 啦",
                     Toast.LENGTH_SHORT
                 ).show()
                 render()
@@ -227,14 +227,14 @@ class MedicineCalendarActivity : Activity() {
         val opts = arrayOf("1 次 / 天", "2 次 / 天", "3 次 / 天", "4 次 / 天")
         val cur = MedicineReminder.timesPerDay(this) - 1
         AlertDialog.Builder(this)
-            .setTitle("每天提醒几次")
+            .setTitle("每天想提醒几次呀")
             .setSingleChoiceItems(opts, cur) { d, which ->
                 MedicineReminder.setTimesPerDay(this, which + 1)
                 render()
                 d.dismiss()
-                Toast.makeText(this, "已设为每天 ${which + 1} 次", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "已经设为每天 ${which + 1} 次啦", Toast.LENGTH_SHORT).show()
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton("先不了", null)
             .show()
     }
 }
