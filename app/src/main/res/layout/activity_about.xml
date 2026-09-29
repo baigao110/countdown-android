@@ -76,6 +76,16 @@
             android:textSize="18sp"
             android:textStyle="bold" />
 
+        <TextView
+            android:id="@+id/githubLinkTv"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:text="项目主页 · github.com/baigao110/countdown-android"
+            android:textColor="#00FFFF"
+            android:textSize="13sp" />
+
         <LinearLayout
             android:layout_width="290dp"
             android:layout_height="52dp"
