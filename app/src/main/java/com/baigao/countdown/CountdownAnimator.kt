@@ -21,11 +21,11 @@ import kotlin.math.sin
  * 不引入任何第三方依赖，也不改动视图层级 —— 这样在列表复用、悬浮窗、拖动排序等
  * 各种场景下都不会破坏布局。
  *
- * 动画时长统一控制在 650ms 以内：列表每秒刷新一次，留有足够余量避免叠加。
+ * 动画时长统一控制在 700ms 以内：列表每秒刷新一次，留有足够余量避免叠加。
  * 每次播放前先取消上一次，结束时必定把属性复位，防止列表复用后属性残留。
  *
- * v1.0.0.37 增强：把每一种效果的幅度都显著加大、并加入颜色/抖动等辅助表演，
- * 使「缩放 / 蒸发 / 坠落 / 像素化 / 碎片化 / 燃烧 / 震撼」在视觉上更明显。
+ * v1.0.0.37 增强（两轮）：把每一种效果的幅度显著加大、加入颜色/抖动等辅助表演，
+ * 使「缩放 / 蒸发 / 坠落 / 像素化 / 碎片化 / 燃烧 / 震撼」在视觉上非常醒目。
  */
 object AnimStyle {
 
@@ -113,28 +113,28 @@ object AnimStyle {
         anim.start()
     }
 
-    // ---------------- 缩放：新数字由很大缩小到位，带强烈回弹 ----------------
+    // ---------------- 缩放：新数字由极大缩小到位，带夸张回弹 ----------------
     private fun scale(v: View) {
-        v.scaleX = 2.1f
-        v.scaleY = 2.1f
-        v.alpha = 0.2f
+        v.scaleX = 3.4f
+        v.scaleY = 3.4f
+        v.alpha = 0.12f
         v.animate()
             .scaleX(1f).scaleY(1f).alpha(1f)
-            .setDuration(500)
-            .setInterpolator(OvershootInterpolator(2.6f))
+            .setDuration(560)
+            .setInterpolator(OvershootInterpolator(3.6f))
             .start()
     }
 
-    // ---------------- 蒸发：数字自下方像蒸汽一样凝结升起，带横向摇曳 ----------------
+    // ---------------- 蒸发：数字自下方像蒸汽一样凝结升起，带明显横向摇曳 ----------------
     private fun evaporate(v: View) {
-        val anim = ValueAnimator.ofFloat(0f, 1f).apply { duration = 580 }
+        val anim = ValueAnimator.ofFloat(0f, 1f).apply { duration = 660 }
         anim.addUpdateListener { an ->
             val t = an.animatedFraction
-            val ease = t * t * (3f - 2f * t) // smoothstep，先慢后快再缓
+            val ease = t * t * (3f - 2f * t) // smoothstep
             v.alpha = ease
-            v.translationY = dp(v, 30f) * (1f - ease)            // 从下方升到原位
-            v.translationX = (sin(t * Math.PI * 3.0)).toFloat() * dp(v, 7f) * (1f - t) // 上升时左右摇曳
-            val s = 0.45f + 0.55f * ease
+            v.translationY = dp(v, 46f) * (1f - ease)            // 从下方升到原位
+            v.translationX = (sin(t * Math.PI * 3.0)).toFloat() * dp(v, 12f) * (1f - t) // 上升时左右摇曳
+            val s = 0.35f + 0.65f * ease
             v.scaleX = s
             v.scaleY = s
         }
@@ -150,40 +150,40 @@ object AnimStyle {
         bind(v, anim)
     }
 
-    // ---------------- 坠落：从很高处掉落并触底回弹，落地带轻微挤压 ----------------
+    // ---------------- 坠落：从很高处掉落并触底回弹，落地带明显挤压 ----------------
     private fun fall(v: View) {
-        val dist = if (v.height > 0) v.height * 1.9f + dp(v, 46f) else dp(v, 90f)
+        val dist = if (v.height > 0) v.height * 2.3f + dp(v, 72f) else dp(v, 110f)
         v.translationY = -dist
-        v.alpha = 0.25f
-        v.rotation = -22f
+        v.alpha = 0.18f
+        v.rotation = -30f
         v.animate()
             .translationY(0f).alpha(1f).rotation(0f)
-            .setDuration(620)
+            .setDuration(680)
             .setInterpolator(BounceInterpolator())
             .withEndAction {
-                // 落地再补一个轻挤压，强化“砸下来”的实感
-                v.scaleX = 1.18f
-                v.scaleY = 0.82f
-                v.animate().scaleX(1f).scaleY(1f).setDuration(160)
-                    .setInterpolator(OvershootInterpolator(2f)).start()
+                // 落地再补一个明显的挤压，强化“砸下来”的实感
+                v.scaleX = 1.3f
+                v.scaleY = 0.7f
+                v.animate().scaleX(1f).scaleY(1f).setDuration(200)
+                    .setInterpolator(OvershootInterpolator(2.4f)).start()
             }
             .start()
     }
 
-    // ---------------- 像素化：分 5 档阶梯拼合 + 像素抖动 + 中段高亮，像马赛克一格格点亮 ----------------
+    // ---------------- 像素化：分 5 档阶梯拼合 + 大幅像素抖动 + 中段高亮，像马赛克一格格点亮 ----------------
     private fun pixel(v: View, baseColor: Int) {
         val tv = v as? TextView
-        val ampX = dp(v, 11f)
-        val ampY = dp(v, 9f)
+        val ampX = dp(v, 17f)
+        val ampY = dp(v, 14f)
         val steps = 5
         val white = 0xFFFFFFFF.toInt()
-        val anim = ValueAnimator.ofFloat(0f, 1f).apply { duration = 540 }
+        val anim = ValueAnimator.ofFloat(0f, 1f).apply { duration = 620 }
         anim.addUpdateListener { an ->
             val t = an.animatedFraction
             // 把连续进度量化成 5 档，视觉上像“色块一格格拼出来”
             val step = Math.floor((t * steps).toDouble()).toFloat() / steps
-            v.alpha = 0.12f + 0.88f * step
-            val s = 0.5f + 0.5f * step
+            v.alpha = 0.08f + 0.92f * step
+            val s = 0.4f + 0.6f * step
             v.scaleX = s
             v.scaleY = s
             // 每帧随机吸附到“像素列/行”，制造马赛克错位感
@@ -209,17 +209,17 @@ object AnimStyle {
 
     // ---------------- 碎片化：大幅随机位移+旋转+拉伸，随后收敛归位 ----------------
     private fun shatter(v: View) {
-        val amp = dp(v, 22f)
-        val anim = ValueAnimator.ofFloat(0f, 1f).apply { duration = 540 }
+        val amp = dp(v, 36f)
+        val anim = ValueAnimator.ofFloat(0f, 1f).apply { duration = 620 }
         anim.addUpdateListener { an ->
             val t = an.animatedFraction
             val damp = 1f - t
             v.translationX = (Math.random().toFloat() - 0.5f) * 2f * amp * damp
             v.translationY = (Math.random().toFloat() - 0.5f) * 2f * amp * damp
-            v.rotation = (Math.random().toFloat() - 0.5f) * 44f * damp
-            v.scaleX = 1f + 0.32f * damp
-            v.scaleY = 1f - 0.22f * damp
-            v.alpha = 0.1f + 0.9f * t
+            v.rotation = (Math.random().toFloat() - 0.5f) * 60f * damp
+            v.scaleX = 1f + 0.5f * damp
+            v.scaleY = 1f - 0.32f * damp
+            v.alpha = 0.05f + 0.95f * t
         }
         anim.addListener(object : AnimatorListenerAdapter() {
             override fun onAnimationEnd(a: Animator) {
@@ -243,9 +243,9 @@ object AnimStyle {
         val white = 0xFFFFF0.toInt()
         val yellow = 0xFFFFD23A.toInt()
         val orange = 0xFFFF5A18.toInt()
-        val rise = dp(v, 18f)
+        val rise = dp(v, 26f)
         val argb = ArgbEvaluator()
-        val anim = ValueAnimator.ofFloat(0f, 1f).apply { duration = 620 }
+        val anim = ValueAnimator.ofFloat(0f, 1f).apply { duration = 700 }
         anim.addUpdateListener { an ->
             val t = an.animatedFraction
             // 多段颜色插值：炽白 → 黄 → 橙 → 主题色
@@ -257,10 +257,10 @@ object AnimStyle {
             v.setTextColor(color)
             v.translationY = -rise * t
             // 火苗抖动：整体先涨后缩，并叠加高频颤动
-            val flicker = 1f + 0.14f * (1f - t) * (1f + 0.35f * sin(t * Math.PI * 7.0).toFloat())
+            val flicker = 1f + 0.2f * (1f - t) * (1f + 0.4f * sin(t * Math.PI * 8.0).toFloat())
             v.scaleX = flicker
             v.scaleY = flicker
-            v.alpha = 0.3f + 0.7f * t
+            v.alpha = 0.25f + 0.75f * t
         }
         anim.addListener(object : AnimatorListenerAdapter() {
             override fun onAnimationEnd(a: Animator) {
@@ -277,20 +277,20 @@ object AnimStyle {
     // ---------------- 震撼：阻尼衰减的高频大幅左右上下晃动 + 冲击缩放 + 白光闪一下 ----------------
     private fun quake(v: View, baseColor: Int) {
         val tv = v as? TextView
-        val amp = dp(v, 17f)
+        val amp = dp(v, 28f)
         val white = 0xFFFFFFFF.toInt()
-        val anim = ValueAnimator.ofFloat(0f, 1f).apply { duration = 560 }
+        val anim = ValueAnimator.ofFloat(0f, 1f).apply { duration = 660 }
         anim.addUpdateListener { an ->
             val t = an.animatedFraction
             val damp = 1f - t
-            v.translationX = (sin(t * Math.PI * 2.0 * 9.0)).toFloat() * amp * damp
-            v.translationY = (sin(t * Math.PI * 2.0 * 5.0 + 1.0)).toFloat() * amp * 0.5f * damp
-            val punch = abs(sin(t * Math.PI * 9.0)).toFloat()
-            val sc = 1f + 0.2f * damp * punch
+            v.translationX = (sin(t * Math.PI * 2.0 * 11.0)).toFloat() * amp * damp
+            v.translationY = (sin(t * Math.PI * 2.0 * 6.0 + 1.0)).toFloat() * amp * 0.55f * damp
+            val punch = abs(sin(t * Math.PI * 11.0)).toFloat()
+            val sc = 1f + 0.3f * damp * punch
             v.scaleX = sc
             v.scaleY = sc
             // 起始与中段各闪一次白光，强化“震撼”冲击感
-            val flash = t < 0.14f || (t > 0.42f && t < 0.52f)
+            val flash = t < 0.13f || (t > 0.4f && t < 0.5f)
             tv?.setTextColor(if (flash) white else baseColor)
         }
         anim.addListener(object : AnimatorListenerAdapter() {
