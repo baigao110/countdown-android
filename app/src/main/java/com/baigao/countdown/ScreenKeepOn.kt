@@ -33,4 +33,13 @@ object ScreenKeepOn {
             activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
+
+    /**
+     * 在 Activity.onPause 调用：只要窗口离开前台就清掉常亮 Flag。
+     * 这样即便开关状态有残留、或 Activity 之间切换，Flag 也不会滞留在某个已暂停的窗口上，
+     * 避免「关掉屏幕常亮后手机仍不按默认时间熄屏」的问题。回到前台时 onResume 会按需重新加上。
+     */
+    fun onPause(activity: Activity) {
+        activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
 }
