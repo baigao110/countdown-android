@@ -645,11 +645,11 @@ object MedicineReminder {
             )
             val doses = timesPerDay(ctx)
             val doseLabel = if (doseIndex >= 0 && doses > 1) "（第 ${doseIndex + 1}/$doses 次）" else ""
-            val title = (if (late) "该吃药了（补发提醒）" else "该吃药了") + doseLabel
+            val title = (if (late) "该吃药啦（补发提醒）" else "该吃药啦") + doseLabel
             val text = if (late) {
-                "刚才没能按时弹出，现在补上；点「已吃药」记录今天"
+                "刚才没按时弹出来，现在补上啦；点「已吃药」记一下今天"
             } else {
-                "每天 $doses 次提醒（${doseScheduleText(ctx)}）；点「已吃药」记录今天"
+                "每天 $doses 次小提醒（${doseScheduleText(ctx)}）；点「已吃药」记一下今天"
             }
             // 全屏意图：息屏 / 锁屏时把吃药页直接弹到眼前（闹钟类通知才有的待遇）。
             // 普通通知在国产 ROM 上很容易被收进「无声通知」，这个能真正把人叫到。
@@ -714,9 +714,9 @@ object MedicineReminder {
             val taken = isTaken(ctx)
             val title = "每日吃药提醒 · 已开启"
             val text = if (taken) {
-                "今日已吃药 ✓ · 下次提醒 ${nextTriggerText(ctx)}"
+                "今天吃过啦 ✓ · 下次提醒 ${nextTriggerText(ctx)}"
             } else {
-                "下次提醒 ${nextTriggerText(ctx)}（点开可看吃药日历）"
+                "下次提醒 ${nextTriggerText(ctx)}（点开能看吃药日历）"
             }
             val n = Notification.Builder(ctx, STATUS_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat)
@@ -883,18 +883,18 @@ object MedicineReminder {
     /** 上次真正发出提醒通知的时刻描述（自检用：「没发过」说明确实没发出来）。 */
     fun lastNotifyText(ctx: Context): String {
         val t = prefs(ctx).getLong(KEY_LAST_NOTIFY_TIME, 0L)
-        if (t <= 0L) return "还没发过"
+        if (t <= 0L) return "还没发过呢"
         return SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(t))
     }
 
     /** 「关于」页状态行：一眼看出提醒到底挂上没有、卡在哪一环。 */
     fun statusText(ctx: Context): String {
         val on = isEnabled(ctx)
-        if (!on) return "提醒已关闭 · 已记录 ${takenCount(ctx)} 天"
-        val today = if (isTaken(ctx)) "已吃药 ✓" else "未吃药"
+        if (!on) return "提醒关啦 · 已记录 ${takenCount(ctx)} 天"
+        val today = if (isTaken(ctx)) "吃过啦 ✓" else "还没吃"
         val n = timesPerDay(ctx)
-        val sched = if (n > 1) "\n每日 $n 次：${doseScheduleText(ctx)}" else ""
-        val tail = if (nextIsCustom(ctx)) "（已手动改）" else ""
-        return "今日：$today · 已记录 ${takenCount(ctx)} 天\n下次提醒 ${nextTriggerText(ctx)}$tail$sched"
+        val sched = if (n > 1) "\n每天 $n 次哦：${doseScheduleText(ctx)}" else ""
+        val tail = if (nextIsCustom(ctx)) "（手动改过啦）" else ""
+        return "今天：$today · 已记录 ${takenCount(ctx)} 天\n下次提醒 ${nextTriggerText(ctx)}$tail$sched"
     }
 }
