@@ -629,7 +629,7 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle("要和小倒计时说拜拜吗")
             .setMessage("要把「${c.title}」这个小倒计时收起来吗？它会舍不得你呢～\n（收起后就不显示在列表里啦）")
-            .setPositiveButton("好呀，收掉") { _, _ ->
+            .setPositiveButton("好呀，收起") { _, _ ->
                 // 内置倒计时同样可以删除（v1.0.0.9 起）：记下类型，之后不再自动补齐。
                 // 先把它的全部设置（主题颜色 / 显示模式 / 动画 / 提示音 / 悬浮窗显隐等）
                 // 存成快照，之后点「恢复内置」时原样还原，不用重新配置一遍。
@@ -733,7 +733,7 @@ class MainActivity : Activity() {
         UpdateManager.showStyledDialog(
             activity = this,
             title = "把小内置倒计时找回来",
-            positiveText = "好呀，收掉",
+            positiveText = "好呀，找回",
             negativeText = "先留着",
             onPositive = {
                 val types = missing.filterIndexed { i, _ -> checked[i] }.map { it.first }
