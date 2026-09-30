@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/glass_bg">
+
+    <!-- 液态玻璃背景层：模糊光斑 -->
+    <com.baigao.countdown.GlassBackdrop
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- 顶部返回栏 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/backBtn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="‹ 返回"
+            android:textColor="#00FFFF"
+            android:textSize="16sp"
+            android:padding="4dp" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="吃药提醒"
+            android:textColor="#00FFFF"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:layout_marginEnd="40dp" />
+    </LinearLayout>
+
+    <!-- 主体：吃药提醒卡片（与原来「关于」页里的完全一致，只是挪到了这里） -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:paddingTop="90dp"
+            android:paddingBottom="24dp"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/glass_card_strong"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:text="吃药提醒"
+                    android:textColor="#00FFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="10dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/medToggleBtn"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:text="吃药提醒：开啦"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:textColor="#001018"
+                        android:background="@drawable/circle_btn" />
+
+                    <Button
+                        android:id="@+id/medTimeBtn"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:layout_marginStart="10dp"
+                        android:text="提醒时间 09:00"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:textColor="#001018"
+                        android:background="@drawable/circle_btn" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/medTimesBtn"
+                    android:layout_width="260dp"
+                    android:layout_height="46dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="10dp"
+                    android:text="每天 1 次"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="#001018"
+                    android:background="@drawable/circle_btn" />
+
+                <LinearLayout
+                    android:id="@+id/medRowCalendar"
+                    android:layout_width="260dp"
+                    android:layout_height="52dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="10dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/medCalendarBtn"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:text="吃药日历"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:textColor="#001018"
+                        android:background="@drawable/circle_btn" />
+
+                    <Button
+                        android:id="@+id/medNextBtn"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:maxLines="2"
+                        android:text="下次提醒"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="#001018"
+                        android:background="@drawable/circle_btn" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/medScheduleTv"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center"
+                    android:lineSpacingExtra="3dp"
+                    android:textColor="#FFC6D5EF"
+                    android:textSize="13sp"
+                    android:text="" />
+
+                <LinearLayout
+                    android:id="@+id/medRowTools"
+                    android:layout_width="260dp"
+                    android:layout_height="52dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="10dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/medTestBtn"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:text="测试提醒"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:textColor="#001018"
+                        android:background="@drawable/circle_btn" />
+
+                    <Button
+                        android:id="@+id/medCheckBtn"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:text="后台自检"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:textColor="#001018"
+                        android:background="@drawable/circle_btn" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/medStateTv"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center"
+                    android:lineSpacingExtra="3dp"
+                    android:textColor="#FFC6D5EF"
+                    android:textSize="13sp"
+                    android:text="今日：还没吃" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:gravity="center"
+                android:lineSpacingExtra="4dp"
+                android:textColor="#8A93AE"
+                android:textSize="12sp"
+                android:text="为避免错过吃药提醒，建议把本应用的「自启动 / 后台运行」和电池优化都打开哦。\n退出了 App 提醒照样会响，全靠系统闹钟 + 精确闹钟 + 后台巡检这几道保险呢。" />
+
+        </LinearLayout>
+    </ScrollView>
+
+</FrameLayout>
