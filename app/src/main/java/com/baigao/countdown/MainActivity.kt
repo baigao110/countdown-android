@@ -310,18 +310,17 @@ class MainActivity : Activity() {
         menuBackdrop.alpha = 0f
         menuBackdrop.animate().alpha(1f).setDuration(160).start()
 
-        // 扇形菜单：四个项都锚定在右下角「+」按钮处，打开时靠平移量沿弧线散开成扇形。
-        // 之前各点角度都挤在 ~45°（≈同一条射线），所以看起来是斜着一条直线、不是扇形。
-        // 这次把角度真正铺开：从「偏左」（约16°）到「正上偏左」（约77°），四项均匀张成扇面，
-        // 相邻项垂直间距固定 65dp（远超按钮高 ~43dp）保证互不重叠；回收项在最靠近 + 的浅位。
-        // Restore(浅,近+) → Add → Medicine → About(高,偏上)
-        animateItemOut(menuItemAdd, -dp(150), -dp(110), 0)
-        animateItemOut(menuItemMedicine, -dp(110), -dp(175), 65)
-        animateItemOut(menuItemAbout, -dp(55), -dp(240), 130)
+        // 扇形菜单（speed-dial 风格）：四个项都是 56dp 青色玻璃圆钮，锚定在右下角「+」按钮处，
+        // 打开时沿同一半径(R=160dp)的弧线、按 15°→90° 均匀张成扇形，真正包围「+」按钮。
+        // 圆钮较窄，不会像之前的长文字药丸那样互相重叠；「找回小内置」是条件项（仅当确有内置不在列表时出现）。
+        // 角度映射：About(正上偏左15°) → Medicine(41°) → Add(67°) → Restore(水平左90°，条件项)
+        animateItemOut(menuItemAbout, -dp(41), -dp(155), 130)
+        animateItemOut(menuItemMedicine, -dp(105), -dp(121), 65)
+        animateItemOut(menuItemAdd, -dp(147), -dp(63), 0)
         // 「恢复内置」只在确实有内置倒计时不在列表里时才出现；
         // 四个都在列表时整项隐藏，点了加号也不会出现这一项。
         if (missingBuiltIns().isNotEmpty()) {
-            animateItemOut(menuItemRestore, -dp(160), -dp(45), 195)
+            animateItemOut(menuItemRestore, -dp(160), -dp(0), 195)
         } else {
             menuItemRestore.visibility = View.GONE
             menuItemRestore.alpha = 0f
