@@ -310,20 +310,18 @@ class MainActivity : Activity() {
         menuBackdrop.alpha = 0f
         menuBackdrop.animate().alpha(1f).setDuration(160).start()
 
-        // 三个常驻项 + 一个条件项，从右下角「+」按钮沿弧线向斜上方“扇形”弹出。
-        // 相邻项垂直间距≥按钮高度确保不重叠（之前坐标半径太小、相邻项中心距仅 65dp，
-        // 而按钮宽 82~140dp 导致全部堆叠；现在垂直间距拉到 60~70dp 才真正散开）。
-        // 四个项都锚定在右下角「+」按钮处，打开时靠平移量散开成扇形。
-        // 关键：相邻项垂直间距必须 ≥ 按钮高度(~43dp) 才不会重叠；这里取 60~70dp，
-        // 水平再错开成弧线（回收项在最靠近按钮处、关于在最上方靠左），看起来就是清晰的扇面。
-        // Restore(最下,近按钮) → Add → Medicine → About(最上,偏左)
-        animateItemOut(menuItemAdd, -dp(115), -dp(120), 0)
-        animateItemOut(menuItemMedicine, -dp(185), -dp(180), 65)
-        animateItemOut(menuItemAbout, -dp(150), -dp(250), 130)
+        // 扇形菜单：四个项都锚定在右下角「+」按钮处，打开时靠平移量沿弧线散开成扇形。
+        // 之前各点角度都挤在 ~45°（≈同一条射线），所以看起来是斜着一条直线、不是扇形。
+        // 这次把角度真正铺开：从「偏左」（约16°）到「正上偏左」（约77°），四项均匀张成扇面，
+        // 相邻项垂直间距固定 65dp（远超按钮高 ~43dp）保证互不重叠；回收项在最靠近 + 的浅位。
+        // Restore(浅,近+) → Add → Medicine → About(高,偏上)
+        animateItemOut(menuItemAdd, -dp(150), -dp(110), 0)
+        animateItemOut(menuItemMedicine, -dp(110), -dp(175), 65)
+        animateItemOut(menuItemAbout, -dp(55), -dp(240), 130)
         // 「恢复内置」只在确实有内置倒计时不在列表里时才出现；
         // 四个都在列表时整项隐藏，点了加号也不会出现这一项。
         if (missingBuiltIns().isNotEmpty()) {
-            animateItemOut(menuItemRestore, -dp(35), -dp(55), 195)
+            animateItemOut(menuItemRestore, -dp(160), -dp(45), 195)
         } else {
             menuItemRestore.visibility = View.GONE
             menuItemRestore.alpha = 0f
