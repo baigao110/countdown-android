@@ -310,16 +310,20 @@ class MainActivity : Activity() {
         menuBackdrop.alpha = 0f
         menuBackdrop.animate().alpha(1f).setDuration(160).start()
 
-        // 三个常驻项 + 一个条件项，沿右下角向上的弧线“扇形”弹出。
-        // 角度从「偏左」经「左上」到「正上」均匀分布，互相不重叠（之前 About 与
-        // 吃药提醒被放到相近角度导致堆叠、不成扇形，这里拉开成清晰的弧线）。
-        animateItemOut(menuItemAdd, -dp(132), -dp(60), 0)
-        animateItemOut(menuItemMedicine, -dp(96), -dp(115), 65)
-        animateItemOut(menuItemAbout, -dp(34), -dp(146), 130)
+        // 三个常驻项 + 一个条件项，从右下角「+」按钮沿弧线向斜上方“扇形”弹出。
+        // 相邻项垂直间距≥按钮高度确保不重叠（之前坐标半径太小、相邻项中心距仅 65dp，
+        // 而按钮宽 82~140dp 导致全部堆叠；现在垂直间距拉到 60~70dp 才真正散开）。
+        // 四个项都锚定在右下角「+」按钮处，打开时靠平移量散开成扇形。
+        // 关键：相邻项垂直间距必须 ≥ 按钮高度(~43dp) 才不会重叠；这里取 60~70dp，
+        // 水平再错开成弧线（回收项在最靠近按钮处、关于在最上方靠左），看起来就是清晰的扇面。
+        // Restore(最下,近按钮) → Add → Medicine → About(最上,偏左)
+        animateItemOut(menuItemAdd, -dp(115), -dp(120), 0)
+        animateItemOut(menuItemMedicine, -dp(185), -dp(180), 65)
+        animateItemOut(menuItemAbout, -dp(150), -dp(250), 130)
         // 「恢复内置」只在确实有内置倒计时不在列表里时才出现；
         // 四个都在列表时整项隐藏，点了加号也不会出现这一项。
         if (missingBuiltIns().isNotEmpty()) {
-            animateItemOut(menuItemRestore, -dp(185), -dp(20), 195)
+            animateItemOut(menuItemRestore, -dp(35), -dp(55), 195)
         } else {
             menuItemRestore.visibility = View.GONE
             menuItemRestore.alpha = 0f
