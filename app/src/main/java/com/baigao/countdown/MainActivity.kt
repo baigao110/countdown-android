@@ -51,6 +51,7 @@ class MainActivity : Activity() {
     private lateinit var menuItemAdd: View
     private lateinit var menuItemAbout: View
     private lateinit var menuItemRestore: View
+    private lateinit var menuItemMedicine: View
     private var menuOpen = false
 
     /** 主界面每秒刷新一次，让列表里的倒计时数字实时跳动（风格与悬浮窗一致）。 */
@@ -170,12 +171,13 @@ class MainActivity : Activity() {
         listContainer = findViewById(R.id.listContainer)
         dragLayer = findViewById(R.id.dragLayer)
 
-        // 扇形菜单：加号 -> 弹出“关于 / 添加倒计时”；点空白收起
+        // 扇形菜单：加号 -> 弹出“添加倒计时 / 吃药提醒 / 关于”；点空白收起
         addBtn = findViewById(R.id.addBtn)
         menuBackdrop = findViewById(R.id.menuBackdrop)
         menuItemAdd = findViewById(R.id.menuItemAdd)
         menuItemAbout = findViewById(R.id.menuItemAbout)
         menuItemRestore = findViewById(R.id.menuItemRestore)
+        menuItemMedicine = findViewById(R.id.menuItemMedicine)
 
         addBtn.setOnClickListener { toggleMenu() }
         menuBackdrop.setOnClickListener { closeMenu() }
@@ -195,12 +197,18 @@ class MainActivity : Activity() {
             showRestoreBuiltInDialog()
         }
 
+        menuItemMedicine.setOnClickListener {
+            if (!menuOpen) return@setOnClickListener
+            closeMenu()
+            startActivity(Intent(this, MedicineReminderActivity::class.java))
+        }
+
         // 挂上后台定期检查：App 不打开也能知道有新版本、收到通知。
         // 两条路并行 —— JobScheduler（系统统一调度、有网才跑，重启后自动恢复）
         // 与 AlarmManager（2 小时一次兜底），任一条跑通都会发通知。
         UpdateCheckJobService.schedule(this)
         UpdateCheckReceiver.schedule(this)
-        // 每日吃药提醒：默认 09:00，开关与时间都在「关于」页里改。
+        // 每日吃药提醒：默认 09:00，开关与时间都在「吃药提醒」里改（点 + 号 → 吃药提醒）。
         // catchUp() = 三路冗余挂载 + 补发（今天该提醒的时刻已过却没响过，打开就立刻补一条）
         MedicineReminder.catchUp(this)
         // 启动即检查更新：发现新版本会强制弹出更新日志对话框，并发送一条系统通知
@@ -302,13 +310,14 @@ class MainActivity : Activity() {
         menuBackdrop.alpha = 0f
         menuBackdrop.animate().alpha(1f).setDuration(160).start()
 
-        // 两个菜单项沿右下角向上的弧线“扇形”弹出
-        animateItemOut(menuItemAdd, -dp(132), -dp(60), 0)
-        animateItemOut(menuItemAbout, -dp(60), -dp(132), 70)
+        // 三个常驻项 + 一个条件项，沿右下角向上的弧线“扇形”弹出
+        animateItemOut(menuItemAdd, -dp(130), -dp(56), 0)
+        animateItemOut(menuItemMedicine, -dp(60), -dp(132), 65)
+        animateItemOut(menuItemAbout, -dp(150), -dp(150), 130)
         // 「恢复内置」只在确实有内置倒计时不在列表里时才出现；
         // 四个都在列表时整项隐藏，点了加号也不会出现这一项。
         if (missingBuiltIns().isNotEmpty()) {
-            animateItemOut(menuItemRestore, -dp(150), -dp(150), 140)
+            animateItemOut(menuItemRestore, -dp(90), -dp(205), 195)
         } else {
             menuItemRestore.visibility = View.GONE
             menuItemRestore.alpha = 0f
@@ -322,8 +331,9 @@ class MainActivity : Activity() {
         menuBackdrop.animate().alpha(0f).setDuration(160)
             .withEndAction { menuBackdrop.visibility = View.GONE }.start()
         animateItemIn(menuItemAdd, 0)
-        animateItemIn(menuItemAbout, 70)
-        animateItemIn(menuItemRestore, 140)
+        animateItemIn(menuItemMedicine, 65)
+        animateItemIn(menuItemAbout, 130)
+        animateItemIn(menuItemRestore, 195)
         addBtn.animate().rotation(0f).setDuration(200).start()
     }
 
