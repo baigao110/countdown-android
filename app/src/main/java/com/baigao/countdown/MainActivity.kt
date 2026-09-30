@@ -310,14 +310,16 @@ class MainActivity : Activity() {
         menuBackdrop.alpha = 0f
         menuBackdrop.animate().alpha(1f).setDuration(160).start()
 
-        // 三个常驻项 + 一个条件项，沿右下角向上的弧线“扇形”弹出
-        animateItemOut(menuItemAdd, -dp(130), -dp(56), 0)
-        animateItemOut(menuItemMedicine, -dp(60), -dp(132), 65)
-        animateItemOut(menuItemAbout, -dp(150), -dp(150), 130)
+        // 三个常驻项 + 一个条件项，沿右下角向上的弧线“扇形”弹出。
+        // 角度从「偏左」经「左上」到「正上」均匀分布，互相不重叠（之前 About 与
+        // 吃药提醒被放到相近角度导致堆叠、不成扇形，这里拉开成清晰的弧线）。
+        animateItemOut(menuItemAdd, -dp(132), -dp(60), 0)
+        animateItemOut(menuItemMedicine, -dp(96), -dp(115), 65)
+        animateItemOut(menuItemAbout, -dp(34), -dp(146), 130)
         // 「恢复内置」只在确实有内置倒计时不在列表里时才出现；
         // 四个都在列表时整项隐藏，点了加号也不会出现这一项。
         if (missingBuiltIns().isNotEmpty()) {
-            animateItemOut(menuItemRestore, -dp(90), -dp(205), 195)
+            animateItemOut(menuItemRestore, -dp(185), -dp(20), 195)
         } else {
             menuItemRestore.visibility = View.GONE
             menuItemRestore.alpha = 0f
