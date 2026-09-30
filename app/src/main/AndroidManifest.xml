@@ -54,6 +54,11 @@
             android:name=".AboutActivity"
             android:exported="false" />
 
+        <!-- 吃药提醒设置页：从主界面「+」号菜单的「吃药提醒」进入 -->
+        <activity
+            android:name=".MedicineReminderActivity"
+            android:exported="false" />
+
         <!-- 吃药提醒的全屏意图会拉起本页：允许在锁屏上显示并点亮屏幕 -->
         <activity
             android:name=".MedicineCalendarActivity"
