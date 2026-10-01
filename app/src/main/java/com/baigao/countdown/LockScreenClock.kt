@@ -34,7 +34,7 @@ object LockScreenClock {
     /** 锁屏通知总开关（默认开启：装好就能在锁屏上看到展开过的倒计时）。 */
     private const val KEY_ON = "lockscreen_notify"
 
-    private const val CHANNEL_ID = "countdown_lockscreen_v63"
+    private const val CHANNEL_ID = "countdown_lockscreen_v64"
     private const val CHANNEL_NAME = "锁屏倒计时"
     private const val CHANNEL_DESC = "把悬浮窗里的倒计时以常驻通知显示在通知栏与锁屏上"
     /** 通知 id 基数：与其它通知（归零提醒 / 更新 / 吃药）错开，别互相顶掉。 */
