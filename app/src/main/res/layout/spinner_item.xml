@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 下拉框（收起时显示的当前项）：与其他控件的深色玻璃风格一致。 -->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="46dp"
+    android:gravity="center_vertical"
+    android:paddingStart="14dp"
+    android:paddingEnd="10dp"
+    android:ellipsize="end"
+    android:maxLines="1"
+    android:textColor="#FFEAF6FF"
+    android:textSize="15sp" />
