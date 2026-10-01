@@ -283,6 +283,31 @@
             android:textColor="#001018"
             android:background="@drawable/circle_btn" />
 
+        <!-- 锁屏通知自检：一键发一条真实的锁屏通知，锁屏上立刻能看出通没通 -->
+        <Button
+            android:id="@+id/lockTestBtn"
+            android:layout_width="260dp"
+            android:layout_height="46dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="10dp"
+            android:text="测试锁屏通知（发一条去锁屏看）"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:textColor="#001018"
+            android:background="@drawable/circle_btn" />
+
+        <!-- 锁屏通知状态：开关 / 有几条在走秒 / 刷新服务是不是在跑 -->
+        <TextView
+            android:id="@+id/lockStateTv"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:lineSpacingExtra="3dp"
+            android:textColor="#FFC6D5EF"
+            android:textSize="12sp"
+            android:text="" />
+
         <!-- 更新提示方式：多选项改为下拉框选择 -->
         <LinearLayout
             style="@style/SettingRow"
