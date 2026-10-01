@@ -13,6 +13,7 @@ object BuiltIn {
     const val HUADU = 3  // 华都云境悦府倒计时：固定目标 2026-10-31 00:00:00
     const val GTA6 = 4   // GTA6 倒计时：固定目标 2026-11-19 08:00:00
     const val WEEK = 5   // 每周倒计时：目标为「下周一 00:00:00」（本周结束的那一刻）
+    const val HOUR = 6   // 每小时倒计时：目标为「下一个整点 00:00」（本小时结束的那一刻）
 
     /**
      * 固定目标时间的内置项（不随日期滚动）：返回 epoch 毫秒；滚动型内置项返回 null。
@@ -95,6 +96,18 @@ data class Countdown(
         }
         val cal = Calendar.getInstance()
         when (builtIn) {
+            BuiltIn.HOUR -> {
+                // 本小时结束的那一刻：把分/秒/毫秒归零后 +1 小时 = 下一个整点 00:00。
+                // 注意 HOUR 不能走下面那段「统一归零到 00:00:00」——那会把小时也清零。
+                cal.set(Calendar.MINUTE, 0)
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
+                cal.add(Calendar.HOUR_OF_DAY, 1)
+                val t = cal.timeInMillis
+                if (t == targetTime) return false
+                targetTime = t
+                return true
+            }
             BuiltIn.DAY -> {
                 cal.add(Calendar.DAY_OF_MONTH, 1) // 次日
             }
@@ -220,14 +233,16 @@ object CountdownFormatter {
      * 其余倒计时、其余模式**一律原样返回**，行为不变。
      */
     fun effectiveMode(mode: Int, builtIn: Int): Int = when (builtIn) {
-        BuiltIn.DAY -> if (mode == 0 || mode == 4) 5 else mode  // 标准 / 天数 → 时分秒
+        BuiltIn.DAY, BuiltIn.HOUR -> if (mode == 0 || mode == 4) 5 else mode  // 标准 / 天数 → 时分秒
         BuiltIn.WEEK -> if (mode == 0) 6 else mode              // 标准 → 天时分秒
         else -> mode
     }
 
-    /** 该条目可选的模式号列表：当日倒计时不含「天数模式」。 */
+    /** 该条目可选的模式号列表：当日 / 每小时倒计时不含「天数模式」（天数恒为 0）。 */
     fun availableModes(builtIn: Int): List<Int> =
-        MODE_NAMES.indices.filter { m -> builtIn != BuiltIn.DAY || m != MODE_DAY }
+        MODE_NAMES.indices.filter { m ->
+            !((builtIn == BuiltIn.DAY || builtIn == BuiltIn.HOUR) && m == MODE_DAY)
+        }
 
     /** 该条目可选模式的名称（编辑页下拉框用）。 */
     fun modeNames(builtIn: Int): Array<String> =
