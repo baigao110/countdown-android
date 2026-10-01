@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 左右滑动开关的滑块：白色玻璃圆点。
+     开启时带青色发光边（与强调色呼应），关闭时为淡灰边。 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_checked="true">
+        <shape android:shape="oval">
+            <solid android:color="#FFF2FFFF" />
+            <stroke
+                android:width="2dp"
+                android:color="#CC00FFFF" />
+            <size
+                android:width="24dp"
+                android:height="24dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#FFE4EEFF" />
+            <stroke
+                android:width="1dp"
+                android:color="#59243040" />
+            <size
+                android:width="24dp"
+                android:height="24dp" />
+        </shape>
+    </item>
+</selector>
