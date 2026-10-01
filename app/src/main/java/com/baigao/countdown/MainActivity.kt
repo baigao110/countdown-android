@@ -375,12 +375,13 @@ class MainActivity : Activity() {
         }
         tickHandler.post(tickRunnable)
         // 首次使用（或权限缺失且存在可见倒计时时）引导开启悬浮窗权限；
-        // 权限已授予则按可见性自动拉起/刷新悬浮窗。
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            if (data.any { it.isVisible }) assistOverlayPermission()
-        } else {
-            syncService()
+        // 无论有没有悬浮窗权限都要走一遍 syncService：锁屏通知不受悬浮窗权限限制，也得照常维护。
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+            !Settings.canDrawOverlays(this) && data.any { it.isVisible }
+        ) {
+            assistOverlayPermission()
         }
+        syncService()
         // 回到前台也补一次：漏掉的吃药提醒立刻补发（同一天只会发一次）
         MedicineReminder.catchUp(this)
         // 通知收不到时，用户往往根本不知道是哪一环被关了（权限 / 渠道 / 后台限制都是静默失败）。
@@ -427,25 +428,33 @@ class MainActivity : Activity() {
     }
 
     /**
-     * 按当前数据与权限自动管理悬浮窗服务（无需手动启动/停止按钮）：
+     * 按当前数据自动管理悬浮窗服务（无需手动启动/停止按钮）：
      * - 有权限且有可见倒计时 → 未运行则启动，已运行则刷新最新数据；
-     * - 无可见倒计时 → 停止服务，避免常驻通知。
+     * - 只开着「锁屏通知显示」、没有可见倒计时 → 服务也得起，否则退到后台没人每秒刷新锁屏通知；
+     * - 两者都没有 → 停止服务，避免常驻通知。
+     *
+     * 悬浮窗服务顺带负责刷新锁屏通知（都在同一个 tick 里），所以这里只要把服务拉起来就行。
      */
     private fun syncService() {
         val hasVisible = data.any { it.isVisible }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) return
-        if (hasVisible) {
-            if (!isServiceRunning()) {
-                val i = Intent(this, CountdownService::class.java)
-                i.action = CountdownService.ACTION_START
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i)
-            } else {
-                val ri = Intent(this, CountdownService::class.java)
-                ri.action = CountdownService.ACTION_REFRESH
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(ri) else startService(ri)
-            }
-        } else if (isServiceRunning()) {
-            stopService(Intent(this, CountdownService::class.java))
+        val lockOn = LockScreenClock.isOn(this)
+        if (!hasVisible && !lockOn) {
+            if (isServiceRunning()) stopService(Intent(this, CountdownService::class.java))
+            return
+        }
+        val canOverlay = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
+        if (hasVisible && !canOverlay) return   // 先引导开悬浮窗权限，开了回来会自动补上
+        if (!isServiceRunning()) {
+            val i = Intent(this, CountdownService::class.java)
+            i.action = CountdownService.ACTION_START
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i)
+        } else if (hasVisible) {
+            val ri = Intent(this, CountdownService::class.java)
+            ri.action = CountdownService.ACTION_REFRESH
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(ri) else startService(ri)
+        } else {
+            // 只有锁屏通知：服务已在跑，这里立刻补一次刷新（等下一跳也行，但设置回来马上看到更踏实）
+            LockScreenClock.updateAll(this, data)
         }
     }
 
