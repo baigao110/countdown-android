@@ -53,6 +53,8 @@ class AboutActivity : Activity() {
     private lateinit var lockNotifySwitch: Switch
     private lateinit var lockNotifyDescTv: TextView
     private lateinit var lockNotifyOpenBtn: Button
+    private lateinit var lockTestBtn: Button
+    private lateinit var lockStateTv: TextView
     private lateinit var timeFormatSpinner: Spinner
     private lateinit var timeFormatDescTv: TextView
     /** 备注时间制式下拉框的两个候选项（下标即取值）。 */
@@ -93,9 +95,34 @@ class AboutActivity : Activity() {
         lockNotifySwitch = findViewById(R.id.lockNotifySwitch)
         lockNotifyDescTv = findViewById(R.id.lockNotifyDescTv)
         lockNotifyOpenBtn = findViewById(R.id.lockNotifyOpenBtn)
+        lockTestBtn = findViewById(R.id.lockTestBtn)
+        lockStateTv = findViewById(R.id.lockStateTv)
         // 锁屏上看不到倒计时时的一键排障：国内 ROM 的「锁屏显示 / 静默通知」开关
         // 基本都藏在应用信息里，直接跳到本应用的应用信息页最省事。
         lockNotifyOpenBtn.setOnClickListener { openLockScreenNotifySettings() }
+        // 「测试锁屏通知」：立刻发一条真实数据通知，锁屏上马上就能看出到底显不显示
+        lockTestBtn.setOnClickListener {
+            if (!LockScreenClock.isOn(this@AboutActivity)) {
+                Toast.makeText(
+                    this@AboutActivity,
+                    "先把上面的「锁屏通知显示」打开，再点测试哦",
+                    Toast.LENGTH_LONG
+                ).show()
+                return@setOnClickListener
+            }
+            val ok = try {
+                LockScreenClock.testOne(this@AboutActivity)
+            } catch (e: Throwable) {
+                false
+            }
+            Toast.makeText(
+                this@AboutActivity,
+                if (ok) "已经发出去啦～ 现在按一下电源键锁屏，看锁屏上有没有这条倒计时"
+                else "发不出去呢：先点「锁屏上看不到？点我打开锁屏通知设置」检查下系统设置",
+                Toast.LENGTH_LONG
+            ).show()
+            refreshLockState()
+        }
         timeFormatSpinner = findViewById(R.id.timeFormatSpinner)
         timeFormatDescTv = findViewById(R.id.timeFormatDescTv)
 
@@ -347,16 +374,43 @@ class AboutActivity : Activity() {
             "锁屏通知显示：开启后，列表里「展开」过的倒计时会以常驻通知显示在通知栏 / 锁屏上\n" +
                 "（标题、倒计时数字、模式、备注和悬浮窗里一模一样，颜色也跟着主题走，每秒跳秒）；\n" +
                 "把开关关掉，这些锁屏通知就一起收掉啦。\n" +
-                "锁屏上看不到的话，点下面的「锁屏上看不到？点我打开锁屏通知设置」就行啦。"
+                "锁屏上看不到的活，点下面的「锁屏上看不到？点我打开锁屏通知设置」就行啦。"
+        refreshLockState()
+    }
+
+    /** 锁屏通知的实时状态：开关状态 + 当前有几条在走秒 + 刷新服务是不是在跑。 */
+    private fun refreshLockState() {
+        if (!::lockStateTv.isInitialized) return
+        val on = LockScreenClock.isOn(this)
+        val live = try { CountdownStore.load(this).count { it.isVisible } } catch (_: Throwable) { 0 }
+        val svc = isCountdownServiceRunning()
+        val sb = StringBuilder()
+        sb.append("锁屏通知：").append(if (on) "已开启" else "已关闭")
+        sb.append(" · 通知栏当前 ").append(LockScreenClock.activeCount()).append(" 条在走秒")
+        sb.append("\n")
+        sb.append("展开中的倒计时 ").append(live).append(" 条 · 刷新服务：")
+        sb.append(if (svc) "运行中（锁屏后靠它跳秒）" else "没在跑（回主界面会自动拉起）")
+        if (on && live == 0) {
+            sb.append("\n（还没展开过任何倒计时，先在列表里把要看的那条「展开」一下）")
+        }
+        lockStateTv.text = sb.toString()
+    }
+
+    /** 倒计时刷新服务是不是在跑（锁屏通知与悬浮窗都由它驱动）。 */
+    private fun isCountdownServiceRunning(): Boolean {
+        return try {
+            val mgr = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            mgr.getRunningServices(Int.MAX_VALUE)
+                .any { CountdownService::class.java.name == it.service.className }
+        } catch (_: Throwable) {
+            false
+        }
     }
 
     /** 锁屏通知开着但刷新服务没跑时，把服务拉起来（退到后台也要有人每秒更新锁屏通知）。 */
     private fun startCountdownServiceIfStopped() {
         try {
-            val mgr = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-            val running = mgr.getRunningServices(Int.MAX_VALUE)
-                .any { CountdownService::class.java.name == it.service.className }
-            if (running) return
+            if (isCountdownServiceRunning()) return
             val i = Intent(this, CountdownService::class.java)
             i.action = CountdownService.ACTION_START
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i)
