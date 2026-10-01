@@ -40,6 +40,7 @@ class CountdownService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
+                LockScreenClock.clear(this)
                 stopForeground(true)
                 stopSelf()
                 return START_NOT_STICKY
@@ -91,6 +92,9 @@ class CountdownService : Service() {
                     }
                 }
                 if (changed) CountdownStore.save(this, list)
+                // 锁屏 / 通知栏倒计时：只给「已展开」的倒计时发常驻通知，
+                // 与主界面悬浮窗同一时刻跳秒（now 已经是上面统一取好的那个）。
+                LockScreenClock.updateAll(this, list, now)
             } catch (e: Exception) {
                 Log.w(TAG, "tick error: ${e.message}")
             }
@@ -295,6 +299,8 @@ class CountdownService : Service() {
 
     override fun onDestroy() {
         running = false
+        // 服务停了就顺手收掉锁屏通知：否则通知栏会留一条不再走秒的倒计时
+        LockScreenClock.clear(this)
         handler.removeCallbacksAndMessages(null)
         val ids = ArrayList(floaters.keys)
         for (id in ids) removeFloater(id)
