@@ -69,7 +69,11 @@ class MainActivity : Activity() {
                 // 跨秒边界时彼此差 1 秒，看起来像不同步）
                 val now = AlignedClock.now()
                 for (i in 0 until listContainer.childCount) {
-                    (listContainer.getChildAt(i) as? CountdownRow)?.refreshTime(now)
+                    (listContainer.getChildAt(i) as? CountdownRow)?.run {
+                        refreshTime(now)
+                        // 内置项备注（如「距离17点整结束」）也要跟着整点/日期同步刷新
+                        refreshRemark()
+                    }
                 }
                 // 拖动中的浮层不在 listContainer 里，单独刷新，保证手上的卡片也在走秒
                 dragInfo?.ghost?.refreshTimeQuiet(now)
@@ -963,17 +967,31 @@ class MainActivity : Activity() {
             // 整表重建不播动画（否则一进界面所有条目一起乱动），但要确保属性干净
             AnimStyle.stop(timeLast)
             AnimStyle.reset(timeLast, c.customColorArgb)
-            if (c.remark.isNotEmpty()) {
-                remarkTv.visibility = View.VISIBLE
-                remarkTv.text = "备注： " + c.remark.replace("\n", " ")
-            } else {
-                remarkTv.visibility = View.GONE
-            }
+            // 备注：内置项用随目标时间同步变化的实时备注（跨整点 / 跨天立刻跟着变）
+            refreshRemark()
             showBtn.text = if (c.isVisible) "收起" else "展开"
             // 动画效果名称显示在「显示 / 模式」按钮之后
             animBtn.text = AnimStyle.name(c.animStyle)
             // 再后面显示本条倒计时设置的提示音名称；没设过就显示「未设置提示音」
             soundLabelBtn.text = SoundNames.name(context, c.soundUri)
+        }
+
+        /** 刷新备注行：内置项显示随目标时间同步变化的实时备注，其它项沿用原备注。 */
+        fun refreshRemark() {
+            val c = bound ?: return
+            showRemark(c.remarkText(TimeFormatPref.is24Hour(context)))
+        }
+
+        /** 按备注文本显示 / 隐藏备注行；文本没变就不重设，避免每秒无谓改写视图。 */
+        private fun showRemark(text: String) {
+            if (text.isBlank()) {
+                if (remarkTv.visibility != View.GONE) remarkTv.visibility = View.GONE
+                return
+            }
+            val full = "备注： " + text.replace("\n", " ")
+            val tv = remarkTv
+            if (tv.text.toString() != full) tv.text = full
+            if (tv.visibility != View.VISIBLE) tv.visibility = View.VISIBLE
         }
 
         /** 仅刷新时间文本（不重建视图，保留滑动/拖动状态）；now 由调用方统一给定。 */
