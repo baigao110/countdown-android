@@ -50,11 +50,17 @@ class AboutActivity : Activity() {
     private lateinit var updateModeSpinner: Spinner
     private lateinit var uiKeepSwitch: Switch
     private lateinit var floatKeepSwitch: Switch
+    private lateinit var timeFormatSpinner: Spinner
+    private lateinit var timeFormatDescTv: TextView
+    /** 备注时间制式下拉框的两个候选项（下标即取值）。 */
+    private val timeFormatOptions = arrayOf("24 小时制", "12 小时制")
 
     /** 程序化回填开关状态时抑制回调，避免 onResume 刷新时误触发保存与 Toast。 */
     private var suppressSwitch = false
     /** 下拉框初始化完成前忽略选中回调（避免铺适配器时的默认选中覆盖用户设置）。 */
     private var spinnerReady = false
+    /** 备注时间制式下拉框的初始化完成标记（与「更新提示方式」各自独立）。 */
+    private var formatSpinnerReady = false
 
     private var checking = false
     /** 本次进入页面是否已自动检查过（避免 onResume 反复弹窗）。 */
@@ -81,6 +87,8 @@ class AboutActivity : Activity() {
         checkStateTv = findViewById(R.id.checkStateTv)
         uiKeepSwitch = findViewById(R.id.uiKeepSwitch)
         floatKeepSwitch = findViewById(R.id.floatKeepSwitch)
+        timeFormatSpinner = findViewById(R.id.timeFormatSpinner)
+        timeFormatDescTv = findViewById(R.id.timeFormatDescTv)
 
         versionTv.text = "版本 v${UpdateManager.CURRENT_VERSION_NAME}"
         findViewById<TextView>(R.id.githubLinkTv).setOnClickListener {
@@ -174,8 +182,29 @@ class AboutActivity : Activity() {
 
         refreshUpdateMode()
         refreshKeepSwitches()
+        // ---- 备注时间制式：下拉框（24 小时制 / 12 小时制）----
+        timeFormatSpinner.adapter = ArrayAdapter(
+            this, R.layout.spinner_item, timeFormatOptions
+        ).also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
+        timeFormatSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (!formatSpinnerReady) return
+                if (position !in timeFormatOptions.indices) return
+                val want24 = position == 0
+                if (want24 == TimeFormatPref.is24Hour(this@AboutActivity)) return
+                TimeFormatPref.set24Hour(this@AboutActivity, want24)
+                refreshTimeFormat()
+                Toast.makeText(
+                    this@AboutActivity, "备注时间：${timeFormatOptions[position]}", Toast.LENGTH_SHORT
+                ).show()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>) {}
+        }
+        refreshTimeFormat()
         // 适配器铺好后的默认选中回调跑完再允许响应，避免覆盖已保存的设置
         updateModeSpinner.post { spinnerReady = true }
+        timeFormatSpinner.post { formatSpinnerReady = true }
     }
 
     @Suppress("DEPRECATION")
@@ -234,6 +263,18 @@ class AboutActivity : Activity() {
         updateModeDescTv.text = sb.toString().trimEnd()
     }
 
+    /** 回填「备注时间制式」下拉框 + 下方两种制式各自的效果示例。 */
+    private fun refreshTimeFormat() {
+        if (!::timeFormatSpinner.isInitialized) return
+        formatSpinnerReady = false
+        timeFormatSpinner.setSelection(if (TimeFormatPref.is24Hour(this)) 0 else 1)
+        formatSpinnerReady = true
+        timeFormatDescTv.text =
+            "倒计时备注里的时间按这里的制式显示（列表与悬浮窗都会跟着变）：\n" +
+                "24 小时制 → 距离17点整结束 / 距离10月2日0点整结束\n" +
+                "12 小时制 → 距离下午5点整结束 / 距离10月2日凌晨12点整结束"
+    }
+
     /** 刷新「后台检查 / 通知权限」状态行。 */
     private fun refreshState() {
         val perm = if (UpdateNotifier.hasPermission(this)) "通知权限：已经开啦" else "通知权限：还没开"
@@ -288,6 +329,7 @@ class AboutActivity : Activity() {
         refreshState()
         refreshUpdateMode()
         refreshKeepSwitches()
+        refreshTimeFormat()
         if (!autoChecked) {
             autoChecked = true
             checkUpdate(forceDialog = true)
