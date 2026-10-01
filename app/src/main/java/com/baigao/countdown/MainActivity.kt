@@ -443,18 +443,23 @@ class MainActivity : Activity() {
             return
         }
         val canOverlay = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
-        if (hasVisible && !canOverlay) return   // 先引导开悬浮窗权限，开了回来会自动补上
+        // 悬浮窗缺权限会先引导，但**锁屏通知不吃悬浮窗权限**：
+        // 没悬浮窗权限 + 有可见倒计时 + 锁屏开关开 → 服务照样得起，锁屏那边照常走秒。
+        if (hasVisible && !canOverlay && !lockOn) return
         if (!isServiceRunning()) {
             val i = Intent(this, CountdownService::class.java)
             i.action = CountdownService.ACTION_START
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i)
-        } else if (hasVisible) {
+        } else if (hasVisible && canOverlay) {
             val ri = Intent(this, CountdownService::class.java)
             ri.action = CountdownService.ACTION_REFRESH
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(ri) else startService(ri)
-        } else {
-            // 只有锁屏通知：服务已在跑，这里立刻补一次刷新（等下一跳也行，但设置回来马上看到更踏实）
+        }
+        // 不管走哪条路都补刷一次锁屏通知（幂等，下一跳会重新对齐整秒）
+        try {
             LockScreenClock.updateAll(this, data)
+        } catch (_: Throwable) {
+            // 通知发不出去也不该卡住主界面
         }
     }
 
