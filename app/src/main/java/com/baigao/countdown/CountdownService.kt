@@ -41,6 +41,7 @@ class CountdownService : Service() {
         when (intent?.action) {
             ACTION_STOP -> {
                 cancelLockAlarm()
+                LockKeepOn.detach(this)
                 LockScreenClock.clear(this)
                 stopForeground(true)
                 stopSelf()
@@ -101,6 +102,8 @@ class CountdownService : Service() {
                 // 锁屏 / 通知栏倒计时：只给「已展开」的倒计时发常驻通知，
                 // 与主界面悬浮窗同一时刻跳秒（now 已经是上面统一取好的那个）。
                 LockScreenClock.updateAll(this, list, now)
+                // 「锁屏通知常亮」：通知还在、屏幕亮着时把屏幕按在亮着的状态（关掉开关 / 息屏会自动撤掉）
+                LockKeepOn.apply(this)
                 // 每次跳秒顺带把「唤醒刷新」闹钟往后推一格：
                 // 前台服务被 Doze / 后台冻结掐住时，就靠这个闹钟接上，锁屏通知不会停住不动。
                 scheduleLockAlarm()
@@ -369,6 +372,8 @@ class CountdownService : Service() {
             cancelLockAlarm()
         }
         LockScreenClock.clear(this)
+        // 服务停掉就把「常亮小窗」也收掉，别把用户的屏幕永久按在亮着
+        LockKeepOn.detach(this)
         handler.removeCallbacksAndMessages(null)
         val ids = ArrayList(floaters.keys)
         for (id in ids) removeFloater(id)
