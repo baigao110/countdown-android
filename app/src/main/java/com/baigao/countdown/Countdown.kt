@@ -160,6 +160,30 @@ data class Countdown(
         return t
     }
 
+    /**
+     * 本条目此刻应该显示的备注文本。
+     *
+     * 滚动型内置项（每小时 / 当日 / 每周 / 当月）的备注**随目标时间同步变化**，
+     * 跨整点自动变成「距离18点整结束」、跨天变成「距离10月3日0点整结束」，
+     * 而不是一直停在建立时那句静态文案；固定目标型（华都 / GTA6）与自建项沿用原备注。
+     */
+    fun remarkText(use24Hour: Boolean): String {
+        if (!isBuiltIn()) return remark
+        if (targetTime <= 0) return remark
+        val cal = Calendar.getInstance().apply { timeInMillis = targetTime }
+        val month = cal.get(Calendar.MONTH) + 1
+        val day = cal.get(Calendar.DAY_OF_MONTH)
+        val midnight = TimeFormatPref.clockText(0, use24Hour)   // 「0点整」/「凌晨12点整」
+        return when (builtIn) {
+            BuiltIn.HOUR ->
+                "距离${TimeFormatPref.clockText(cal.get(Calendar.HOUR_OF_DAY), use24Hour)}结束"
+            BuiltIn.DAY -> "距离${month}月${day}日${midnight}结束"
+            BuiltIn.WEEK -> "距离${month}月${day}日${midnight}结束"
+            BuiltIn.MONTH -> "距离${month}月1日${midnight}结束"
+            else -> remark
+        }
+    }
+
     fun remainingText(now: Long = AlignedClock.now()): String {
         refreshBuiltInTarget()
         // 内置项的「标准模式」含义按类型定制（见 effectiveMode），所以必须把 builtIn 一起传下去
