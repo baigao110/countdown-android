@@ -38,10 +38,12 @@ class BootReceiver : BroadcastReceiver() {
             android.util.Log.w(TAG, "medicine: ${e.message}")
         }
         if (intent.action == Intent.ACTION_BOOT_COMPLETED ||
-            intent.action == Intent.ACTION_MY_PACKAGE_REPLACED
+            intent.action == Intent.ACTION_MY_PACKAGE_REPLACED ||
+            intent.action == Intent.ACTION_USER_PRESENT
         ) {
             val list = CountdownStore.load(context)
-            if (list.any { it.isVisible }) {
+            // 有悬浮窗显示的，或者开着「锁屏通知显示」的（没有悬浮窗也要把锁屏通知刷起来）
+            if (list.any { it.isVisible } || LockScreenClock.isOn(context)) {
                 val i = Intent(context, CountdownService::class.java)
                 i.action = CountdownService.ACTION_START
                 context.startForegroundService(i)
