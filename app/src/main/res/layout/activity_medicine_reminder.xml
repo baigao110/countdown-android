@@ -69,47 +69,51 @@
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
+                <!-- 吃药提醒总开关：左右滑动开关 -->
                 <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:layout_marginTop="10dp"
-                    android:orientation="horizontal">
+                    style="@style/SettingRow"
+                    android:layout_marginTop="10dp">
 
-                    <Button
-                        android:id="@+id/medToggleBtn"
-                        android:layout_width="0dp"
-                        android:layout_height="match_parent"
-                        android:layout_weight="1"
-                        android:text="吃药提醒：开啦"
-                        android:textSize="15sp"
-                        android:textStyle="bold"
-                        android:textColor="#001018"
-                        android:background="@drawable/circle_btn" />
+                    <TextView
+                        style="@style/SettingLabel"
+                        android:text="吃药提醒" />
 
-                    <Button
-                        android:id="@+id/medTimeBtn"
-                        android:layout_width="0dp"
-                        android:layout_height="match_parent"
-                        android:layout_weight="1"
-                        android:layout_marginStart="10dp"
-                        android:text="提醒时间 09:00"
-                        android:textSize="15sp"
-                        android:textStyle="bold"
-                        android:textColor="#001018"
-                        android:background="@drawable/circle_btn" />
+                    <Switch
+                        android:id="@+id/medToggleSwitch"
+                        style="@style/GlassSwitch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
                 </LinearLayout>
 
                 <Button
-                    android:id="@+id/medTimesBtn"
+                    android:id="@+id/medTimeBtn"
                     android:layout_width="260dp"
                     android:layout_height="46dp"
                     android:layout_gravity="center_horizontal"
                     android:layout_marginTop="10dp"
-                    android:text="每天 1 次"
+                    android:text="首剂时间 09:00"
                     android:textSize="15sp"
                     android:textStyle="bold"
                     android:textColor="#001018"
                     android:background="@drawable/circle_btn" />
+
+                <!-- 每天次数：下拉框（多选一） -->
+                <LinearLayout
+                    android:id="@+id/medRowTimes"
+                    style="@style/SettingRow"
+                    android:layout_marginTop="10dp">
+
+                    <TextView
+                        style="@style/SettingLabel"
+                        android:text="每天次数" />
+
+                    <Spinner
+                        android:id="@+id/medTimesSpinner"
+                        style="@style/GlassSpinner"
+                        android:layout_width="140dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp" />
+                </LinearLayout>
 
                 <LinearLayout
                     android:id="@+id/medRowCalendar"
