@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 锁屏 / 通知栏倒计时的「展开样式」（RemoteViews）。
+
+     内容与主界面悬浮窗保持一致：标题（用该倒计时的主题色）+ 大号倒计时数字 + 模式|动画 + 备注。
+     背景沿用不透明玻璃卡（glass_card_solid），深底 + 亮边，与悬浮窗卡片同一套观感。
+     折叠状态（锁屏上真正看到的）由系统用 contentTitle / contentText 呈现，时间文本就在 contentText 里，
+     所以锁屏一眼就能读到还差多少时间。 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/lockCard"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/glass_card_solid"
+    android:padding="14dp">
+
+    <TextView
+        android:id="@+id/lockTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="#00FFFF"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/lockTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:ellipsize="none"
+        android:textColor="#00FFFF"
+        android:textSize="32sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/lockMode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textColor="#FFC6D5EF"
+        android:textSize="12sp"
+        android:text="" />
+
+    <TextView
+        android:id="@+id/lockRemark"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:textColor="#FFC6D5EF"
+        android:textSize="12sp"
+        android:text="" />
+
+</LinearLayout>
