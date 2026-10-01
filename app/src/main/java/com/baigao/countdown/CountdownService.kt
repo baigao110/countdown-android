@@ -40,6 +40,7 @@ class CountdownService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
+                cancelLockAlarm()
                 LockScreenClock.clear(this)
                 stopForeground(true)
                 stopSelf()
@@ -48,6 +49,7 @@ class CountdownService : Service() {
             ACTION_REFRESH -> {
                 rebuildFloaters()
                 refreshLockScreenNow()
+                scheduleLockAlarm()
                 return START_STICKY
             }
             else -> {
@@ -55,6 +57,7 @@ class CountdownService : Service() {
                 rebuildFloaters()
                 // 锁屏通知立刻出一条：不等下一跳，开机 / 解锁后马上就能在锁屏上看到
                 refreshLockScreenNow()
+                scheduleLockAlarm()
                 if (!running) {
                     running = true
                     tick()
@@ -98,6 +101,9 @@ class CountdownService : Service() {
                 // 锁屏 / 通知栏倒计时：只给「已展开」的倒计时发常驻通知，
                 // 与主界面悬浮窗同一时刻跳秒（now 已经是上面统一取好的那个）。
                 LockScreenClock.updateAll(this, list, now)
+                // 每次跳秒顺带把「唤醒刷新」闹钟往后推一格：
+                // 前台服务被 Doze / 后台冻结掐住时，就靠这个闹钟接上，锁屏通知不会停住不动。
+                scheduleLockAlarm()
             } catch (e: Exception) {
                 Log.w(TAG, "tick error: ${e.message}")
             }
@@ -116,6 +122,45 @@ class CountdownService : Service() {
             Log.w(TAG, "refreshLockScreenNow: ${e.message}")
         }
     }
+
+    // ---------------- 锁屏通知的「唤醒刷新」兜底闹钟 ----------------
+
+    /**
+     * 挂下一次唤醒刷新：到点由 [LockScreenRefreshReceiver] 把锁屏通知刷成最新。
+     * 用 setExactAndAllowWhileIdle —— 息屏 / Doze 状态下也能把 App 唤起（只是会被系统
+     * 推迟到维护窗口），这正是「锁屏后倒计时不再跳秒」的解药。
+     */
+    private fun scheduleLockAlarm() {
+        if (!LockScreenClock.isOn(this)) return
+        try {
+            val am = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            val at = System.currentTimeMillis() + LOCK_ALARM_INTERVAL
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, at, lockAlarmPi())
+            } else {
+                am.set(android.app.AlarmManager.RTC_WAKEUP, at, lockAlarmPi())
+            }
+        } catch (e: Throwable) {
+            Log.w(TAG, "scheduleLockAlarm: ${e.message}")
+        }
+    }
+
+    private fun cancelLockAlarm() {
+        try {
+            val am = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            am.cancel(lockAlarmPi())
+        } catch (e: Throwable) {
+            Log.w(TAG, "cancelLockAlarm: ${e.message}")
+        }
+    }
+
+    private fun lockAlarmPi(): PendingIntent =
+        PendingIntent.getBroadcast(
+            this, LOCK_ALARM_REQ,
+            Intent(this, LockScreenRefreshReceiver::class.java)
+                .setAction(ACTION_LOCK_TICK),
+            PendingIntent.FLAG_UPDATE_CURRENT or piFlags()
+        )
 
     private fun canDrawOverlay(): Boolean =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
@@ -317,6 +362,12 @@ class CountdownService : Service() {
     override fun onDestroy() {
         running = false
         // 服务停了就顺手收掉锁屏通知：否则通知栏会留一条不再走秒的倒计时
+        if (LockScreenClock.isOn(this)) {
+            // 锁屏通知还开着 → 保留唤醒闹钟（服务被杀后依然有人刷），只是这里不能刷前台服务
+            rescheduleLockAlarm(this)
+        } else {
+            cancelLockAlarm()
+        }
         LockScreenClock.clear(this)
         handler.removeCallbacksAndMessages(null)
         val ids = ArrayList(floaters.keys)
@@ -336,7 +387,41 @@ class CountdownService : Service() {
         private const val FINISH_ID_BASE = 7000
         internal const val ACTION_FINISH_DISMISS = "com.baigao.countdown.FINISH_DISMISS"
         internal const val EXTRA_FINISH_ID = "finish_id"
-        private const val TAG = "CountdownService"
+        /** 锁屏通知「唤醒刷新」闹钟的 action（与开机 / 解锁等广播区分开）。 */
+        internal const val ACTION_LOCK_TICK = "com.baigao.countdown.LOCK_TICK"
+        /** 兜底闹钟的请求码与间隔：10 秒一次（屏幕亮着时跟得上跳秒，息屏时会被系统合并）。 */
+        private const val LOCK_ALARM_REQ = 4231
+        private const val LOCK_ALARM_INTERVAL = 10_000L
+        internal const val TAG = "CountdownService"
+
+        /**
+         * 在应用进程之外挂起「锁屏通知唤醒刷新」闹钟（静态，服务被杀后仍有效）。
+         * 这里不用 Toast 也与界面无关，直接构造一次性的唤醒闹钟即可。
+         */
+        fun rescheduleLockAlarm(ctx: android.content.Context) {
+            try {
+                if (!LockScreenClock.isOn(ctx)) return
+                // 只挂一个：广播由 LockScreenRefreshReceiver 续上下一次，避免重复条目
+                val pi = PendingIntent.getBroadcast(
+                    ctx, LOCK_ALARM_REQ,
+                    android.content.Intent(ctx, LockScreenRefreshReceiver::class.java)
+                        .setAction(ACTION_LOCK_TICK),
+                    PendingIntent.FLAG_UPDATE_CURRENT or
+                            (if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M)
+                                PendingIntent.FLAG_IMMUTABLE else 0)
+                )
+                val am = ctx.getSystemService(android.content.Context.ALARM_SERVICE)
+                        as android.app.AlarmManager
+                val at = System.currentTimeMillis() + LOCK_ALARM_INTERVAL
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, at, pi)
+                } else {
+                    am.set(android.app.AlarmManager.RTC_WAKEUP, at, pi)
+                }
+            } catch (e: Throwable) {
+                Log.w(TAG, "rescheduleLockAlarm: ${e.message}")
+            }
+        }
     }
 
     /** 通知主界面数据已变化（如悬浮窗内隐藏/显示），触发列表刷新。 */
