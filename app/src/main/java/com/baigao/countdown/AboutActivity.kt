@@ -50,6 +50,8 @@ class AboutActivity : Activity() {
     private lateinit var updateModeSpinner: Spinner
     private lateinit var uiKeepSwitch: Switch
     private lateinit var floatKeepSwitch: Switch
+    private lateinit var lockNotifySwitch: Switch
+    private lateinit var lockNotifyDescTv: TextView
     private lateinit var timeFormatSpinner: Spinner
     private lateinit var timeFormatDescTv: TextView
     /** 备注时间制式下拉框的两个候选项（下标即取值）。 */
@@ -87,6 +89,8 @@ class AboutActivity : Activity() {
         checkStateTv = findViewById(R.id.checkStateTv)
         uiKeepSwitch = findViewById(R.id.uiKeepSwitch)
         floatKeepSwitch = findViewById(R.id.floatKeepSwitch)
+        lockNotifySwitch = findViewById(R.id.lockNotifySwitch)
+        lockNotifyDescTv = findViewById(R.id.lockNotifyDescTv)
         timeFormatSpinner = findViewById(R.id.timeFormatSpinner)
         timeFormatDescTv = findViewById(R.id.timeFormatDescTv)
 
@@ -157,6 +161,34 @@ class AboutActivity : Activity() {
                 else "悬浮框常亮关啦：悬浮窗不再干预屏幕，按手机系统的时间正常熄屏",
                 Toast.LENGTH_SHORT
             ).show()
+        }
+
+        // ---- 锁屏 / 通知栏倒计时：左右滑动开关 ----
+        // 开启后，列表里「展开」过的倒计时以常驻通知显示在通知栏与锁屏上，
+        // 标题、倒计时数字、模式、备注、主题配色与悬浮窗完全一致，并且每秒跟着跳秒。
+        lockNotifySwitch.setOnCheckedChangeListener { _, checked ->
+            if (suppressSwitch) return@setOnCheckedChangeListener
+            LockScreenClock.setOn(this, checked)
+            if (checked) {
+                // 立刻刷一次，并把刷新服务拉起来（退到后台也要有人每秒更新锁屏通知）
+                try {
+                    LockScreenClock.updateAll(this, CountdownStore.load(this))
+                } catch (_: Throwable) {
+                    // 通知发不出去也不该卡住界面设置
+                }
+                startCountdownServiceIfStopped()
+                Toast.makeText(
+                    this,
+                    "锁屏通知开啦：展开过的倒计时会常驻显示在通知栏 / 锁屏上，\n和悬浮窗里一模一样、每秒跟着跳秒",
+                    Toast.LENGTH_LONG
+                ).show()
+            } else {
+                Toast.makeText(
+                    this,
+                    "锁屏通知关啦：通知栏上的锁屏倒计时都收掉啦",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
         }
 
         // ---- 更新提示方式：下拉框（多选一） ----
@@ -286,13 +318,33 @@ class AboutActivity : Activity() {
             .filter { it.isNotEmpty() }.joinToString("\n")
     }
 
-    /** 按偏好回填两个屏幕常亮开关（程序化设置时抑制回调）。 */
+    /** 按偏好回填屏幕常亮 / 锁屏通知开关（程序化设置时抑制回调）。 */
     private fun refreshKeepSwitches() {
         if (!::uiKeepSwitch.isInitialized) return
         suppressSwitch = true
         uiKeepSwitch.isChecked = ScreenKeepOn.isUiOn(this)
         floatKeepSwitch.isChecked = ScreenKeepOn.isFloatOn(this)
+        lockNotifySwitch.isChecked = LockScreenClock.isOn(this)
         suppressSwitch = false
+        lockNotifyDescTv.text =
+            "锁屏通知显示：开启后，列表里「展开」过的倒计时会以常驻通知显示在通知栏 / 锁屏上\n" +
+                "（标题、倒计时数字、模式、备注和悬浮窗里一模一样，颜色也跟着主题走，每秒跳秒）；\n" +
+                "把开关关掉，这些锁屏通知就一起收掉啦。"
+    }
+
+    /** 锁屏通知开着但刷新服务没跑时，把服务拉起来（退到后台也要有人每秒更新锁屏通知）。 */
+    private fun startCountdownServiceIfStopped() {
+        try {
+            val mgr = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val running = mgr.getRunningServices(Int.MAX_VALUE)
+                .any { CountdownService::class.java.name == it.service.className }
+            if (running) return
+            val i = Intent(this, CountdownService::class.java)
+            i.action = CountdownService.ACTION_START
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i)
+        } catch (e: Throwable) {
+            // 服务拉不起来也不该卡住设置：下次进主界面会自动补上
+        }
     }
 
     /** 悬浮框常亮设置变化后，通知正在运行的服务重建悬浮窗以套用新的常亮标志。 */
