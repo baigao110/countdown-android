@@ -308,6 +308,33 @@
             android:textSize="12sp"
             android:text="" />
 
+        <!-- 锁屏通知常亮：锁屏上还有倒计时时，屏幕就一直亮着（关掉恢复手机熄屏时间） -->
+        <LinearLayout
+            style="@style/SettingRow"
+            android:layout_marginTop="12dp">
+
+            <TextView
+                style="@style/SettingLabel"
+                android:text="锁屏通知常亮" />
+
+            <Switch
+                android:id="@+id/lockKeepSwitch"
+                style="@style/GlassSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/lockKeepDescTv"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:lineSpacingExtra="3dp"
+            android:textColor="#FFC6D5EF"
+            android:textSize="12sp"
+            android:text="" />
+
         <!-- 更新提示方式：多选项改为下拉框选择 -->
         <LinearLayout
             style="@style/SettingRow"
