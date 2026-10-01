@@ -66,8 +66,8 @@
         <!-- 菜单项：添加小倒计时（青色玻璃圆钮，扇形排布） -->
         <FrameLayout
             android:id="@+id/menuItemAdd"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_gravity="bottom|end"
             android:layout_margin="16dp"
             android:background="@drawable/circle_btn"
@@ -88,8 +88,8 @@
         <!-- 菜单项：关于（青色玻璃圆钮，扇形排布） -->
         <FrameLayout
             android:id="@+id/menuItemAbout"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_gravity="bottom|end"
             android:layout_margin="16dp"
             android:background="@drawable/circle_btn"
@@ -110,8 +110,8 @@
         <!-- 菜单项：吃药提醒（青色玻璃圆钮，扇形排布） -->
         <FrameLayout
             android:id="@+id/menuItemMedicine"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_gravity="bottom|end"
             android:layout_margin="16dp"
             android:background="@drawable/circle_btn"
@@ -132,8 +132,8 @@
         <!-- 菜单项：恢复已删除的内置倒计时（青色玻璃圆钮，扇形排布，条件项） -->
         <FrameLayout
             android:id="@+id/menuItemRestore"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_gravity="bottom|end"
             android:layout_margin="16dp"
             android:background="@drawable/circle_btn"
