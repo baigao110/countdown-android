@@ -8,9 +8,14 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.text.SpannableStringBuilder
+import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.DatePicker
 import android.widget.LinearLayout
+import android.widget.Spinner
+import android.widget.Switch
 import android.widget.TextView
 import android.widget.TimePicker
 import android.widget.Toast
@@ -23,9 +28,9 @@ import java.util.Calendar
  */
 class MedicineReminderActivity : Activity() {
 
-    private lateinit var medToggleBtn: Button
+    private lateinit var medToggleSwitch: Switch
     private lateinit var medTimeBtn: Button
-    private lateinit var medTimesBtn: Button
+    private lateinit var medTimesSpinner: Spinner
     private lateinit var medCalendarBtn: Button
     private lateinit var medStateTv: TextView
     private lateinit var medTestBtn: Button
@@ -34,6 +39,12 @@ class MedicineReminderActivity : Activity() {
     private lateinit var medScheduleTv: TextView
     private lateinit var medRowCalendar: LinearLayout
     private lateinit var medRowTools: LinearLayout
+    private lateinit var medRowTimes: LinearLayout
+
+    /** 程序化回填开关状态时抑制回调，避免刷新时误触发保存与 Toast。 */
+    private var suppressSwitch = false
+    /** 下拉框初始化完成前忽略选中回调（避免铺适配器时的默认选中覆盖用户设置）。 */
+    private var spinnerReady = false
 
     private val REQ_NOTIFY = 1004
 
@@ -41,24 +52,26 @@ class MedicineReminderActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_medicine_reminder)
 
-        medToggleBtn = findViewById(R.id.medToggleBtn)
+        medToggleSwitch = findViewById(R.id.medToggleSwitch)
         medTimeBtn = findViewById(R.id.medTimeBtn)
-        medTimesBtn = findViewById(R.id.medTimesBtn)
+        medTimesSpinner = findViewById(R.id.medTimesSpinner)
         medCalendarBtn = findViewById(R.id.medCalendarBtn)
         medTestBtn = findViewById(R.id.medTestBtn)
         medCheckBtn = findViewById(R.id.medCheckBtn)
         medNextBtn = findViewById(R.id.medNextBtn)
         medRowCalendar = findViewById(R.id.medRowCalendar)
         medRowTools = findViewById(R.id.medRowTools)
+        medRowTimes = findViewById(R.id.medRowTimes)
         medStateTv = findViewById(R.id.medStateTv)
         medScheduleTv = findViewById(R.id.medScheduleTv)
 
         findViewById<TextView>(R.id.backBtn).setOnClickListener { finish() }
 
-        medToggleBtn.setOnClickListener {
-            val on = !MedicineReminder.isEnabled(this)
-            MedicineReminder.setEnabled(this, on)
-            if (on && !UpdateNotifier.hasPermission(this)) {
+        // 吃药提醒总开关（左右滑动开关）：开启时顺手引导一次通知权限
+        medToggleSwitch.setOnCheckedChangeListener { _, checked ->
+            if (suppressSwitch) return@setOnCheckedChangeListener
+            MedicineReminder.setEnabled(this, checked)
+            if (checked && !UpdateNotifier.hasPermission(this)) {
                 // 没通知权限的话提醒根本弹不出来，顺手引导一次
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     requestPermissions(
@@ -71,14 +84,33 @@ class MedicineReminderActivity : Activity() {
             } else {
                 Toast.makeText(
                     this,
-                    if (on) "吃药小提醒开啦（${MedicineReminder.timeText(this)}）" else "吃药小提醒关啦",
+                    if (checked) "吃药小提醒开啦（${MedicineReminder.timeText(this)}）" else "吃药小提醒关啦",
                     Toast.LENGTH_SHORT
                 ).show()
             }
             refreshMedicine()
         }
         medTimeBtn.setOnClickListener { showDoseEditor() }
-        medTimesBtn.setOnClickListener { showTimesPerDayPicker() }
+        // 每天次数（下拉框）：1/2/3/4 次，首剂时间不变、其余均匀分布在当天
+        val timesOpts = arrayOf("1 次 / 天", "2 次 / 天", "3 次 / 天", "4 次 / 天")
+        medTimesSpinner.adapter = ArrayAdapter(this, R.layout.spinner_item, timesOpts)
+            .also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
+        medTimesSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (!spinnerReady) return
+                val n = position + 1
+                if (n == MedicineReminder.timesPerDay(this@MedicineReminderActivity)) return
+                MedicineReminder.setTimesPerDay(this@MedicineReminderActivity, n)
+                refreshMedicine()
+                Toast.makeText(
+                    this@MedicineReminderActivity,
+                    "已经设为每天 $n 次啦（首剂 ${MedicineReminder.timeText(this@MedicineReminderActivity)}，其余均匀分布在当天）",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>) {}
+        }
         medCalendarBtn.setOnClickListener {
             startActivity(Intent(this, MedicineCalendarActivity::class.java))
         }
@@ -96,6 +128,8 @@ class MedicineReminderActivity : Activity() {
         // 「下次提醒」：手动指定下一次提醒的具体日期与时刻
         medNextBtn.setOnClickListener { showNextReminderPicker() }
         refreshMedicine()
+        // 适配器铺好后的默认选中回调跑完再允许响应，避免覆盖已保存的设置
+        medTimesSpinner.post { spinnerReady = true }
     }
 
     @Suppress("DEPRECATION")
@@ -129,19 +163,21 @@ class MedicineReminderActivity : Activity() {
 
     /** 刷新「吃药提醒」卡片：开关状态、提醒时间与今日是否已吃药。 */
     private fun refreshMedicine() {
-        if (!::medToggleBtn.isInitialized) return
+        if (!::medToggleSwitch.isInitialized) return
         val on = MedicineReminder.isEnabled(this)
-        medToggleBtn.text = if (on) "吃药提醒：开啦" else "吃药提醒：关啦"
-        val medVis = if (on) android.view.View.VISIBLE else android.view.View.GONE
+        suppressSwitch = true
+        medToggleSwitch.isChecked = on
+        suppressSwitch = false
+        val medVis = if (on) View.VISIBLE else View.GONE
         // 关闭状态下隐藏提醒时间与状态等全部子项，仅保留开关
         medTimeBtn.visibility = medVis
+        medRowTimes.visibility = medVis
         medStateTv.visibility = medVis
         medRowCalendar.visibility = medVis
         medRowTools.visibility = medVis
         val n = MedicineReminder.timesPerDay(this)
         medTimeBtn.text = if (n >= 2) "吃药时间（每天 $n 次哦）" else "首剂时间 ${MedicineReminder.timeText(this)}"
-        medTimesBtn.text = "每天 $n 次"
-        medTimesBtn.visibility = medVis
+        medTimesSpinner.setSelection((n - 1).coerceIn(0, 3))
         medScheduleTv.text = SpannableStringBuilder("每天 $n 次：")
             .append(MedicineReminder.doseScheduleSpannable(this))
         medScheduleTv.visibility = medVis
@@ -153,27 +189,6 @@ class MedicineReminderActivity : Activity() {
     private fun showDoseEditor() {
         if (isFinishing) return
         DoseEditor.showDialog(this) { refreshMedicine() }
-    }
-
-    /** 「每天次数」选择：1/2/3/4 次，首剂时间不变、其余均匀分布在当天。 */
-    private fun showTimesPerDayPicker() {
-        if (isFinishing) return
-        val opts = arrayOf("1 次 / 天", "2 次 / 天", "3 次 / 天", "4 次 / 天")
-        val cur = MedicineReminder.timesPerDay(this) - 1
-        AlertDialog.Builder(this)
-            .setTitle("每天想提醒几次呀")
-            .setSingleChoiceItems(opts, cur) { d, which ->
-                MedicineReminder.setTimesPerDay(this, which + 1)
-                refreshMedicine()
-                d.dismiss()
-                Toast.makeText(
-                    this,
-                    "已经设为每天 ${which + 1} 次啦（首剂 ${MedicineReminder.timeText(this)}，其余均匀分布在当天）",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-            .setNegativeButton("取消", null)
-            .show()
     }
 
     /** 吃药提醒自检：退出 / 关闭 App 后不提醒，基本都能在这里看出卡在哪一环。 */
