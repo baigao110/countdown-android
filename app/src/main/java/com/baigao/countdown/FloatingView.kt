@@ -66,6 +66,10 @@ class FloatingView(
 
     private val params: WindowManager.LayoutParams
 
+    /** 不随开关变化的基础窗口标志。 */
+    private val baseFlags =
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+
     private var initialX = 0
     private var initialY = 0
     private var initialTouchX = 0f
@@ -81,7 +85,7 @@ class FloatingView(
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else
                 WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            baseFlags,
             PixelFormat.TRANSLUCENT
         )
         params.gravity = Gravity.TOP or Gravity.START
@@ -126,6 +130,7 @@ class FloatingView(
 
         bindTexts()
         applyCollapsed()
+        applyKeepScreenOn()
         update()
     }
 
@@ -193,6 +198,7 @@ class FloatingView(
             params.alpha = (data.opacity.coerceIn(20, 100)) / 100f
             safeUpdateLayout()
             applyCollapsed()
+            applyKeepScreenOn()
             update()
         } catch (e: Throwable) {
             Log.w(TAG, "syncFrom: ${e.message}")
@@ -211,6 +217,31 @@ class FloatingView(
     }
 
     fun isDrawerOpen(): Boolean = drawerOpen
+
+    /**
+     * 是否应当保持屏幕常亮：仅当「悬浮框常亮」开关开启、且悬浮窗处于**展开**状态时为真。
+     * 关闭开关、或把悬浮窗收缩成小条时都为假 —— 此时不干预屏幕，
+     * 时间完全跟随手机系统设置（按系统休眠时间正常熄屏）。
+     */
+    private fun wantKeepScreenOn(): Boolean =
+        ScreenKeepOn.isFloatOn(context) && !data.collapsed
+
+    /**
+     * 把「是否需要保持常亮」同步到窗口参数上（只在有变化时更新，避免无谓刷新）。
+     * 在初始化、展开/收起切换、以及设置变化（主界面/设置页触发服务刷新）时调用。
+     */
+    fun applyKeepScreenOn() {
+        try {
+            val flag = WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+            val want = wantKeepScreenOn()
+            val has = (params.flags and flag) != 0
+            if (want == has) return
+            params.flags = if (want) params.flags or flag else params.flags and flag.inv()
+            safeUpdateLayout()
+        } catch (e: Throwable) {
+            Log.w(TAG, "applyKeepScreenOn: ${e.message}")
+        }
+    }
 
     /** 当前悬浮窗在屏幕上的位置（隐藏/持久化时由 Service 读取）。 */
     fun getPosition(): Pair<Int, Int> = params.x to params.y
@@ -240,6 +271,7 @@ class FloatingView(
                 if (showBody && data.remark.isNotEmpty()) View.VISIBLE else View.GONE
             collapseBtn.text = if (collapsed) "开" else "收"
             if (collapsed && drawerOpen) toggleDrawer()
+            applyKeepScreenOn()
             view.post { clampIntoScreen() }
         } catch (e: Throwable) {
             Log.w(TAG, "applyCollapsed: ${e.message}")
