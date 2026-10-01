@@ -52,6 +52,7 @@ class AboutActivity : Activity() {
     private lateinit var floatKeepSwitch: Switch
     private lateinit var lockNotifySwitch: Switch
     private lateinit var lockNotifyDescTv: TextView
+    private lateinit var lockNotifyOpenBtn: Button
     private lateinit var timeFormatSpinner: Spinner
     private lateinit var timeFormatDescTv: TextView
     /** 备注时间制式下拉框的两个候选项（下标即取值）。 */
@@ -91,6 +92,10 @@ class AboutActivity : Activity() {
         floatKeepSwitch = findViewById(R.id.floatKeepSwitch)
         lockNotifySwitch = findViewById(R.id.lockNotifySwitch)
         lockNotifyDescTv = findViewById(R.id.lockNotifyDescTv)
+        lockNotifyOpenBtn = findViewById(R.id.lockNotifyOpenBtn)
+        // 锁屏上看不到倒计时时的一键排障：国内 ROM 的「锁屏显示 / 静默通知」开关
+        // 基本都藏在应用信息里，直接跳到本应用的应用信息页最省事。
+        lockNotifyOpenBtn.setOnClickListener { openLockScreenNotifySettings() }
         timeFormatSpinner = findViewById(R.id.timeFormatSpinner)
         timeFormatDescTv = findViewById(R.id.timeFormatDescTv)
 
@@ -256,6 +261,18 @@ class AboutActivity : Activity() {
         refreshUpdateMode()
     }
 
+    /** 跳到本应用的应用信息页（系统「锁屏通知 / 静默通知」开关就在这一页里）。 */
+    private fun openLockScreenNotifySettings() {
+        try {
+            startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    .setData(Uri.parse("package:$packageName"))
+            )
+        } catch (e: Throwable) {
+            Toast.makeText(this, "打不开系统设置呢，请在手机「设置 → 应用 → 倒计时」里找「锁屏通知」哦", Toast.LENGTH_LONG).show()
+        }
+    }
+
     /** 引导关闭电池优化（不关的话系统会在后台限制网络与定时检查）。 */
     private fun requestIgnoreBattery() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
@@ -329,7 +346,8 @@ class AboutActivity : Activity() {
         lockNotifyDescTv.text =
             "锁屏通知显示：开启后，列表里「展开」过的倒计时会以常驻通知显示在通知栏 / 锁屏上\n" +
                 "（标题、倒计时数字、模式、备注和悬浮窗里一模一样，颜色也跟着主题走，每秒跳秒）；\n" +
-                "把开关关掉，这些锁屏通知就一起收掉啦。"
+                "把开关关掉，这些锁屏通知就一起收掉啦。\n" +
+                "锁屏上看不到的话，点下面的「锁屏上看不到？点我打开锁屏通知设置」就行啦。"
     }
 
     /** 锁屏通知开着但刷新服务没跑时，把服务拉起来（退到后台也要有人每秒更新锁屏通知）。 */
