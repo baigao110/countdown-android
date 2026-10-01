@@ -51,6 +51,8 @@ class FloatingView(
     private val timeTail: TextView = view.findViewById(R.id.fTimeTail)
     /** 上一次显示的时间文本：仅文本变化时播放动画（天/周等模式并非每秒都变）。 */
     private var lastTimeText = ""
+    /** 上一次展示的备注文本（内置项备注会随整点/日期变化，用于去重避免每秒重写视图）。 */
+    private var lastRemark = ""
     private val modeTv: TextView = view.findViewById(R.id.fMode)
     private val remarkMain: TextView = view.findViewById(R.id.fRemark)
     private val drawerBtn: Button = view.findViewById(R.id.fDrawer)
@@ -147,16 +149,29 @@ class FloatingView(
             data.refreshBuiltInTarget() // 内置项对齐目标时间，保证「目标:」显示当前周期
             targetTv.text = "目标: " +
                     SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(data.targetTime))
-            if (data.remark.isNotEmpty()) {
-                remarkMain.visibility = View.VISIBLE
-                remarkMain.text = "备注: " + data.remark.replace("\n", " ")
-            } else {
-                remarkMain.visibility = View.GONE
-            }
+            applyRemark()
             opacityBar.progress = 100 - data.opacity.coerceIn(20, 100)
         } catch (e: Throwable) {
             Log.w(TAG, "bindTexts: ${e.message}")
         }
+    }
+
+    /**
+     * 刷新备注行：内置项用随目标时间同步变化的实时备注（跨整点自动变成「距离18点整结束」），
+     * 自建项沿用原备注。文本没变就不重设，避免每秒无谓改写视图。
+     */
+    private fun applyRemark() {
+        val r = data.remarkText(TimeFormatPref.is24Hour(context))
+        if (r == lastRemark) return
+        lastRemark = r
+        try {
+            if (r.isNotEmpty()) {
+                remarkMain.visibility = View.VISIBLE
+                remarkMain.text = "备注: " + r.replace("\n", " ")
+            } else {
+                remarkMain.visibility = View.GONE
+            }
+        } catch (_: Throwable) { }
     }
 
     /** 每秒调用：只刷新倒计时数字。now 由调用方统一给定（多个悬浮窗同步跳秒）。 */
@@ -168,6 +183,8 @@ class FloatingView(
                 applyTimeText(text)
                 AnimStyle.play(timeLast, data.animStyle, data.customColorArgb)
             }
+            // 整点 / 跨天时备注也要跟着换说法（悬浮窗是常驻的，不能只靠 bindTexts）
+            applyRemark()
         } catch (e: Throwable) {
             Log.w(TAG, "update: ${e.message}")
         }
