@@ -114,6 +114,11 @@
             android:name=".CountdownFinishReceiver"
             android:exported="false" />
 
+        <!-- 锁屏倒计时「唤醒刷新」：息屏 / Doze 把前台服务冻住时，靠这个闹钟把锁屏通知刷成最新 -->
+        <receiver
+            android:name=".LockScreenRefreshReceiver"
+            android:exported="false" />
+
         <receiver
             android:name=".UpdateCheckReceiver"
             android:exported="false" />
