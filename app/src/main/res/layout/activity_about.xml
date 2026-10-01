@@ -271,6 +271,34 @@
             android:textSize="12sp"
             android:text="" />
 
+        <!-- 备注时间制式：24 小时制 / 12 小时制（只影响备注文案里的钟点说法） -->
+        <LinearLayout
+            style="@style/SettingRow"
+            android:layout_marginTop="12dp">
+
+            <TextView
+                style="@style/SettingLabel"
+                android:text="备注时间制式" />
+
+            <Spinner
+                android:id="@+id/timeFormatSpinner"
+                style="@style/GlassSpinner"
+                android:layout_width="150dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/timeFormatDescTv"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:lineSpacingExtra="3dp"
+            android:textColor="#FFC6D5EF"
+            android:textSize="12sp"
+            android:text="" />
+
         <TextView
             android:id="@+id/checkStateTv"
             android:layout_width="match_parent"
