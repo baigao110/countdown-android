@@ -47,11 +47,14 @@ class CountdownService : Service() {
             }
             ACTION_REFRESH -> {
                 rebuildFloaters()
+                refreshLockScreenNow()
                 return START_STICKY
             }
             else -> {
                 startForeground(NOTIF_ID, buildNotification())
                 rebuildFloaters()
+                // 锁屏通知立刻出一条：不等下一跳，开机 / 解锁后马上就能在锁屏上看到
+                refreshLockScreenNow()
                 if (!running) {
                     running = true
                     tick()
@@ -100,6 +103,18 @@ class CountdownService : Service() {
             }
             tick()
         }, millisToNextSecond())
+    }
+
+    /**
+     * 立刻把锁屏 / 通知栏倒计时刷成最新（不用等下一跳）。
+     * 服务刚起来时先发一条，用户锁屏那一瞬间就能看到，而不是"等一秒才冒出来"。
+     */
+    private fun refreshLockScreenNow() {
+        try {
+            LockScreenClock.updateAll(this, CountdownStore.load(this))
+        } catch (e: Throwable) {
+            Log.w(TAG, "refreshLockScreenNow: ${e.message}")
+        }
     }
 
     private fun canDrawOverlay(): Boolean =
@@ -266,7 +281,9 @@ class CountdownService : Service() {
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setDefaults(Notification.DEFAULT_SOUND or Notification.DEFAULT_VIBRATE)
             .build()
-        nm.notify(c.id.hashCode(), n)
+        // 归零提醒单独占 7000 起的一段 id：避开锁屏通知使用的 5300 起那段，
+        // 免得两条通知互相顶掉（同一条倒计时下，一个 id 只能体现最后发的那条）。
+        nm.notify(FINISH_ID_BASE + (c.id.hashCode() and 0x7FFFFFFF) % 800, n)
     }
 
     /** 归零提醒专用渠道：最高级 + 免打扰也响 + 锁屏可见 + 闹钟铃声。 */
@@ -315,6 +332,8 @@ class CountdownService : Service() {
         private const val CHANNEL_ID = "countdown_channel"
         private const val CHANNEL_FINISH = "countdown_finish_v30"
         private const val NOTIF_ID = 1001
+        /** 归零提醒的通知 id 基数（与锁屏通知 5300 起那段错开，避免互相顶掉）。 */
+        private const val FINISH_ID_BASE = 7000
         internal const val ACTION_FINISH_DISMISS = "com.baigao.countdown.FINISH_DISMISS"
         internal const val EXTRA_FINISH_ID = "finish_id"
         private const val TAG = "CountdownService"
