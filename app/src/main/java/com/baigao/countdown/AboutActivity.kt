@@ -1,6 +1,7 @@
 package com.baigao.countdown
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -8,9 +9,14 @@ import android.text.SpannableStringBuilder
 import android.os.Bundle
 import android.provider.Settings
 import android.app.AlertDialog
+import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.DatePicker
 import android.widget.LinearLayout
+import android.widget.Spinner
+import android.widget.Switch
 import android.widget.TextView
 import android.widget.TimePicker
 import android.widget.Toast
@@ -24,6 +30,10 @@ import java.util.Locale
  * - 进入页面即自动检查 GitHub 最新 Release，**发现新版本会强制弹出更新日志对话框**，
  *   点「立即更新」即在 App 内下载并拉起安装界面；
  * - 具体逻辑全部交给 UpdateManager（MainActivity 启动时也复用同一套逻辑）。
+ *
+ * 设置项统一采用「左右滑动开关」（开 / 关）与「下拉框」（多选一）：
+ * - 屏幕常亮拆成「UI 界面常亮」「悬浮框常亮」两个开关；
+ * - 更新提示方式（自动 / 弹出提示 / 只发通知）改为下拉框选择。
  */
 class AboutActivity : Activity() {
 
@@ -34,11 +44,17 @@ class AboutActivity : Activity() {
     private lateinit var testBtn: Button
     private lateinit var batteryBtn: Button
     private lateinit var notifyCheckBtn: Button
-    private lateinit var updateModeBtn: Button
     private lateinit var disclaimerBtn: Button
     private lateinit var checkStateTv: TextView
     private lateinit var updateModeDescTv: TextView
-    private lateinit var screenKeepBtn: Button
+    private lateinit var updateModeSpinner: Spinner
+    private lateinit var uiKeepSwitch: Switch
+    private lateinit var floatKeepSwitch: Switch
+
+    /** 程序化回填开关状态时抑制回调，避免 onResume 刷新时误触发保存与 Toast。 */
+    private var suppressSwitch = false
+    /** 下拉框初始化完成前忽略选中回调（避免铺适配器时的默认选中覆盖用户设置）。 */
+    private var spinnerReady = false
 
     private var checking = false
     /** 本次进入页面是否已自动检查过（避免 onResume 反复弹窗）。 */
@@ -60,10 +76,11 @@ class AboutActivity : Activity() {
         testBtn = findViewById(R.id.testBtn)
         batteryBtn = findViewById(R.id.batteryBtn)
         notifyCheckBtn = findViewById(R.id.notifyCheckBtn)
-        updateModeBtn = findViewById(R.id.updateModeBtn)
+        updateModeSpinner = findViewById(R.id.updateModeSpinner)
         updateModeDescTv = findViewById(R.id.updateModeDescTv)
         checkStateTv = findViewById(R.id.checkStateTv)
-        screenKeepBtn = findViewById(R.id.screenKeepBtn)
+        uiKeepSwitch = findViewById(R.id.uiKeepSwitch)
+        floatKeepSwitch = findViewById(R.id.floatKeepSwitch)
 
         versionTv.text = "版本 v${UpdateManager.CURRENT_VERSION_NAME}"
         findViewById<TextView>(R.id.githubLinkTv).setOnClickListener {
@@ -106,33 +123,59 @@ class AboutActivity : Activity() {
         batteryBtn.setOnClickListener { requestIgnoreBattery() }
         // 「通知体检」：把「退出后收不到通知」拆成一项项可查、可一键修的开关
         notifyCheckBtn.setOnClickListener { NotifyGuard.showReport(this@AboutActivity) }
-        // 「屏幕常亮」：开关开启后，本应用在前台时屏幕保持常亮不锁屏
-        screenKeepBtn.setOnClickListener {
-            val on = !ScreenKeepOn.isOn(this)
-            ScreenKeepOn.setOn(this, on)
+
+        // ---- 屏幕常亮：两个左右滑动开关 ----
+        // UI 界面常亮：打开 App 时（任意界面）屏幕保持常亮、不锁屏（功能与旧版一致）
+        uiKeepSwitch.setOnCheckedChangeListener { _, checked ->
+            if (suppressSwitch) return@setOnCheckedChangeListener
+            ScreenKeepOn.setUiOn(this, checked)
             ScreenKeepOn.apply(this)
-            refreshScreenKeep()
             Toast.makeText(
                 this,
-                if (on) "屏幕常亮开啦：应用在前台时屏幕一直亮着、不会锁屏"
-                else "屏幕常亮关啦：恢复手机默认的熄屏时间",
+                if (checked) "UI 界面常亮开啦：打开 App 时屏幕一直亮着、不会锁屏"
+                else "UI 界面常亮关啦：恢复手机默认的熄屏时间",
                 Toast.LENGTH_SHORT
             ).show()
         }
-        // 「更新提示方式」：弹窗被拦截类软件关掉时，可以改成只在通知栏提醒
-        updateModeBtn.setOnClickListener {
-            val m = UpdateManager.nextPromptMode(this@AboutActivity)
-            refreshUpdateMode()
+        // 悬浮框常亮：悬浮倒计时「展开」时屏幕保持常亮；关掉或收缩成小条时跟随系统熄屏时间
+        floatKeepSwitch.setOnCheckedChangeListener { _, checked ->
+            if (suppressSwitch) return@setOnCheckedChangeListener
+            ScreenKeepOn.setFloatOn(this, checked)
+            // 立刻让已经显示的悬浮窗按新设置调整常亮标志（没在跑就什么都不用做）
+            refreshFloatingKeepOn()
             Toast.makeText(
-                this@AboutActivity,
-                "更新提示方式：${m.label}\n${m.desc}",
-                Toast.LENGTH_LONG
+                this,
+                if (checked) "悬浮框常亮开啦：悬浮倒计时展开时屏幕会一直亮着"
+                else "悬浮框常亮关啦：悬浮窗不再干预屏幕，按手机系统的时间正常熄屏",
+                Toast.LENGTH_SHORT
             ).show()
         }
 
+        // ---- 更新提示方式：下拉框（多选一） ----
+        val modes = UpdateManager.UpdatePromptMode.values()
+        updateModeSpinner.adapter = ArrayAdapter(
+            this, R.layout.spinner_item, modes.map { it.label }
+        ).also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
+        updateModeSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (!spinnerReady) return
+                if (position !in modes.indices) return
+                val want = modes[position]
+                if (want == UpdateManager.promptMode(this@AboutActivity)) return
+                UpdateManager.setPromptMode(this@AboutActivity, want)
+                refreshUpdateMode()
+                Toast.makeText(
+                    this@AboutActivity, "更新提示方式：${want.label}", Toast.LENGTH_SHORT
+                ).show()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>) {}
+        }
 
         refreshUpdateMode()
-        refreshScreenKeep()
+        refreshKeepSwitches()
+        // 适配器铺好后的默认选中回调跑完再允许响应，避免覆盖已保存的设置
+        updateModeSpinner.post { spinnerReady = true }
     }
 
     @Suppress("DEPRECATION")
@@ -158,7 +201,7 @@ class AboutActivity : Activity() {
             Toast.makeText(this, "系统版本比较旧，这个不用设置哦", Toast.LENGTH_SHORT).show()
             return
         }
-        val pm = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+        val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
         if (pm.isIgnoringBatteryOptimizations(packageName)) {
             Toast.makeText(this, "已经允许后台运行啦", Toast.LENGTH_SHORT).show()
             return
@@ -173,24 +216,20 @@ class AboutActivity : Activity() {
         }
     }
 
-    /** 「更新提示方式」按钮的文字：自动模式下若检测到拦截工具，直接把结论写上去。 */
+    /** 下拉框回填 + 下方说明：当前选中的用 ● 标出。 */
     private fun refreshUpdateMode() {
+        if (!::updateModeSpinner.isInitialized) return
         val m = UpdateManager.promptMode(this)
-        updateModeBtn.text = if (m == UpdateManager.UpdatePromptMode.AUTO) {
-            if (UpdateManager.hasSuspiciousAccessibility(this)) {
-                "更新提示：自动（已改只发通知）"
-            } else {
-                "更新提示：自动"
-            }
-        } else {
-            "更新提示：${m.label}"
-        }
-        // 在按钮下方显示三种更新提示方式各自的行为含义，当前选中的用 ● 标出
+        updateModeSpinner.setSelection(m.ordinal)
+        // 三种更新提示方式各自的行为含义
         val sb = StringBuilder()
-        sb.append("更新提示方式（点上面按钮切换哦）：\n")
+        sb.append("更新提示方式（点上面的下拉框选择哦）：\n")
         for (mode in UpdateManager.UpdatePromptMode.values()) {
             val mark = if (mode == m) "● " else "○ "
             sb.append(mark).append(mode.label).append("：").append(mode.desc).append("\n")
+        }
+        if (m == UpdateManager.UpdatePromptMode.AUTO && UpdateManager.hasSuspiciousAccessibility(this)) {
+            sb.append("（已检测到弹窗拦截类工具，自动模式当前按「只发通知」执行）")
         }
         updateModeDescTv.text = sb.toString().trimEnd()
     }
@@ -199,42 +238,42 @@ class AboutActivity : Activity() {
     private fun refreshState() {
         val perm = if (UpdateNotifier.hasPermission(this)) "通知权限：已经开啦" else "通知权限：还没开"
         val battery = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val pm = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+            val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
             if (pm.isIgnoringBatteryOptimizations(packageName)) "电池优化：已经关掉啦" else "电池优化：还没关"
         } else ""
         checkStateTv.text = listOf(UpdateCheckState.summary(this), perm, battery)
             .filter { it.isNotEmpty() }.joinToString("\n")
     }
 
-
-
-    /** 刷新「屏幕常亮」开关按钮文案。 */
-    private fun refreshScreenKeep() {
-        if (!::screenKeepBtn.isInitialized) return
-        val on = ScreenKeepOn.isOn(this)
-        screenKeepBtn.text = if (on) "屏幕常亮：开啦" else "屏幕常亮：关啦"
+    /** 按偏好回填两个屏幕常亮开关（程序化设置时抑制回调）。 */
+    private fun refreshKeepSwitches() {
+        if (!::uiKeepSwitch.isInitialized) return
+        suppressSwitch = true
+        uiKeepSwitch.isChecked = ScreenKeepOn.isUiOn(this)
+        floatKeepSwitch.isChecked = ScreenKeepOn.isFloatOn(this)
+        suppressSwitch = false
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    /** 悬浮框常亮设置变化后，通知正在运行的服务重建悬浮窗以套用新的常亮标志。 */
+    private fun refreshFloatingKeepOn() {
+        try {
+            val mgr = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val running = mgr.getRunningServices(Int.MAX_VALUE).any {
+                CountdownService::class.java.name == it.service.className
+            }
+            if (!running) return   // 没在显示悬浮窗，无需处理
+            val i = Intent(this, CountdownService::class.java)
+            i.action = CountdownService.ACTION_REFRESH
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i)
+        } catch (e: Throwable) {
+            // 服务未运行 / 权限不足时忽略即可
+        }
+    }
 
     override fun onResume() {
         super.onResume()
+        // 屏幕常亮（UI 界面）：进入本页也按开关状态决定是否常亮
+        ScreenKeepOn.apply(this)
         // 从「允许安装未知应用」设置页返回后，继续之前挂起的安装
         if (UpdateManager.consumePendingInstall(this)) return
         // 若用户在此前弹出的「发现新版本」提示框里点了「忽略更新」，
@@ -247,7 +286,8 @@ class AboutActivity : Activity() {
             Toast.makeText(this, "已经是最新版本啦", Toast.LENGTH_SHORT).show()
         }
         refreshState()
-        refreshScreenKeep()
+        refreshUpdateMode()
+        refreshKeepSwitches()
         if (!autoChecked) {
             autoChecked = true
             checkUpdate(forceDialog = true)
