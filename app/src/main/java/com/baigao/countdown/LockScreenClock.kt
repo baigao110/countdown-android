@@ -34,7 +34,9 @@ object LockScreenClock {
     /** 锁屏通知总开关（默认开启：装好就能在锁屏上看到展开过的倒计时）。 */
     private const val KEY_ON = "lockscreen_notify"
 
-    private const val CHANNEL_ID = "countdown_lockscreen_v64"
+    // 换渠道号（v64 → v65）：渠道重要性是一次性的，只有重建渠道才能让新的
+    // 「锁屏必显」权重重新生效（旧渠道已经被系统记成静默通知了）。
+    private const val CHANNEL_ID = "countdown_lockscreen_v65"
     private const val CHANNEL_NAME = "锁屏倒计时"
     private const val CHANNEL_DESC = "把悬浮窗里的倒计时以常驻通知显示在通知栏与锁屏上"
     /** 通知 id 基数：与其它通知（归零提醒 / 更新 / 吃药）错开，别互相顶掉。 */
@@ -79,6 +81,33 @@ object LockScreenClock {
         for (id in stale) {
             posted.remove(id)?.let { safeCancel(ctx, it) }
         }
+    }
+
+    /** 当前发出去的锁屏通知有几条（给「关于」页显示实时状态用）。 */
+    @Synchronized
+    fun activeCount(): Int = posted.size
+
+    /**
+     * 立刻发一条「锁屏通知」给用户在锁屏上验货：
+     * 优先用第一条展开过的倒计时（真实数据、真实配色），一条都没有就用一条示例倒计时，
+     * 这样无论有没有倒计时在跑，用户都能确认「锁屏通知到底显不显示」。
+     */
+    @Synchronized
+    fun testOne(ctx: Context): Boolean {
+        if (!isOn(ctx)) return false
+        val list = try { CountdownStore.load(ctx) } catch (e: Throwable) { emptyList() }
+        val c = list.firstOrNull { it.isVisible }
+        if (c == null) {
+            val demo = Countdown().apply {
+                title = "锁屏通知测试"
+                targetTime = System.currentTimeMillis() + 5 * 60 * 1000
+                isVisible = true
+            }
+            notifyOne(ctx, demo, demo.remainingText(), "这是一条用来验货的临时通知")
+        } else {
+            notifyOne(ctx, c, c.remainingText(), c.remarkText(TimeFormatPref.is24Hour(ctx)))
+        }
+        return true
     }
 
     /** 全部收掉（关开关、服务停掉、App 退出时调用）。 */
@@ -135,7 +164,7 @@ object LockScreenClock {
             if (remark.isBlank()) "" else "备注: " + remark.replace("\n", " ")
         )
 
-        return Notification.Builder(ctx, CHANNEL_ID)
+        val b = Notification.Builder(ctx, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat)
             .setColor(color)
             // 折叠态（锁屏上看到的这两行）：标题 + 剩余时间
@@ -150,19 +179,29 @@ object LockScreenClock {
             .setShowWhen(false)
             .setCategory(Notification.CATEGORY_ALARM)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
-            .build()
+        // 老版本（API < 26）没有渠道，靠这条优先级保证锁屏显示
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            b.setPriority(Notification.PRIORITY_HIGH)
+        }
+        return b.build()
     }
 
     /**
-     * 锁屏通知专用渠道：静默（不会每秒响一声）但**锁屏可见**。
-     * 注意 IMPORTANCE_MIN 在锁屏上是隐藏的，所以这里必须是最低可显示的 LOW。
+     * 锁屏通知专用渠道：**锁屏必显**。
+     *
+     * 为什么不用 IMPORTANCE_LOW：LOW 属于「静默通知」，国产 ROM（MIUI / ColorOS /
+     * HarmonyOS / OriginOS…）默认只把「重要通知」摊在锁屏上，静默通知要么被折叠进
+     * 「其它通知」、要么直接不显示 —— 这正是「锁屏上啥都没有」的头号原因。
+     * 所以这里用 IMPORTANCE_HIGH 保证锁屏一定显示；
+     * 「不会每秒响一声」由 setOnlyAlertOnce(true) 负责（同一条通知只提醒第一次），
+     * 也顺带把系统里这条渠道显示成高优先级，用户一眼就能在锁屏看到。
      */
     private fun ensureChannel(ctx: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = nm(ctx)
         if (nm.getNotificationChannel(CHANNEL_ID) != null) return
         val ch = NotificationChannel(
-            CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_LOW
+            CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH
         )
         ch.description = CHANNEL_DESC
         ch.setShowBadge(false)
