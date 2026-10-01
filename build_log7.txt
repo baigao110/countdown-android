@@ -1,0 +1,95 @@
+[1/4] gradle assembleRelease ...
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.2/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :app
+WARNING: The option setting 'android.overridePathCheck=true' is experimental.
+The current default is 'false'.
+Observed package id 'platforms;android-34-ext12' in inconsistent location 'C:\Users\BDJ\.workbuddy\binaries\android-toolchain\android-sdk\platforms\android-34' (Expected 'C:\Users\BDJ\.workbuddy\binaries\android-toolchain\android-sdk\platforms\android-34-ext12')
+Observed package id 'platforms;android-34' in inconsistent location 'C:\Users\BDJ\.workbuddy\binaries\android-toolchain\android-sdk\platforms\android-34-2' (Expected 'C:\Users\BDJ\.workbuddy\binaries\android-toolchain\android-sdk\platforms\android-34')
+
+> Task :app:buildKotlinToolingMetadata
+> Task :app:checkKotlinGradlePluginConfigurationErrors
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:generateReleaseResValues
+> Task :app:checkReleaseAarMetadata
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:generateReleaseResources
+> Task :app:packageReleaseResources
+> Task :app:mergeReleaseResources
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :app:parseReleaseLocalResources
+> Task :app:processReleaseMainManifest
+> Task :app:processReleaseManifest
+> Task :app:javaPreCompileRelease
+> Task :app:extractProguardFiles
+> Task :app:mergeReleaseJniLibFolders
+> Task :app:mergeReleaseNativeLibs NO-SOURCE
+> Task :app:stripReleaseDebugSymbols NO-SOURCE
+> Task :app:extractReleaseNativeSymbolTables NO-SOURCE
+> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:desugarReleaseFileDependencies
+> Task :app:mergeReleaseArtProfile UP-TO-DATE
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:mergeReleaseShaders
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :app:mergeReleaseAssets
+> Task :app:compressReleaseAssets
+> Task :app:collectReleaseDependencies
+> Task :app:sdkReleaseDependencyData
+> Task :app:writeReleaseAppMetadata
+> Task :app:writeReleaseSigningConfigVersions
+> Task :app:processReleaseManifestForPackage
+> Task :app:processReleaseResources
+> Task :app:optimizeReleaseResources
+> Task :app:mergeExtDexRelease
+
+> Task :app:compileReleaseKotlin
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/Countdown.kt:209:29 Parameter 'builtIn' is never used
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/CountdownService.kt:43:17 'stopForeground(Boolean): Unit' is deprecated. Deprecated in Java
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/CountdownService.kt:258:14 'addAction(Int, CharSequence!, PendingIntent!): Notification.Builder!' is deprecated. Deprecated in Java
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/CountdownService.kt:261:14 'setPriority(Int): Notification.Builder!' is deprecated. Deprecated in Java
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/CountdownService.kt:261:39 'PRIORITY_MAX: Int' is deprecated. Deprecated in Java
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/CountdownService.kt:263:14 'setDefaults(Int): Notification.Builder!' is deprecated. Deprecated in Java
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/FloatingView.kt:83:44 'TYPE_PHONE: Int' is deprecated. Deprecated in Java
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/MedicineReminder.kt:672:18 'addAction(Int, CharSequence!, PendingIntent!): Notification.Builder!' is deprecated. Deprecated in Java
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/MedicineReminder.kt:676:18 'setPriority(Int): Notification.Builder!' is deprecated. Deprecated in Java
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/MedicineReminder.kt:676:43 'PRIORITY_MAX: Int' is deprecated. Deprecated in Java
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/MedicineReminder.kt:678:18 'setDefaults(Int): Notification.Builder!' is deprecated. Deprecated in Java
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/MedicineReminder.kt:728:18 'setPriority(Int): Notification.Builder!' is deprecated. Deprecated in Java
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/MedicineReminder.kt:728:43 'PRIORITY_MAX: Int' is deprecated. Deprecated in Java
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/MedicineReminderActivity.kt:387:9 The expression is unused
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/NotifyGuard.kt:239:17 Variable 'hard' is never used
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/UpdateManager.kt:699:47 Parameter 'file' is never used
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/UpdateNotifier.kt:179:22 'setPriority(Int): Notification.Builder!' is deprecated. Deprecated in Java
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/UpdateNotifier.kt:179:47 'PRIORITY_HIGH: Int' is deprecated. Deprecated in Java
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/UpdateNotifier.kt:180:22 'setDefaults(Int): Notification.Builder!' is deprecated. Deprecated in Java
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/UpdateNotifier.kt:228:14 'addAction(Int, CharSequence!, PendingIntent!): Notification.Builder!' is deprecated. Deprecated in Java
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/UpdateNotifier.kt:231:14 'setPriority(Int): Notification.Builder!' is deprecated. Deprecated in Java
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/UpdateNotifier.kt:231:39 'PRIORITY_MAX: Int' is deprecated. Deprecated in Java
+w: file:///C:/Users/BDJ/Desktop/自制软件工具/倒计时工具/CountdownAndroid/app/src/main/java/com/baigao/countdown/UpdateNotifier.kt:234:14 'setDefaults(Int): Notification.Builder!' is deprecated. Deprecated in Java
+
+> Task :app:compileReleaseJavaWithJavac NO-SOURCE
+> Task :app:generateReleaseLintVitalReportModel
+> Task :app:dexBuilderRelease
+> Task :app:mergeReleaseGlobalSynthetics
+> Task :app:processReleaseJavaRes
+> Task :app:mergeReleaseJavaResource
+> Task :app:mergeDexRelease
+> Task :app:compileReleaseArtProfile
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :app:lintVitalAnalyzeRelease
+> Task :app:lintVitalReportRelease
+> Task :app:lintVitalRelease
+> Task :app:assembleRelease
+
+BUILD SUCCESSFUL in 39s
+42 actionable tasks: 41 executed, 1 up-to-date
+[2/4] zipalign ...
+[3/4] apksigner ...
+[4/4] copy ...
+BUILD_DONE sha256: 02250302c5de3f5f8dc00d3b4d38b78749de2c730fee1aa96f3e70f07d970619
