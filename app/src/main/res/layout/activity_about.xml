@@ -270,6 +270,19 @@
             android:textSize="12sp"
             android:text="" />
 
+        <!-- 锁屏通知排障入口：国内 ROM 的「锁屏显示」开关藏在应用信息里，一键带过去 -->
+        <Button
+            android:id="@+id/lockNotifyOpenBtn"
+            android:layout_width="260dp"
+            android:layout_height="46dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            android:text="锁屏上看不到？点我打开锁屏通知设置"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:textColor="#001018"
+            android:background="@drawable/circle_btn" />
+
         <!-- 更新提示方式：多选项改为下拉框选择 -->
         <LinearLayout
             style="@style/SettingRow"
