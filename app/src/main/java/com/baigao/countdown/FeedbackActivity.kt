@@ -156,10 +156,11 @@ class FeedbackActivity : Activity() {
         val pass = smtpPass()
         val server = if (from.contains("@")) SmtpSender.guess(from, "")?.host else null
         smtpStatusTv.text = when {
-            // 默认通道（免授权码）才是主路：上面两项常年是空的，别一上来就让人去填。
             from.isBlank() || pass.isBlank() ->
-                "默认通道：点「提交反馈」直接在后台发出去，不用授权码、也不用填上面两项～"
-            else -> "备用通道已记住：$from（$server） → $FEEDBACK_EMAIL，默认通道不通时会用这条顶上"
+                ("现在还没配好后台直发：免授权码那个公共通道在手机上发不出去（它只认网页表单）。"
+                        + "想后台直接发，就在上面填你自己的邮箱 + 授权码；不想填就点提交后改用邮箱应用发～"
+                        + "（选填，不想配就用邮箱应用发就行）")
+            else -> "已记住：$from（$server） → $FEEDBACK_EMAIL，点提交在后台直接发，不打开邮箱应用"
         }
     }
 
@@ -574,16 +575,24 @@ class FeedbackActivity : Activity() {
         }.start()
     }
 
-    /** 两条路都不通：说清原因，给「打开邮箱应用」和「填自己的邮箱 + 授权码」两条出口。 */
+    /**
+     * 免授权码那条路走不通时如实说明，并给出两条真能走通的出路。
+     *
+     * 这里有个原则：**绝不能骗用户说「发送成功」**。早先判定写松了（body 里含 success 就算成），
+     * 站点回的是 `{"success":"false"}` 也被当成发了，用户这边弹成功、那边邮箱空空。现在 HttpMailSender
+     * 只认真正的成功回包，进到这里就意味着确实没送到 —— 就把站点原话摆出来，别替它编理由。
+     */
     private fun showAllFailed(uris: List<Uri>, files: List<File>, reason: String) {
         runOnUiThread {
             UpdateManager.showStyledDialog(
-                this, "反馈没发出去", "打开邮箱应用发", "知道了", true,
+                this, "这次没发成", "打开邮箱应用发", "知道了", true,
                 onPositive = { openEmailApp(uris) }
             ) { host ->
+                host.addView(noteTv("后台那条免授权码的通道没送出去，站点给的原因是："))
                 host.addView(noteTv(reason))
-                host.addView(noteTv("多半是当前网络不太好，或者那个公共收件通道临时在忙。"))
-                host.addView(noteTv("点左边用邮箱应用接着发，内容一模一样。平时想用自己邮箱发，在页面上面填邮箱 + 授权码，再点提交就行。"))
+                host.addView(noteTv("能用的两条路：① 点左边用邮箱应用接着发，内容和附件一模一样；"
+                        + "② 在上面填你自己的邮箱 + 授权码存下来，以后点提交就在后台直发，不用再打开邮箱应用。"))
+                host.addView(noteTv("上面填的那两项目前是可选的 —— 不想配就用第一条路，一样能送到。"))
             }
         }
     }
