@@ -201,7 +201,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="18dp"
-                android:text="发信方式（这两项选填：填完以后点提交在后台直接发，不打开邮箱应用；不填就用邮箱应用发）"
+                android:text="发信方式（选填：填完以后点提交就用你自己的邮箱在后台直接发，不打开邮箱应用；不填就走邮箱应用发）"
                 android:textColor="#FFC6D5EF"
                 android:textSize="13sp" />
 
@@ -254,6 +254,18 @@
                 android:textSize="12sp"
                 android:text="授权码怎么拿（QQ 邮箱）：打开 QQ 邮箱 → 设置 → 账户 → 往下找到「IMAP / SMTP 服务」打开 → 系统会发给你一个 16 位授权码，把它粘到上面就行（登录密码填这儿发不出去）。" />
 
+            <!-- 填完邮箱 + 授权码先自测一下，别等憋完反馈才发现授权码填错了 -->
+            <Button
+                android:id="@+id/testBtn"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:layout_marginTop="10dp"
+                android:text="测一下能不能发（用你填的邮箱发一封测试信）"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="#FFE4EEFF"
+                android:background="@drawable/pill_btn_gray" />
+
             <Button
                 android:id="@+id/submitBtn"
                 android:layout_width="match_parent"
@@ -283,7 +295,7 @@
                 android:lineSpacingExtra="4dp"
                 android:textColor="#8A93AE"
                 android:textSize="12sp"
-                android:text="点「提交反馈」就在后台直接把信发到 baigao110@qq.com，不跳转邮箱应用，马上提示「反馈已发送，请耐心等待回复！」。\n上面两项（你的邮箱 + 授权码）是**备用**通道，留空也能发；只有默认通道没通、或者你想用自己邮箱发时才需要填。\n网络不好发不出去时，可以点上面的「复制内容备用」，粘到微信 / QQ 里发给我也行～" />
+                android:text="点「提交反馈」就在后台把信发到 baigao110@qq.com，不跳转邮箱应用，马上提示「反馈已发送，请耐心等待回复！」。\n上面填了「你的邮箱 + 授权码」时，提交会直接走你自己的邮箱发（比默认通道快，也最稳）；没填就用默认通道。\n拿不准配得对不对，就先点「测一下能不能发」：它会往你自己的邮箱发一封测试信，收到了就说明没问题。\n网络不好发不出去时，点「复制内容备用」，粘到微信 / QQ 里发给我也行～" />
 
         </LinearLayout>
     </ScrollView>
