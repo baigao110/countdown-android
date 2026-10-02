@@ -6,6 +6,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -408,72 +409,55 @@ class FeedbackActivity : Activity() {
             return
         }
 
-        // 「附带运行日志」勾上、且没选图片 / 视频时，附件里就只剩这一个 txt：这条路上的坑最多。
-        // 给具体文本类，邮箱判成「转发一段文字」—— 正文抄进去、附件直接丢；给通配类，则常常
-        // 连邮箱都不在候选表里，startActivity 直接抛异常退回来，又掉回文本那条路。两条路都试过，
-        // 症状一模一样（v75）。既然这个附件在邮箱那头就是挂不上去，就别硬要它挂：改用 mailto
-        // 直投（各家邮箱都老老实实接 ACTION_SENDTO 并把收件人填好），日志全文贴进正文，
-        // 一个附件都不传 —— 撰写页里就是一封正文完整的邮件，没有空附件卡着，
-        // 也就不会逼你回头再挑一次图片或视频。
-        val logOnly = logSwitch.isChecked && sharedType(uris).startsWith("text")
-        // 只要勾了日志，正文里一定带全文本：附件挂没挂上都不影响我拿到这些信息，
-        // 你进邮箱看到的是一封已经写好正文的邮件，不用再挑任何东西。
-        val logInBody = logSwitch.isChecked && (uris.isEmpty() || logOnly)
-        val body = if (logInBody) {
-            buildBody() + "\n\n【运行日志（一并贴在正文，方便直接看）】\n" + logTextCache + "\n"
-        } else {
-            buildBody()
-        }
-        val mailBody = buildSendIntent(body, uris, mail = true)
-        val sendTyped = buildSendIntent(body, uris, mail = false)
-        val sendFile = buildSendIntent(body, uris, mail = false, asFile = logOnly)
-
-        // 路线：先「ACTION_SEND + 收件人已填好」—— 各家邮箱只在这条正规路上把图片 / 视频挂进撰写页，
-        // 进邮箱就能看见附件，不用回头自己再挑一遍。它接不住才逐级退：
-        // ② 换一种类型再试一次（纯文本走「分享一个文件」分支）→ ③ mailto 直投 → ④ 分享列表 → ⑤ 复制备用。
+        // 「附带运行日志」勾上、且没选图片 / 视频时，附件里就只剩这一个 txt —— 这是最挑邮箱的一条路。
+        // 前面几轮在这条路上反复栽：给具体文本类，各家邮箱把它当「转发一段文字」（正文抄进去、附件丢掉）；
+        // 给通配类又不带正文，有的邮箱压根不在候选表里；mailto 直投再挂个附件更是视而不见。
+        // 与其猜这一种类型对不对，不如把「邮箱可能认得」的几种样子都摆出来，按这个顺序挨个试 ——
+        // 谁在这台手机上真接得住、真把 fb_log.txt 挂进撰写页，就用谁。
         //
-        // ⚠️ 坑都只在「只勾运行日志」这一条路上冒出来，症状一模一样（进邮箱还得自己挑一次图）：
-        // 1. **不要**事先用 queryIntentActivities 判断「有没有人接」再决定路线：只有文本附件时
-        //    那种查法返回的是微信 / QQ / 蓝牙这类「分享文本」的应用，邮箱不在表里
-        //    （它没给 text/plain 声明 DEFAULT），会被误判成没人接而掉进 mailto 直投。
-        // 2. 更要紧的是「有人接，但接错了分支」：只勾日志时给具体文本类，邮箱当「转发一段文字」，
-        //    正文抄进去、附件直接丢，撰写页照样空着（v74 就只堵住了这一层的上一半）。
-        // 3. 再往后给通配类、想让邮箱按「收附件」处理（v75 的 asFile），结果还是挂不上去。
-        //    所以这条路上的第一步就换成 mailto 直投、并且干脆不给附件：日志全文已经在正文里
-        //    （logInBody），邮箱打开的是一封写好的邮件，没有那个挂不上来的空附件卡着，
-        //    「不用再挑一次」这条底线才算真正守住。
-        val logExtra = if (logInBody) {
-            if (logOnly) "，日志全文已经贴在正文里，不用挂附件也不用再挑"
-            else "，日志已带上，同一份也贴在正文里，进邮箱就算没看到附件也不用再挑"
-        } else if (uris.isEmpty()) {
-            ""
-        } else {
-            "，图片 / 视频 / 日志已带上 ${uris.size} 个"
-        }
-        val okMsg = "邮箱撰写页开好啦：收件人填成 $FEEDBACK_EMAIL，标题正文都备好$logExtra，点一下「发送」就到啦～"
+        // 两条正文也不同：走文件那条（附件真挂上）正文只留一句说明，不把日志抄第二遍；
+        // 走文本 / mailto 那条（附件多半靠不住）就把日志全文贴在正文，保证信息一定送到。
+        val logOnly = logSwitch.isChecked && sharedType(uris).startsWith("text")
+        val bodyShort = buildBody() + "\n\n运行日志见附件 fb_log.txt（同名全文也贴在正文，方便直接看）\n"
+        val bodyFull = buildBody() + "\n\n【运行日志】\n" + logTextCache + "\n"
 
-        if (logOnly && openEmail(mailBody, uris)) {
-            Toast.makeText(this, okMsg, Toast.LENGTH_LONG).show()
-            return
-        }
-        if (openEmail(sendFile, uris)) {
-            Toast.makeText(this, okMsg, Toast.LENGTH_LONG).show()
-            return
-        }
-        if (openEmail(sendTyped, uris)) {
-            Toast.makeText(this, okMsg, Toast.LENGTH_LONG).show()
-            return
-        }
-        if (openEmail(mailBody, uris)) {
-            Toast.makeText(this, okMsg, Toast.LENGTH_LONG).show()
-            return
+        // ① 分享一个文件：邮箱按「收附件」处理，这是唯一能把它认成附件的样子；
+        // ② 分享一段文字：老老实实给具体文本类，附件可能被当正文丢掉，好在全文都在正文里；
+        // ③ mailto 直投：只认正文的那种邮箱也能开，收件人同样填好。
+        val fileIntent = buildSendIntent(bodyShort, uris, mail = false, asFile = true)
+        val textIntent = buildSendIntent(bodyFull, uris, mail = false)
+        val mailIntent = buildSendIntent(bodyFull, uris, mail = true)
+        // 有图 / 视频的时候主角是图或视频，给具体类型这条路各家邮箱最熟，直接先走它。
+        val typedIntent = buildSendIntent(bodyFull, uris, mail = false)
+        val routes = if (logOnly) listOf(fileIntent, textIntent, mailIntent) else listOf(typedIntent, textIntent, mailIntent)
+        // 每一步怎么说实话：附件真挂上了 / 挂没挂上但全文都在正文 / 只有正文。
+        val routeExtra = arrayOf(
+            "，日志已经当成附件挂上了（fb_log.txt），点一下发送就到啦～",
+            "，日志没挂成附件也没关系，同一份全文都贴在正文里，点一下发送就到啦～",
+            "，日志全文写在正文里了，点一下发送就到啦～"
+        )
+
+        // 路线挨个试：每个都先在「这台手机上有没有人接」上过一遍，没人接就跳过这一条往下退，
+        // 绝不丢一个闪退给你看；接得住的那一跳决定提示语怎么说。
+        for (i in routes.indices) {
+            // 通配类那条先探一下候选：这类 intent 常常连邮箱都不在表里（它没给通配类标默认），
+            // 探不到就跳过，免得白开一次又掉回「没找到邮箱」的提示，绕一大圈。
+            if (i == 0 && "*/*" == routes[i].type &&
+                packageManager.queryIntentActivities(routes[i], PackageManager.MATCH_DEFAULT_ONLY).isEmpty()
+            ) {
+                continue
+            }
+            if (openEmail(routes[i], uris)) {
+                Toast.makeText(this, okMsg(routeExtra[i]), Toast.LENGTH_LONG).show()
+                return
+            }
         }
         try {
-            grantAll(sendFile, uris)
-            startActivity(Intent.createChooser(sendFile, "用哪个发给我？"))
+            grantAll(fileIntent, uris)
+            startActivity(Intent.createChooser(fileIntent, "用哪个发给我？"))
             Toast.makeText(
                 this,
-                "没找到邮箱应用，挑一个能收附件的发给我就行$logExtra～",
+                "没找到邮箱应用，挑一个能收附件的发给我就行，日志全文也在正文里～",
                 Toast.LENGTH_LONG
             ).show()
         } catch (_: Throwable) {
@@ -485,6 +469,10 @@ class FeedbackActivity : Activity() {
             copyToClipboard()
         }
     }
+
+    /** 提交提示的统一话术：收件人、标题正文都备好，只差点一下发送。 */
+    private fun okMsg(extra: String): String =
+        "邮箱撰写页开好啦：收件人填成 $FEEDBACK_EMAIL，标题正文都备好$extra"
 
     /**
      * 打开邮箱写这封信，前提是这台手机上**真有应用接得住**这份 Intent。
