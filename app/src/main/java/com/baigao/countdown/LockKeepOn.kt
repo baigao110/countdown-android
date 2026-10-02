@@ -11,20 +11,28 @@ import android.view.View
 import android.view.WindowManager
 
 /**
- * 「锁屏通知常亮」开关对应的屏幕常亮能力。
+ * 「锁屏通知常亮」开关对应的屏幕常亮能力（v67 重做锁屏这一段）。
  *
- * 规则（与「UI 界面常亮」「悬浮框常亮」完全同一套）：
- * - 开关打开：**只要锁屏倒计时的通知还挂在通知栏 / 锁屏上**，屏幕就一直亮着、不睡；
- * - 开关关闭：立刻撤掉常亮，熄屏时间交还给手机系统设置（手机设置里定的多久息屏就多久息屏）。
+ * 规则（与「UI 界面常亮」「悬浮框常亮」同一套）：
+ * - 开关打开：**只要锁屏倒计时的通知还挂在通知栏 / 锁屏上**，屏幕就一直亮着、不睡，
+ *   锁屏界面上也能一直瞄那个倒计时；
+ * - 开关关闭：立刻撤掉常亮，熄屏时间交还给手机系统设置。
  *
- * 实现要点：
- * - 靠「看不见的 1dp 透明小窗 + FLAG_KEEP_SCREEN_ON」把屏幕按在亮着的状态；
- *   小窗贴在屏幕右下角、透明、不抢焦点不拦触摸，所以在锁屏界面上也点不到它、看不到它。
- * - 小窗只在**屏幕亮着**的时候挂着，一息屏就撤掉 —— 不然在兜兜里 / 锁屏上白耗电。
- * - 没给「显示在其他应用上层」权限时（锁屏通知本身不需要这个权限）退一步用
- *   「点亮屏幕」的唤醒锁兜底，至少屏幕亮着的时候不会被系统掐灭。
- * - 由倒计时服务每秒调一次 [apply]：所以按电源键重新点亮屏幕的那一刻能马上接上，
- *   息屏后也不会留下一条把屏幕永久按住的幽灵小窗。
+ * v66 只靠「看不见的透明小窗 + FLAG_KEEP_SCREEN_ON」，而**锁屏状态下系统不允许
+ * 第三方 App 挂悬浮窗**——小窗挂不上，退路的 PARTIAL 唤醒锁又只保 CPU 不保屏幕，
+ * 这就是「锁屏界面上没保持常亮」的原因。v67 改成两手抓：
+ *
+ * 1) **屏幕级唤醒锁**（SCREEN_BRIGHT_WAKE_LOCK，仅需要已声明的 WAKE_LOCK 权限）：
+ *    它是 PowerManager 级别的"按住屏幕"，不经过窗口层，**锁屏状态下照样有效**；
+ *    再叠加 ACQUIRE_CAUSES_WAKEUP，接上的一瞬间顺便把屏幕点亮。
+ *    条件满足期间**一直持有**（不看屏幕当前亮不亮）——这样屏幕压根走不到系统的
+ *    熄屏倒计时；用户按电源键主动关掉仍然会关（电源键最大），再按一下点亮后就
+ *    一直亮着不睡了。
+ * 2) 透明 1dp 小窗（FLAG_KEEP_SCREEN_ON）：作为未锁屏时的补充保险，锁屏时挂不上
+ *    就算了，不影响第 1 条。
+ *
+ * 服务每秒调 [apply]、兜底闹钟每 10s 调 [apply]：开关关掉 / 通知被收掉 / 服务停掉
+ * 都会走到 [detach] 把唤醒锁和小窗全撤掉，不会留下按住屏幕的幽灵。
  */
 object LockKeepOn {
 
@@ -36,10 +44,13 @@ object LockKeepOn {
     /** 常亮小窗（一个什么都不画的 1dp 透明角落）。 */
     @Volatile
     private var keepView: View? = null
-    /** 小窗已经挂上去（挂窗失败时用唤醒锁兜底，两个都算「已按住」）。 */
+    /** 小窗挂上了没有（挂窗失败时只靠唤醒锁，也算「已按住」）。 */
+    @Volatile
+    private var windowOn = false
+    /** 已按住屏幕（唤醒锁在手，或小窗挂上）。 */
     @Volatile
     private var holding = false
-    /** 挂不上去时（锁屏 / 权限不够）的下次重试时刻，免得每秒狂刷日志。 */
+    /** 挂小窗失败的下次重试时刻（锁屏时系统不让挂，别每秒狂刷日志）。 */
     @Volatile
     private var retryAt = 0L
     @Volatile
@@ -60,31 +71,31 @@ object LockKeepOn {
 
     /**
      * 按当前状态决定屏幕要不要保持亮着。
-     * 条件：开关开着 **且** 锁屏通知开关开着 **且** 通知栏里确实有锁屏倒计时 **且** 屏幕亮着。
-     * 由 CountdownService 每秒调用；开关在「关于」页切换时也会立刻调一次。
+     * 条件：开关开着 **且** 锁屏通知开关开着 **且** 通知栏里确实有锁屏倒计时。
+     * **不看屏幕当前亮不亮**——条件满足期间一直持有屏幕级唤醒锁，
+     * 锁屏界面才会一直亮着（v66 的教训：只在屏幕亮着时接，锁屏后照样被系统熄掉）。
      */
     fun apply(ctx: Context) {
         val want = isOn(ctx) && LockScreenClock.isOn(ctx) && LockScreenClock.activeCount() > 0
-        if (!want || !isScreenOn(ctx)) {
+        if (!want) {
             detach(ctx)
             return
         }
-        if (holding) return
-        val now = System.currentTimeMillis()
-        if (now < retryAt) return
-        // 优先用看不见的小窗（最稳）；没有悬浮窗权限时退到唤醒锁
-        if (canOverlay(ctx) && tryAddWindow(ctx)) {
+        if (!holding) {
             holding = true
-            return
+            acquireWakeLock(ctx)
         }
-        acquireWakeLock(ctx)
-        holding = true
-        retryAt = now + 5_000
+        // 小窗只是未锁屏时的补充保险：锁屏挂不上就 5 秒后再试，失败也不影响唤醒锁
+        if (!windowOn && canOverlay(ctx) && System.currentTimeMillis() >= retryAt) {
+            windowOn = tryAddWindow(ctx)
+            if (!windowOn) retryAt = System.currentTimeMillis() + 5_000
+        }
     }
 
-    /** 息屏 / 关开关 / 服务停掉时调用：把「按着屏幕」的效果全部撤掉。 */
+    /** 关开关 / 通知收掉 / 服务停掉时调用：把「按着屏幕」的效果全部撤掉。 */
     fun detach(ctx: Context) {
         holding = false
+        windowOn = false
         retryAt = 0
         releaseWakeLock()
         try {
@@ -103,20 +114,11 @@ object LockKeepOn {
     private fun prefs(ctx: Context) =
         ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
 
-    /** 屏幕现在是亮着的吗（息屏时为 false）。 */
-    private fun isScreenOn(ctx: Context): Boolean =
-        try {
-            val pm = ctx.getSystemService(Context.POWER_SERVICE) as PowerManager
-            pm.isInteractive
-        } catch (_: Throwable) {
-            true
-        }
-
     private fun canOverlay(ctx: Context): Boolean =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
             Settings.canDrawOverlays(ctx) else true
 
-    /** 挂一个 1dp 的透明小窗到右下角，只为了挂上 FLAG_KEEP_SCREEN_ON。 */
+    /** 挂一个 1dp 的透明小窗到右下角，只为了挂上 FLAG_KEEP_SCREEN_ON（未锁屏时才挂得上）。 */
     private fun tryAddWindow(ctx: Context): Boolean = try {
         val wm = ctx.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val v = View(ctx)
@@ -140,11 +142,15 @@ object LockKeepOn {
         false
     }
 
-    /** 兜底：拿一个「会把屏幕点亮」的唤醒锁（没悬浮窗权限时用）。 */
+    /**
+     * 屏幕级唤醒锁：把屏幕按在亮着的状态，锁屏界面也有效；
+     * ACQUIRE_CAUSES_WAKEUP 让接上的一瞬间顺便把屏幕点亮。
+     */
+    @Suppress("DEPRECATION")
     private fun acquireWakeLock(ctx: Context) = try {
         val pm = ctx.getSystemService(Context.POWER_SERVICE) as PowerManager
         val wl = pm.newWakeLock(
-            PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP, TAG
+            PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP, TAG
         )
         wl.setReferenceCounted(false)
         wl.acquire()
