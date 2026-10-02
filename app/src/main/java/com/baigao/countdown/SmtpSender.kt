@@ -28,6 +28,8 @@ import javax.net.ssl.SSLSocketFactory
 object SmtpSender {
 
     private const val TIMEOUT_MS = 60000
+    /** 握手后等 greeting 的宽限时间：有就接走，没有也别为它耗掉整条流程。 */
+    private const val GREETING_GRACE_MS = 2000
     private const val BOUNDARY = "FbMailBoundary7Zx9q"
     private const val B64_LINE = 76
 
@@ -56,25 +58,33 @@ object SmtpSender {
             domain.endsWith("foxmail.com") -> Account(raw, password.trim(), "smtp.qq.com", 465, true)
             domain.endsWith("163.com") -> Account(raw, password.trim(), "smtp.163.com", 465, true)
             domain.endsWith("126.com") -> Account(raw, password.trim(), "smtp.126.com", 465, true)
-            domain.endsWith("sina.com") -> Account(raw, password.trim(), "smtp.sina.com", 465, true)
+            domain.endsWith("yeah.net") -> Account(raw, password.trim(), "smtp.yeah.net", 465, true)
+            domain.endsWith("sina.com") || domain.endsWith("sina.cn") -> {
+                Account(raw, password.trim(), "smtp.sina.com", 465, true)
+            }
+            domain.endsWith("sohu.com") -> Account(raw, password.trim(), "smtp.sohu.com", 465, true)
+            domain.endsWith("139.com") -> Account(raw, password.trim(), "smtp.139.com", 465, true)
+            domain.endsWith("189.cn") -> Account(raw, password.trim(), "smtp.189.cn", 465, true)
+            domain.endsWith("aliyun.com") -> Account(raw, password.trim(), "smtp.qiye.aliyun.com", 465, true)
             domain.endsWith("gmail.com") -> Account(raw, password.trim(), "smtp.gmail.com", 587, false)
             domain.endsWith("outlook.com") || domain.endsWith("hotmail.com") -> {
                 Account(raw, password.trim(), "smtp.office365.com", 587, false)
             }
-            domain.endsWith("aliyun.com") -> Account(raw, password.trim(), "smtp.qiye.aliyun.com", 465, true)
             else -> Account(raw, password.trim(), "smtp.$domain", 465, true)
         }
     }
 
     /** 发出去。返回值一定不为 null：所有翻车都变成一句人话。 */
     fun send(acc: Account, to: String, subject: String, body: String, files: List<File>): SmtpResult {
-        var outer: Socket? = null
+        // 整条会话里「当前这一层连接」：STARTTLS 换成 TLS 之后它会跟着换，finally 只关它这一把
+        var liveSocket: Socket? = null
         try {
             var socket: Socket = if (acc.ssl) {
                 SSLSocketFactory.getDefault().createSocket(acc.host, acc.port)
             } else {
                 Socket(acc.host, acc.port)
             }
+            liveSocket = socket
             socket.soTimeout = TIMEOUT_MS
 
             var reader = BufferedReader(InputStreamReader(socket.getInputStream(), Charsets.UTF_8))
@@ -94,30 +104,46 @@ object SmtpSender {
             }
 
             // STARTTLS：只有明文端口（587 那档）才需要，SSL 端口上来就是密文，不用再升级。
+            // ⚠️ 这里踩过大坑：早先是「STARTTLS 之后另开一条新 TCP 再握手」，看着省事，
+            // 实际会坏 —— 新连接上服务器照旧先回一句 greeting，而我们握手完就直接 EHLO，
+            // 那句 greeting 没人接、EHLO 又迟迟等不到应答，最后卡到 60 秒超时。
+            // 正解是换个 TLS 连接之后**先把那句 greeting 吞掉**再 EHLO。
+            // 为什么不能「在旧连接上就地升级」：SocketFactory 里那个
+            // createSocket(Socket, host, port, autoClose) 是 protected，App 根本调不到。
             if (!acc.ssl && resp.contains("STARTTLS")) {
                 sendRaw(out, "STARTTLS")
                 val upgrade = readReply(reader)
                 if (!upgrade.startsWith("220")) return fail("服务器不肯加密连接（$upgrade）")
-                // Android 的 SocketFactory 没有「在旧连接上直接升级」的重载，这里另开一条 TLS 连
-                // 再握手 —— 效果一样（服务器看不出我们换了条 TCP），省得跟 API 较劲。
-                val tls = SSLSocketFactory.getDefault().createSocket() as SSLSocket
-                tls.connect(java.net.InetSocketAddress(acc.host, acc.port), TIMEOUT_MS)
-                tls.startHandshake()
-                socket = tls
-                reader = BufferedReader(InputStreamReader(tls.getInputStream(), Charsets.UTF_8))
-                out = BufferedOutputStream(tls.getOutputStream())
+                val plainBeforeUpgrade = socket       // 升级时被换下的那层，收尾要自己来
+                val fresh = SSLSocketFactory.getDefault().createSocket() as SSLSocket
+                fresh.connect(java.net.InetSocketAddress(acc.host, acc.port), TIMEOUT_MS)
+                fresh.startHandshake()
+                liveSocket = fresh                    // 从这一刻起，关连接就交给 TLS 层
+                runCatching { plainBeforeUpgrade.close() }
+                // 吞 greeting：短超时读一行，它要是压根没说话（有些服务器握手后不吭声），
+                // 两秒就自己放弃，不会把整条发送流程拖到超时。
+                val probe = BufferedReader(InputStreamReader(fresh.getInputStream(), Charsets.UTF_8))
+                fresh.soTimeout = GREETING_GRACE_MS
+                runCatching { probe.readLine() }
+                fresh.soTimeout = TIMEOUT_MS
+                socket = fresh
+                runCatching { probe.close() }
+                reader = BufferedReader(InputStreamReader(socket.getInputStream(), Charsets.UTF_8))
+                out = BufferedOutputStream(socket.getOutputStream())
                 sendRaw(out, "EHLO ${localName()}")
                 resp = readReply(reader)
+                if (!resp.startsWith("250")) return fail("加密后跟邮箱服务器打招呼失败（$resp）")
             }
 
-            // 登录：AUTH LOGIN 要先给用户名（服务器回 334 再challenge），再给密码。
-            sendRaw(out, "AUTH LOGIN")
-            if (!readReply(reader).startsWith("334")) return fail("邮箱服务器不认这种登录方式")
-            sendRaw(out, Base64.getEncoder().encodeToString(acc.user.toByteArray(Charset.forName("UTF-8"))))
-            if (!readReply(reader).startsWith("334")) return fail("邮箱服务器没要用户名")
-            sendRaw(out, Base64.getEncoder().encodeToString(acc.password.toByteArray(Charset.forName("UTF-8"))))
-            val auth = readReply(reader)
-            if (!auth.startsWith("235")) return fail("邮箱账号或授权码不对（$auth）")
+            // 登录：国内邮箱普遍吃 AUTH LOGIN，微软系 / 少数企业邮箱只认 AUTH PLAIN，
+            // 所以两条都试一遍，别因为「登录方式」这种小事白跑一趟。
+            // ⚠️ 但 PLAIN 只在服务器 EHLO 里真的通告过才试：对没通告的方式硬发，
+            // 服务器回 500 之后这条会话就脏了（再发什么都乱），反而把本来能成的 LOGIN 堵死。
+            var authErr = authLogin(reader, out, acc.user, acc.password)
+            if (authErr != null && resp.contains("AUTH PLAIN")) {
+                authErr = authPlain(reader, out, acc.user, acc.password)
+            }
+            if (authErr != null) return fail(authErr)
 
             sendRaw(out, "MAIL FROM: <${acc.user}>")
             if (!readReply(reader).startsWith("250")) return fail("发件人没被接受，检查邮箱地址对不对")
@@ -146,12 +172,60 @@ object SmtpSender {
             return fail(plain(e))
         } finally {
             try {
-                outer?.close()
+                liveSocket?.close()
             } catch (_: Throwable) {
                 // 关不掉也不影响结果
             }
         }
     }
+
+    // ------------------------------------------------------------------ 登录
+
+    /** AUTH LOGIN：服务器先回 334 challenge 用户名，再回 334 challenge 密码。通过返回 null。 */
+    private fun authLogin(
+        reader: BufferedReader,
+        out: java.io.OutputStream,
+        user: String,
+        pass: String
+    ): String? {
+        sendRaw(out, "AUTH LOGIN")
+        if (!readReply(reader).startsWith("334")) return "邮箱服务器不认 AUTH LOGIN 这种登录方式"
+        sendRaw(out, b64(user))
+        if (!readReply(reader).startsWith("334")) return "邮箱服务器没要用户名"
+        sendRaw(out, b64(pass))
+        val auth = readReply(reader)
+        return if (auth.startsWith("235")) null else explainAuth(auth)
+    }
+
+    /** AUTH PLAIN：一条 base64 里塞「用户名\0密码」，腾讯系不认、微软系认，作为 fallback。 */
+    private fun authPlain(
+        reader: BufferedReader,
+        out: java.io.OutputStream,
+        user: String,
+        pass: String
+    ): String? {
+        sendRaw(out, "AUTH PLAIN " + b64("\u0000$user\u0000$pass"))
+        val auth = readReply(reader)
+        return if (auth.startsWith("235")) null else explainAuth(auth)
+    }
+
+    /** 把服务器给的一串状态码翻成人话，顺带说清授权码到哪儿去拿。 */
+    private fun explainAuth(raw: String): String {
+        val r = raw.trim()
+        return when {
+            r.contains("535") ->
+                "账号或授权码不对（服务器回：$r）。填的一定是**授权码而不是登录密码**：" +
+                        "QQ 邮箱在「设置 → 账户 → POP3/IMAP/SMTP 服务」里开启后会给你一个 16 位码，粘到这儿来。"
+            r.contains("534") || r.contains("Authentication failed") || r.contains("5.7.") ->
+                "这个邮箱不许这样登录（服务器回：$r）。多半是没开 SMTP 服务，或者要开二次验证 —— " +
+                        "去邮箱网页版「设置 → 账户」把 SMTP 打开，用它发你的那个授权码。"
+            r.contains("530") -> "服务器要求先加密再登录（$r）—— 多半是端口选错了。"
+            r.contains("451") -> "邮箱服务器这会儿忙（$r），过一两分钟再试一次。"
+            else -> "登录没通过（服务器回：$r）"
+        }
+    }
+
+    private fun b64(s: String) = Base64.getEncoder().encodeToString(s.toByteArray(Charset.forName("UTF-8")))
 
     // ------------------------------------------------------------------ 拼信
 
