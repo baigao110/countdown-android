@@ -391,6 +391,39 @@
             android:textSize="12sp"
             android:text="" />
 
+        <!-- 意见反馈：把问题 / 建议 / 截图视频直接写给开发者 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:gravity="center"
+            android:text="有啥想说的？"
+            android:textColor="#00FFFF"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/feedbackBtn"
+            android:layout_width="260dp"
+            android:layout_height="46dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            android:text="意见反馈"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#001018"
+            android:background="@drawable/circle_btn" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:lineSpacingExtra="3dp"
+            android:textColor="#8A93AE"
+            android:textSize="12sp"
+            android:text="写两句问题就好，昵称和联系方式可以不填；能附上截图 / 视频更好，勾上「附带运行日志」我能更快找到原因" />
+
         <TextView
             android:id="@+id/checkStateTv"
             android:layout_width="match_parent"
