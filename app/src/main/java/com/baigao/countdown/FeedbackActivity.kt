@@ -6,6 +6,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -339,36 +340,30 @@ class FeedbackActivity : Activity() {
             val f = writeLogFile()
             if (f != null) uris.add(uriOf(f))
         }
-        attachments.forEach { uris.add(uriOf(it)) }
-
-        val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$FEEDBACK_EMAIL"))
-        intent.putExtra(Intent.EXTRA_SUBJECT, "倒计时工具 意见反馈")
-        intent.putExtra(Intent.EXTRA_TEXT, body)
-        if (uris.isNotEmpty()) {
-            intent.putExtra(Intent.EXTRA_STREAM, uris)
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        for (f in attachments) {
+            if (!f.exists() || f.length() <= 0L) {
+                Toast.makeText(this, "有附件读不出来了呢，先把它撤掉再提交～", Toast.LENGTH_LONG).show()
+                refreshAttachUi()
+                return
+            }
+            uris.add(uriOf(f))
         }
 
+        val intent = buildSendIntent(body, uris, mail = true)
         try {
+            grantAll(intent, uris)
             startActivity(intent)
+            val extra = if (uris.isEmpty()) "" else "，图片 / 视频 / 日志已一并带上 ${uris.size} 个"
             Toast.makeText(
                 this,
-                "已交给邮箱应用：收件人已经填好啦，你点一下「发送」就到 $FEEDBACK_EMAIL 了",
+                "已交给邮箱应用：收件人已经填好啦，你点一下「发送」就到 $FEEDBACK_EMAIL 了$extra",
                 Toast.LENGTH_LONG
             ).show()
         } catch (_: Throwable) {
             // 没装邮箱：退到「分享」列表（同样带上附件），再不行就让用户复制
-            val fallback = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_EMAIL, arrayOf(FEEDBACK_EMAIL))
-                putExtra(Intent.EXTRA_SUBJECT, "倒计时工具 意见反馈")
-                putExtra(Intent.EXTRA_TEXT, body)
-                if (uris.isNotEmpty()) {
-                    putExtra(Intent.EXTRA_STREAM, uris)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-            }
+            val fallback = buildSendIntent(body, uris, mail = false)
             try {
+                grantAll(fallback, uris)
                 startActivity(Intent.createChooser(fallback, "用哪个发给我？"))
             } catch (_: Throwable) {
                 Toast.makeText(
@@ -378,6 +373,81 @@ class FeedbackActivity : Activity() {
                 ).show()
                 copyToClipboard()
             }
+        }
+    }
+
+    /**
+     * 拼一个「附件会真的跟过去」的分享 Intent（v70 修邮箱里要再选一次图片的毛病）。
+     *
+     * 三件事缺一不可：
+     * 1. `type`：不少邮箱靠 Intent 的 MIME 判断自己接得住图片类还是视频类，
+     *    空类型时它会把附件当作没有 → 于是让你自己再添一次；
+     * 2. 单个附件直接 `putExtra(EXTRA_STREAM, uri)`：只认单值的邮箱取不到 ArrayList 就当空；
+     * 3. `setClipData`：系统只对 ClipData 与显式 Uri 发读取权限，没它附件读出来是「无权限」。
+     */
+    private fun buildSendIntent(body: String, uris: List<Uri>, mail: Boolean): Intent {
+        val subject = "倒计时工具 意见反馈"
+        val intent = if (mail) {
+            Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$FEEDBACK_EMAIL"))
+        } else {
+            Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_EMAIL, arrayOf(FEEDBACK_EMAIL))
+            }
+        }
+        intent.putExtra(Intent.EXTRA_SUBJECT, subject)
+        intent.putExtra(Intent.EXTRA_TEXT, body)
+        if (uris.isEmpty()) {
+            if (!mail) intent.type = "text/plain"
+            return intent
+        }
+        intent.type = sharedType(uris)
+        intent.addFlags(
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        )
+        if (uris.size == 1) intent.putExtra(Intent.EXTRA_STREAM, uris[0])
+        else intent.putExtra(Intent.EXTRA_STREAM, ArrayList(uris))
+        val clip = ClipData.newUri(contentResolver, subject, uris[0])
+        for (i in 1 until uris.size) {
+            clip.addItem(ClipData.Item(uris[i]))
+        }
+        intent.setClipData(clip)
+        return intent
+    }
+
+    /** 分享的 MIME：清一色图片就用图片类、清一色视频就用视频类，混合 / 日志就用通配类。 */
+    private fun sharedType(uris: List<Uri>): String {
+        val types = uris.map { runCatching { contentResolver.getType(it) }.getOrNull() }
+        return when {
+            types.isNotEmpty() && types.all { it?.startsWith("image/") == true } -> "image/*"
+            types.isNotEmpty() && types.all { it?.startsWith("video/") == true } -> "video/*"
+            types.isNotEmpty() && types.all { it?.startsWith("text/") == true } -> "text/*"
+            else -> "*/*"
+        }
+    }
+
+    /**
+     * 逐个把附件读权限显式授予候选邮箱包。
+     *
+     * Intent 上的 flag 只保证「这一跳」；邮箱往往先落到它的撰写页、隔一阵子才异步取附件，
+     * 提前把权限落到具体包名上最稳，免得它回头读的时候说「没权限」→ 又让你自己选图。
+     */
+    private fun grantAll(intent: Intent, uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+        try {
+            val targets = packageManager.queryIntentActivities(
+                intent,
+                PackageManager.MATCH_DEFAULT_ONLY
+            )
+            for (ri in targets) {
+                val pkg = ri.activityInfo?.packageName ?: continue
+                for (u in uris) {
+                    runCatching { grantUriPermission(pkg, u, flags) }
+                }
+            }
+        } catch (_: Throwable) {
+            // 授权失败也不打断发信：Intent 上的 flag 还有一层兜底
         }
     }
 
