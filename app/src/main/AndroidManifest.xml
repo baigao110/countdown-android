@@ -66,6 +66,17 @@
             android:showWhenLocked="true"
             android:turnScreenOn="true" />
 
+        <!-- 锁屏通知常亮页：挂在锁屏之上的全透明页，只为按住屏幕（FLAG_KEEP_SCREEN_ON 只认 Activity）。
+             独占一个任务、不进最近任务；不抢焦点、不拦触摸，锁屏照常能划能点。 -->
+        <activity
+            android:name=".LockKeepActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity="com.baigao.countdown.lockkeep"
+            android:showWhenLocked="true"
+            android:theme="@style/LockKeepTheme" />
+
         <!-- 悬浮倒计时前台服务：specialUse 子类型说明必须作为 <service> 的子元素，
              否则 Android 14 调用 startForegroundService 会抛 MissingForegroundServiceTypeException 导致崩溃 -->
         <service
@@ -114,10 +125,17 @@
             android:name=".CountdownFinishReceiver"
             android:exported="false" />
 
-        <!-- 锁屏倒计时「唤醒刷新」：息屏 / Doze 把前台服务冻住时，靠这个闹钟把锁屏通知刷成最新 -->
+        <!-- 锁屏倒计时「唤醒刷新」：息屏 / Doze 把前台服务冻住时，靠这个闹钟把锁屏通知刷成最新；
+             顺带监听屏幕点亮 / 熄灭 / 解锁：「锁屏通知常亮」要在屏幕一点亮的瞬间就把常亮页挂上去 -->
         <receiver
             android:name=".LockScreenRefreshReceiver"
-            android:exported="false" />
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.SCREEN_ON" />
+                <action android:name="android.intent.action.SCREEN_OFF" />
+                <action android:name="android.intent.action.USER_PRESENT" />
+            </intent-filter>
+        </receiver>
 
         <receiver
             android:name=".UpdateCheckReceiver"
