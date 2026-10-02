@@ -19,6 +19,19 @@
         <item name="android:navigationBarColor">#00000000</item>
     </style>
 
+    <!-- 锁屏常亮页：全屏、全透明、无动画、不抢焦点（挂在锁屏之上只为按住屏幕） -->
+    <style name="LockKeepTheme" parent="android:Theme.Translucent.NoTitleBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:statusBarColor">#00000000</item>
+        <item name="android:navigationBarColor">#00000000</item>
+    </style>
+
     <!-- 吃药日历：星期表头（七列等宽、居中、灰蓝字） -->
     <style name="CalHead">
         <item name="android:layout_width">0dp</item>
