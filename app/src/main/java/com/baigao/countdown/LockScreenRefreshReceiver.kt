@@ -30,6 +30,9 @@ class LockScreenRefreshReceiver : BroadcastReceiver() {
         try {
             val list = CountdownStore.load(context)
             LockScreenClock.updateAll(context, list)
+            // 「锁屏通知常亮」也要在这里接手：服务被杀后进程里持有的屏幕唤醒锁
+            // 会被系统释放，靠这个 10 秒一次的兜底闹钟重新按住屏幕（条件不满足自动撤）
+            LockKeepOn.apply(context)
             // 顺手把下一次唤醒挂上（服务被杀时闹钟仍存在，这里续上即可）
             CountdownService.rescheduleLockAlarm(context)
         } catch (e: Throwable) {
