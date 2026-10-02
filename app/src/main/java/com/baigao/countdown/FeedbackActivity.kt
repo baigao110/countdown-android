@@ -156,9 +156,10 @@ class FeedbackActivity : Activity() {
         val pass = smtpPass()
         val server = if (from.contains("@")) SmtpSender.guess(from, "")?.host else null
         smtpStatusTv.text = when {
+            // 默认通道（免授权码）才是主路：上面两项常年是空的，别一上来就让人去填。
             from.isBlank() || pass.isBlank() ->
-                "还没填邮箱：填完上面两项，点「提交反馈」就能后台直接发（不打开邮箱应用）"
-            else -> "已记住：$from（$server） → $FEEDBACK_EMAIL，点提交后台直接发"
+                "默认通道：点「提交反馈」直接在后台发出去，不用授权码、也不用填上面两项～"
+            else -> "备用通道已记住：$from（$server） → $FEEDBACK_EMAIL，默认通道不通时会用这条顶上"
         }
     }
 
@@ -459,66 +460,74 @@ class FeedbackActivity : Activity() {
             return
         }
 
-        // 提交方式先定下来：填了发信邮箱就自己发（直接返回，不再走下面「打开邮箱应用」那几条路），
-        // 没填 / 授权码空着时才用老路兜底 —— 老路仍然按「谁在这台手机上真把附件接住」挨个试。
+        // 提交方式：默认走**免授权码**的后台直投（HttpMailSender），什么都不用填，
+        // 点一下就发出去，屏幕上立刻是「反馈已发送，请耐心等待回复！」。
+        // 只有这条通道也挂了，才依次退到：① 你填了自己的邮箱 + 授权码（SMTP）② 打开邮箱应用。
         val from = smtpFrom()
         val pass = smtpPass()
         saveSmtpCreds(from, pass)
         refreshSmtpStatus()
-        if (from.contains("@") && pass.isNotBlank()) {
-            sendDirect(from, pass, uris, files)
-            return
-        }
-        showSmtpHelpDialog(uris, files)
+        sendDirect(uris, files)
     }
 
-    // ---------------------------------------------------------------- 直发（不打开邮箱应用）
+    /** 直发主流程：免密通道优先，挂了再退 SMTP（填了才试），最后退邮箱应用。 */
+    private fun sendDirect(uris: List<Uri>, files: List<File>) {
+        sendViaHttp(uris, files)
+    }
+
+    /** 附件自检：过一遍 content 通路，读不出来的剔掉 —— 宁可少一个，也别发个空壳附件出去。 */
+    private fun pickSendFiles(files: List<File>): List<File> {
+        val keep = ArrayList<File>()
+        for (f in files) {
+            if (f.exists() && f.length() > 0 && readableViaUri(uriOf(f))) keep.add(f)
+        }
+        return keep
+    }
+
+    private fun totalBytes(files: List<File>): Long {
+        var total = 0L
+        for (f in files) total += f.length()
+        return total
+    }
+
+    /** 想让对方直接回复到哪儿：填了联系方式就用它，没填就用发信邮箱（还空着就不设回复地址）。 */
+    private fun contactOrFrom(): String {
+        val c = contactEt.text?.toString()?.trim().orEmpty()
+        if (c.contains("@")) return c
+        val f = smtpFrom()
+        return if (f.contains("@")) f else ""
+    }
 
     /**
-     * 自己把信发出去：子线程跑 SMTP，全程不开邮箱应用；发完给用户一句准话。
+     * 免授权码通道：后台 POST 出去，全程不打开邮箱应用。
      *
-     * 三点讲究：
-     * 1. **一定在子线程**：Socket 连服务器这事儿放主线程上系统会直接判「网络在主线程」卡死；
-     * 2. 附件过一遍 content 通路自检（跟给邮箱发时同一套标准）：读不出来的剔掉，宁可少一个
-     *    也别发个空壳附件出去，那只会变成「信发出去了，东西没到」；
-     * 3. 日志那一份如果在自检里被剔掉了，就把同一份全文贴进正文 —— 信息一定送到。
+     * 挂了也不算完：填了自己的邮箱 + 授权码就用那条发（很多公共表单站点在限流 / 国内直连不稳，
+     * 这时候换个自己的邮箱反而更稳），再不行才退化到打开邮箱应用。
      */
-    private fun sendDirect(from: String, pass: String, uris: List<Uri>, files: List<File>) {
-        val acc = SmtpSender.guess(from, pass)
-        if (acc == null) {
-            Toast.makeText(this, "邮箱地址看着不太对呢，检查一下上面填的那个～", Toast.LENGTH_LONG).show()
-            fromEt.requestFocus()
-            return
-        }
-        val sendFiles = ArrayList<File>()
-        var total = 0L
-        for (f in files) {
-            if (f.exists() && f.length() > 0 && readableViaUri(uriOf(f))) {
-                sendFiles.add(f)
-                total += f.length()
-            }
-        }
+    private fun sendViaHttp(uris: List<Uri>, files: List<File>) {
+        val sendFiles = pickSendFiles(files)
         if (files.isNotEmpty() && sendFiles.isEmpty()) {
             Toast.makeText(this, "这几个附件读不出来了呢，先撤掉它们再提交～", Toast.LENGTH_LONG).show()
             return
         }
-        if (total > WARN_TOTAL_BYTES) {
+        if (totalBytes(sendFiles) > WARN_TOTAL_BYTES) {
             Toast.makeText(
                 this,
-                "附件有点大（${total / 1024 / 1024}MB），发过去可能慢一点，我先发，等等看～",
+                "附件有点大（${totalBytes(sendFiles) / 1024 / 1024}MB），发过去可能慢一点，我先发，等等看～",
                 Toast.LENGTH_LONG
             ).show()
         }
-        // 正文：日志勾了就顺手把全文带上（附件真发出去了就在附件里，没发出去就补在正文）。
         val body = buildBody()
         val logOk = sendFiles.any { it.name == LOG_ATTACH_NAME }
+        // 日志是主角时（只勾了运行日志），同一份全文也贴进正文：附件万一被站点拒了，信息照样送到。
         val bodyFull = if (logSwitch.isChecked && logTextCache.isNotBlank()) {
-            val tail = if (logOk) "" else "\n\n【运行日志（附件没发成，全文在这里）】\n"
+            val tail = if (logOk) "" else "\n\n【运行日志（附件没投出去，全文在这里）】\n"
             body + tail + logTextCache + "\n"
         } else {
             body
         }
-
+        val subject = "倒计时工具 意见反馈"
+        val reply = contactOrFrom()
         submitBtn.isEnabled = false
         submitBtn.text = "正在发送…"
         val progress = UpdateManager.showStyledDialog(
@@ -527,56 +536,121 @@ class FeedbackActivity : Activity() {
             host.addView(noteTv("正在把你的反馈发出去…\n这一小会儿别退出本页面，发完马上告诉你结果"))
         }
         Thread {
-            val result = SmtpSender.send(acc, FEEDBACK_EMAIL, "倒计时工具 意见反馈", bodyFull, sendFiles)
+            val result = HttpMailSender.send(FEEDBACK_EMAIL, subject, bodyFull, sendFiles, reply)
+            if (result.ok) {
+                runOnUiThread {
+                    runCatching { progress.dismiss() }
+                    Toast.makeText(
+                        applicationContext, "反馈已发送，请耐心等待回复！", Toast.LENGTH_LONG
+                    ).show()
+                    finish()
+                }
+                return@Thread
+            }
+            // 免密通道没成：填了自己的邮箱就接着用 SMTP 试，省得你来回折腾。
+            val from = smtpFrom()
+            val pass = smtpPass()
+            if (from.contains("@") && pass.isNotBlank()) {
+                val acc = SmtpSender.guess(from, pass)
+                if (acc != null) {
+                    val smtpRes = SmtpSender.send(
+                        acc, FEEDBACK_EMAIL, subject, bodyFull, sendFiles
+                    )
+                    if (smtpRes.ok) {
+                        runOnUiThread {
+                            runCatching { progress.dismiss() }
+                            Toast.makeText(
+                                applicationContext, "反馈已发送，请耐心等待回复！", Toast.LENGTH_LONG
+                            ).show()
+                            finish()
+                        }
+                        return@Thread
+                    }
+                    showAllFailed(uris, files, "$result.message ／ ${smtpRes.message}")
+                    return@Thread
+                }
+            }
+            showAllFailed(uris, files, result.message)
+        }.start()
+    }
+
+    /** 两条路都不通：说清原因，给「打开邮箱应用」和「填自己的邮箱 + 授权码」两条出口。 */
+    private fun showAllFailed(uris: List<Uri>, files: List<File>, reason: String) {
+        runOnUiThread {
+            UpdateManager.showStyledDialog(
+                this, "反馈没发出去", "打开邮箱应用发", "知道了", true,
+                onPositive = { openEmailApp(uris) }
+            ) { host ->
+                host.addView(noteTv(reason))
+                host.addView(noteTv("多半是当前网络不太好，或者那个公共收件通道临时在忙。"))
+                host.addView(noteTv("点左边用邮箱应用接着发，内容一模一样。平时想用自己邮箱发，在页面上面填邮箱 + 授权码，再点提交就行。"))
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- 直发（不打开邮箱应用）
+
+    /** 备用通道（自己邮箱 + 授权码）：子线程跑 SMTP，发完给用户一句准话。 */
+    private fun sendViaSmtp(from: String, pass: String, files: List<File>, onFail: (String) -> Unit) {
+        val acc = SmtpSender.guess(from, pass)
+        if (acc == null) {
+            Toast.makeText(this, "邮箱地址看着不太对呢，检查一下上面填的那个～", Toast.LENGTH_LONG).show()
+            return
+        }
+        val sendFiles = pickSendFiles(files)
+        if (files.isNotEmpty() && sendFiles.isEmpty()) {
+            Toast.makeText(this, "这几个附件读不出来了呢，先撤掉它们再提交～", Toast.LENGTH_LONG).show()
+            return
+        }
+        val logOk = sendFiles.any { it.name == LOG_ATTACH_NAME }
+        val bodyFull = if (logSwitch.isChecked && logTextCache.isNotBlank()) {
+            val tail = if (logOk) "" else "\n\n【运行日志（附件没发成，全文在这里）】\n"
+            buildBody() + tail + logTextCache + "\n"
+        } else {
+            buildBody()
+        }
+        submitBtn.isEnabled = false
+        submitBtn.text = "正在发送…"
+        val progress = UpdateManager.showStyledDialog(
+            this, "正在发送…", "", "等一下", true, null
+        ) { host ->
+            host.addView(noteTv("正在把你的反馈发出去…\\n这一小会儿别退出本页面，发完马上告诉你结果"))
+        }
+        Thread {
+            val res = SmtpSender.send(acc, FEEDBACK_EMAIL, "倒计时工具 意见反馈", bodyFull, sendFiles)
             runOnUiThread {
                 runCatching { progress.dismiss() }
                 submitBtn.isEnabled = true
                 submitBtn.text = "提交反馈（直接发到我的邮箱）"
-                if (result.ok) {
+                if (res.ok) {
                     Toast.makeText(applicationContext, "反馈已发送，请耐心等待回复！", Toast.LENGTH_LONG).show()
                     finish()
                 } else {
-                    showSendFailed(result.message, uris, files)
+                    onFail(res.message)
                 }
             }
         }.start()
     }
 
-    /** 没填发信邮箱时的引导：说清楚授权码是什么，顺手给一条「还是用邮箱应用」的出口。 */
+    /** 备用通道的引导：上面两项是**可选**的，默认那条免授权码通道够用就什么都不用填。 */
     private fun showSmtpHelpDialog(uris: List<Uri>, files: List<File>) {
         UpdateManager.showStyledDialog(
-            this, "要直接发到我邮箱，先填一下你的邮箱", "就按这个发", "改用邮箱应用", true,
+            this, "改用你自己的邮箱发", "按这个发", "打开邮箱应用", true,
             onPositive = {
-                // 关掉对话框后回读输入框：里面就是用户刚填的邮箱和授权码
                 val from = smtpFrom()
                 val pass = smtpPass()
                 saveSmtpCreds(from, pass)
                 refreshSmtpStatus()
                 if (from.contains("@") && pass.isNotBlank()) {
-                    sendDirect(from, pass, uris, files)
+                    sendViaSmtp(from, pass, files) { showAllFailed(uris, files, it) }
                 } else {
                     Toast.makeText(this, "上面两处都填上才行：邮箱 + 授权码～", Toast.LENGTH_LONG).show()
                 }
             }
         ) { host ->
-            host.addView(noteTv("第 1 步：在这页上面填你的邮箱，比如 123456@qq.com（QQ / 163 / 126 都认得）。"))
-            host.addView(noteTv("第 2 步：再填邮箱授权码 —— 它不是登录密码。QQ 邮箱在「设置 → 账户 → 开启 IMAP / SMTP 服务」里会给你一个 16 位码，抄过来就行。"))
+            host.addView(noteTv("上面两项是**备用**通道：默认那条免授权码的通道够用的话，什么都不用填。"))
+            host.addView(noteTv("想都用自己邮箱发：填邮箱（比如 123456@qq.com），再填它的授权码 —— QQ 邮箱在「设置 → 账户 → 开启 IMAP / SMTP 服务」里会给一个 16 位码，不是登录密码。"))
             host.addView(noteTv("填一次就一直记着，以后点提交都在后台直接发，不再打开邮箱应用。"))
-        }
-    }
-
-    /** 发失败：说清原因 + 一条自救出口，顺手把空格的授权码清掉让人直接重填。 */
-    private fun showSendFailed(reason: String, uris: List<Uri>, files: List<File>) {
-        // 摸到失败多半是授权码不对，这里顺手清空输入框、把光标挪过去，改起来不折腾。
-        passEt.text = null
-        passEt.post { passEt.requestFocus() }
-        UpdateManager.showStyledDialog(
-            this, "反馈没发出去", "还是用邮箱应用发", "知道了", true,
-            onPositive = { openEmailApp(uris) }
-        ) { host ->
-            host.addView(noteTv(reason))
-            host.addView(noteTv("常见两处：① 授权码填成了登录密码（要用那串 16 位授权码）；② 当前没联网或者开了省流量。"))
-            host.addView(noteTv("授权码已经帮你清空了，重新填一遍再提交就行；不想折腾就点左边那个按钮接着发，内容一模一样。"))
         }
     }
 
