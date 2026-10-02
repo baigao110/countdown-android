@@ -35,12 +35,14 @@ import java.util.Locale
  * 3. 可选的「附带运行日志」：把机型、系统版本、应用版本、当前倒计时列表、几类开关状态写成一个 txt 一起发，
  *    定位问题最快；里面不包含你的备注内容。
  *
- * 提交走系统邮箱：工程刻意零第三方依赖，没法在 App 里自带发信，
- * 所以「提交」= 打开邮箱应用、收件人已经填成 baigao110@qq.com、标题正文附件都备好，
- * 你点一下发送就到了。首选 ACTION_SEND（收件人走 EXTRA_EMAIL 填），因为各家邮箱
- * 只在这条路上老老实实把图片 / 视频挂进撰写页；ACTION_SENDTO（mailto 直投）那条路
- * 会被 Gmail 和不少手机自带邮箱直接丢掉附件。手机没装邮箱时，下面还有「复制内容备用」，
- * 粘到微信 / QQ 发同样收得到。
+ * 提交走「自己发」：工程刻意零第三方依赖，所以内置了一个极简 SMTP 发信器（SmtpSender），
+ * 「提交」= 直接用你在页面上填的邮箱（账号 + 授权码，只存本机）把信发到 baigao110@qq.com，
+ * **不会打开手机上的邮箱应用**，发完立刻提示「反馈已发送，请耐心等待回复」。
+ * 邮箱服务器地址按后缀自动认（QQ 邮箱 smtp.qq.com 等），登录走授权码。
+ * 授权码没填、或者网络 / 授权码不对发不出去时，才退回原来的老路：
+ * 打开邮箱应用（首选 ACTION_SEND，各家邮箱只在这条路上老老实实挂图片 / 视频；
+ * ACTION_SENDTO 那条路会被 Gmail 和不少手机自带邮箱直接丢掉附件），
+ * 以及「复制内容备用」兜底，粘到微信 / QQ 发同样收得到。
  *
  * 附件用 FeedbackProvider（content:// + FLAG_GRANT_READ_URI_PERMISSION）交给邮箱读取，
  * 既不往公共存储里塞文件，也不需要任何存储权限。
@@ -54,6 +56,12 @@ class FeedbackActivity : Activity() {
         private const val MAX_MEDIA = 9
         /** 运行日志附件的规范名：跟图片视频一样走同一套类型认得出来的通路。 */
         private const val LOG_ATTACH_NAME = "fb_log.txt"
+        /** 发信设置（发件邮箱 + 授权码）只存本机，下次进页面自动回填。 */
+        private const val PREFS_SMTP = "feedback_smtp"
+        private const val KEY_SMTP_FROM = "from"
+        private const val KEY_SMTP_PASS = "pass"
+        /** 直发时一个附件超过这个数（1MB 的整数倍）就提醒一句，免得等太久。 */
+        private const val WARN_TOTAL_BYTES = 12L * 1024 * 1024
     }
 
     private lateinit var nicknameEt: EditText
@@ -66,6 +74,9 @@ class FeedbackActivity : Activity() {
     private lateinit var logDescTv: TextView
     private lateinit var submitBtn: Button
     private lateinit var copyBtn: Button
+    private lateinit var fromEt: EditText
+    private lateinit var passEt: EditText
+    private lateinit var smtpStatusTv: TextView
 
     /** 已经挑好的图片 / 视频（放到缓存目录里，等提交时作为附件发出去）。 */
     private val attachments = ArrayList<File>()
@@ -87,6 +98,9 @@ class FeedbackActivity : Activity() {
         logDescTv = findViewById(R.id.logDescTv)
         submitBtn = findViewById(R.id.submitBtn)
         copyBtn = findViewById(R.id.copyBtn)
+        fromEt = findViewById(R.id.fromEt)
+        passEt = findViewById(R.id.passEt)
+        smtpStatusTv = findViewById(R.id.smtpStatusTv)
 
         findViewById<TextView>(R.id.backBtn).setOnClickListener { finish() }
 
@@ -110,6 +124,42 @@ class FeedbackActivity : Activity() {
 
         refreshLogDesc()
         refreshAttachUi()
+        // 上次填过的发信邮箱回填出来（授权码不回显，免得旁边有人看见）
+        restoreSmtpCreds()
+        refreshSmtpStatus()
+    }
+
+    // ---------------------------------------------------------------- 发信设置
+
+    /** 本地偏好里读出上次的发信邮箱，回填到输入框。 */
+    private fun restoreSmtpCreds() {
+        val prefs = getSharedPreferences(PREFS_SMTP, Context.MODE_PRIVATE)
+        val saved = prefs.getString(KEY_SMTP_FROM, "") ?: ""
+        fromEt.setText(saved)
+        fromEt.setSelection(saved.length)
+    }
+
+    private fun saveSmtpCreds(from: String, pass: String) {
+        getSharedPreferences(PREFS_SMTP, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_SMTP_FROM, from)
+            .putString(KEY_SMTP_PASS, pass)
+            .apply()
+    }
+
+    private fun smtpFrom(): String = fromEt.text?.toString()?.trim().orEmpty()
+    private fun smtpPass(): String = passEt.text?.toString()?.trim().orEmpty()
+
+    /** 状态行：已经记住了 / 还没填，以及发到哪儿去。 */
+    private fun refreshSmtpStatus() {
+        val from = smtpFrom()
+        val pass = smtpPass()
+        val server = if (from.contains("@")) SmtpSender.guess(from, "")?.host else null
+        smtpStatusTv.text = when {
+            from.isBlank() || pass.isBlank() ->
+                "还没填邮箱：填完上面两项，点「提交反馈」就能后台直接发（不打开邮箱应用）"
+            else -> "已记住：$from（$server） → $FEEDBACK_EMAIL，点提交后台直接发"
+        }
     }
 
     // ---------------------------------------------------------------- 选附件
@@ -409,39 +459,143 @@ class FeedbackActivity : Activity() {
             return
         }
 
-        // 「附带运行日志」勾上、且没选图片 / 视频时，附件里就只剩这一个 txt —— 这是最挑邮箱的一条路。
-        // 前面几轮在这条路上反复栽：给具体文本类，各家邮箱把它当「转发一段文字」（正文抄进去、附件丢掉）；
-        // 给通配类又不带正文，有的邮箱压根不在候选表里；mailto 直投再挂个附件更是视而不见。
-        // 与其猜这一种类型对不对，不如把「邮箱可能认得」的几种样子都摆出来，按这个顺序挨个试 ——
-        // 谁在这台手机上真接得住、真把 fb_log.txt 挂进撰写页，就用谁。
-        //
-        // 两条正文也不同：走文件那条（附件真挂上）正文只留一句说明，不把日志抄第二遍；
-        // 走文本 / mailto 那条（附件多半靠不住）就把日志全文贴在正文，保证信息一定送到。
+        // 提交方式先定下来：填了发信邮箱就自己发（直接返回，不再走下面「打开邮箱应用」那几条路），
+        // 没填 / 授权码空着时才用老路兜底 —— 老路仍然按「谁在这台手机上真把附件接住」挨个试。
+        val from = smtpFrom()
+        val pass = smtpPass()
+        saveSmtpCreds(from, pass)
+        refreshSmtpStatus()
+        if (from.contains("@") && pass.isNotBlank()) {
+            sendDirect(from, pass, uris, files)
+            return
+        }
+        showSmtpHelpDialog(uris, files)
+    }
+
+    // ---------------------------------------------------------------- 直发（不打开邮箱应用）
+
+    /**
+     * 自己把信发出去：子线程跑 SMTP，全程不开邮箱应用；发完给用户一句准话。
+     *
+     * 三点讲究：
+     * 1. **一定在子线程**：Socket 连服务器这事儿放主线程上系统会直接判「网络在主线程」卡死；
+     * 2. 附件过一遍 content 通路自检（跟给邮箱发时同一套标准）：读不出来的剔掉，宁可少一个
+     *    也别发个空壳附件出去，那只会变成「信发出去了，东西没到」；
+     * 3. 日志那一份如果在自检里被剔掉了，就把同一份全文贴进正文 —— 信息一定送到。
+     */
+    private fun sendDirect(from: String, pass: String, uris: List<Uri>, files: List<File>) {
+        val acc = SmtpSender.guess(from, pass)
+        if (acc == null) {
+            Toast.makeText(this, "邮箱地址看着不太对呢，检查一下上面填的那个～", Toast.LENGTH_LONG).show()
+            fromEt.requestFocus()
+            return
+        }
+        val sendFiles = ArrayList<File>()
+        var total = 0L
+        for (f in files) {
+            if (f.exists() && f.length() > 0 && readableViaUri(uriOf(f))) {
+                sendFiles.add(f)
+                total += f.length()
+            }
+        }
+        if (files.isNotEmpty() && sendFiles.isEmpty()) {
+            Toast.makeText(this, "这几个附件读不出来了呢，先撤掉它们再提交～", Toast.LENGTH_LONG).show()
+            return
+        }
+        if (total > WARN_TOTAL_BYTES) {
+            Toast.makeText(
+                this,
+                "附件有点大（${total / 1024 / 1024}MB），发过去可能慢一点，我先发，等等看～",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+        // 正文：日志勾了就顺手把全文带上（附件真发出去了就在附件里，没发出去就补在正文）。
+        val body = buildBody()
+        val logOk = sendFiles.any { it.name == LOG_ATTACH_NAME }
+        val bodyFull = if (logSwitch.isChecked && logTextCache.isNotBlank()) {
+            val tail = if (logOk) "" else "\n\n【运行日志（附件没发成，全文在这里）】\n"
+            body + tail + logTextCache + "\n"
+        } else {
+            body
+        }
+
+        submitBtn.isEnabled = false
+        submitBtn.text = "正在发送…"
+        val progress = UpdateManager.showStyledDialog(
+            this, "正在发送…", "", "等一下", true, null
+        ) { host ->
+            host.addView(noteTv("正在把你的反馈发出去…\n这一小会儿别退出本页面，发完马上告诉你结果"))
+        }
+        Thread {
+            val result = SmtpSender.send(acc, FEEDBACK_EMAIL, "倒计时工具 意见反馈", bodyFull, sendFiles)
+            runOnUiThread {
+                runCatching { progress.dismiss() }
+                submitBtn.isEnabled = true
+                submitBtn.text = "提交反馈（直接发到我的邮箱）"
+                if (result.ok) {
+                    Toast.makeText(applicationContext, "反馈已发送，请耐心等待回复！", Toast.LENGTH_LONG).show()
+                    finish()
+                } else {
+                    showSendFailed(result.message, uris, files)
+                }
+            }
+        }.start()
+    }
+
+    /** 没填发信邮箱时的引导：说清楚授权码是什么，顺手给一条「还是用邮箱应用」的出口。 */
+    private fun showSmtpHelpDialog(uris: List<Uri>, files: List<File>) {
+        UpdateManager.showStyledDialog(
+            this, "要直接发到我邮箱，先填一下你的邮箱", "就按这个发", "改用邮箱应用", true,
+            onPositive = {
+                // 关掉对话框后回读输入框：里面就是用户刚填的邮箱和授权码
+                val from = smtpFrom()
+                val pass = smtpPass()
+                saveSmtpCreds(from, pass)
+                refreshSmtpStatus()
+                if (from.contains("@") && pass.isNotBlank()) {
+                    sendDirect(from, pass, uris, files)
+                } else {
+                    Toast.makeText(this, "上面两处都填上才行：邮箱 + 授权码～", Toast.LENGTH_LONG).show()
+                }
+            }
+        ) { host ->
+            host.addView(noteTv("第 1 步：在这页上面填你的邮箱，比如 123456@qq.com（QQ / 163 / 126 都认得）。"))
+            host.addView(noteTv("第 2 步：再填邮箱授权码 —— 它不是登录密码。QQ 邮箱在「设置 → 账户 → 开启 IMAP / SMTP 服务」里会给你一个 16 位码，抄过来就行。"))
+            host.addView(noteTv("填一次就一直记着，以后点提交都在后台直接发，不再打开邮箱应用。"))
+        }
+    }
+
+    /** 发失败：说清原因 + 一条自救出口，顺手把空格的授权码清掉让人直接重填。 */
+    private fun showSendFailed(reason: String, uris: List<Uri>, files: List<File>) {
+        // 摸到失败多半是授权码不对，这里顺手清空输入框、把光标挪过去，改起来不折腾。
+        passEt.text = null
+        passEt.post { passEt.requestFocus() }
+        UpdateManager.showStyledDialog(
+            this, "反馈没发出去", "还是用邮箱应用发", "知道了", true,
+            onPositive = { openEmailApp(uris) }
+        ) { host ->
+            host.addView(noteTv(reason))
+            host.addView(noteTv("常见两处：① 授权码填成了登录密码（要用那串 16 位授权码）；② 当前没联网或者开了省流量。"))
+            host.addView(noteTv("授权码已经帮你清空了，重新填一遍再提交就行；不想折腾就点左边那个按钮接着发，内容一模一样。"))
+        }
+    }
+
+    /** 老路：打开邮箱应用（附件真的挂进撰写页那条路优先）。 */
+    private fun openEmailApp(uris: List<Uri>) {
         val logOnly = logSwitch.isChecked && sharedType(uris).startsWith("text")
         val bodyShort = buildBody() + "\n\n运行日志见附件 fb_log.txt（同名全文也贴在正文，方便直接看）\n"
         val bodyFull = buildBody() + "\n\n【运行日志】\n" + logTextCache + "\n"
-
-        // ① 分享一个文件：邮箱按「收附件」处理，这是唯一能把它认成附件的样子；
-        // ② 分享一段文字：老老实实给具体文本类，附件可能被当正文丢掉，好在全文都在正文里；
-        // ③ mailto 直投：只认正文的那种邮箱也能开，收件人同样填好。
         val fileIntent = buildSendIntent(bodyShort, uris, mail = false, asFile = true)
         val textIntent = buildSendIntent(bodyFull, uris, mail = false)
         val mailIntent = buildSendIntent(bodyFull, uris, mail = true)
-        // 有图 / 视频的时候主角是图或视频，给具体类型这条路各家邮箱最熟，直接先走它。
         val typedIntent = buildSendIntent(bodyFull, uris, mail = false)
         val routes = if (logOnly) listOf(fileIntent, textIntent, mailIntent) else listOf(typedIntent, textIntent, mailIntent)
-        // 每一步怎么说实话：附件真挂上了 / 挂没挂上但全文都在正文 / 只有正文。
         val routeExtra = arrayOf(
             "，日志已经当成附件挂上了（fb_log.txt），点一下发送就到啦～",
             "，日志没挂成附件也没关系，同一份全文都贴在正文里，点一下发送就到啦～",
             "，日志全文写在正文里了，点一下发送就到啦～"
         )
-
-        // 路线挨个试：每个都先在「这台手机上有没有人接」上过一遍，没人接就跳过这一条往下退，
-        // 绝不丢一个闪退给你看；接得住的那一跳决定提示语怎么说。
         for (i in routes.indices) {
-            // 通配类那条先探一下候选：这类 intent 常常连邮箱都不在表里（它没给通配类标默认），
-            // 探不到就跳过，免得白开一次又掉回「没找到邮箱」的提示，绕一大圈。
             if (i == 0 && "*/*" == routes[i].type &&
                 packageManager.queryIntentActivities(routes[i], PackageManager.MATCH_DEFAULT_ONLY).isEmpty()
             ) {
@@ -455,11 +609,7 @@ class FeedbackActivity : Activity() {
         try {
             grantAll(fileIntent, uris)
             startActivity(Intent.createChooser(fileIntent, "用哪个发给我？"))
-            Toast.makeText(
-                this,
-                "没找到邮箱应用，挑一个能收附件的发给我就行，日志全文也在正文里～",
-                Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(this, "没找到邮箱应用，挑一个能收附件的发给我就行～", Toast.LENGTH_LONG).show()
         } catch (_: Throwable) {
             Toast.makeText(
                 this,
@@ -469,6 +619,16 @@ class FeedbackActivity : Activity() {
             copyToClipboard()
         }
     }
+
+    /** 一小段说明文字：跟页面上其它提示同一套颜色和字号。 */
+    private fun noteTv(text: String): TextView =
+        TextView(this).apply {
+            setText(text)
+            setLineSpacing(4f, 1.15f)
+            textSize = 13f
+            setTextColor(resources.getColor(android.R.color.white))
+            setPadding(4, 6, 4, 6)
+        }
 
     /** 提交提示的统一话术：收件人、标题正文都备好，只差点一下发送。 */
     private fun okMsg(extra: String): String =
