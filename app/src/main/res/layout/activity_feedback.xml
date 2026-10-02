@@ -201,7 +201,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="18dp"
-                android:text="直接发送设置（用一次就记住，提交时后台直接发，不打开邮箱应用）"
+                android:text="发信方式（默认免授权码，什么都不用填；想用自己的邮箱才要授权码）"
                 android:textColor="#FFC6D5EF"
                 android:textSize="13sp" />
 
@@ -283,7 +283,7 @@
                 android:lineSpacingExtra="4dp"
                 android:textColor="#8A93AE"
                 android:textSize="12sp"
-                android:text="点「提交反馈」会直接用上面填的邮箱把信发到 baigao110@qq.com，不跳转邮箱应用，发完立即提示你。\n没填邮箱、或者网络 / 授权码不对发不出去时，可以点上面的「复制内容备用」，粘到微信 / QQ 里发给我也行～" />
+                android:text="点「提交反馈」就在后台直接把信发到 baigao110@qq.com，不跳转邮箱应用，马上提示「反馈已发送，请耐心等待回复！」。\n上面两项（你的邮箱 + 授权码）是**备用**通道，留空也能发；只有默认通道没通、或者你想用自己邮箱发时才需要填。\n网络不好发不出去时，可以点上面的「复制内容备用」，粘到微信 / QQ 里发给我也行～" />
 
         </LinearLayout>
     </ScrollView>
