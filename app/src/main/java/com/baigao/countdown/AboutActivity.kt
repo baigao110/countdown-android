@@ -428,26 +428,18 @@ class AboutActivity : Activity() {
     private fun refreshLockKeepDesc() {
         if (!::lockKeepDescTv.isInitialized) return
         val on = LockKeepOn.isOn(this)
-        val screenOn = try {
-            val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
-            pm.isInteractive
-        } catch (_: Throwable) {
-            true
-        }
         val holding = LockKeepOn.isHolding()
         val sb = StringBuilder()
         sb.append("锁屏通知常亮：打开后，只要锁屏 / 通知栏上还挂着倒计时，屏幕就一直亮着、\n")
-        sb.append("不会按手机的熄屏时间睡去；关掉就立刻恢复手机里设的熄屏时间，屏幕亮着多久完全听手机的。\n")
-        sb.append("（熄屏后按一下电源键，屏幕亮起来会一直亮着不睡；\n")
-        sb.append("没展开任何倒计时、或者把「锁屏通知显示」关掉时，这个开关不会亮屏，不会白耗电哦）\n")
-        if (on && screenOn && !holding) {
-            sb.append("当前：通知还在，但屏幕已经熄了（屏幕一亮起来就会自动接住，一直亮着）")
-        } else if (on && holding && screenOn) {
-            sb.append("当前：屏幕正被按在亮着（锁屏上还能接着瞄倒计时）")
-        } else if (on) {
-            sb.append("当前：屏幕熄着，不常亮（亮起来后会自动接住哦）")
-        } else {
+        sb.append("锁屏界面上也能一直瞄那个倒计时，不会按手机的熄屏时间睡去；\n")
+        sb.append("关掉就立刻恢复手机里设的熄屏时间（想省电随手关掉就行；按电源键仍可主动关屏）。\n")
+        sb.append("（没展开任何倒计时、或者把「锁屏通知显示」关掉时，这个开关不会亮屏，不会白耗电哦）\n")
+        if (!on) {
             sb.append("当前：已关掉，屏幕熄屏时间跟随手机系统设置")
+        } else if (holding) {
+            sb.append("当前：常亮已接上（锁屏界面上也会一直亮着哦）")
+        } else {
+            sb.append("当前：还没接上（锁屏上还没有倒计时通知，通知一挂出来就会自动常亮）")
         }
         lockKeepDescTv.text = sb.toString()
     }
