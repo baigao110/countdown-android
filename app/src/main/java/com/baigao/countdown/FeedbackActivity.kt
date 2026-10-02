@@ -418,21 +418,26 @@ class FeedbackActivity : Activity() {
             buildBody()
         }
 
-        // 先走「ACTION_SEND + 收件人已填好」：各家邮箱只在这条正规路上把图片 / 视频挂进撰写页，
-        // 进邮箱就能看见附件，不用回头自己再挑一遍。它接不住才退回 mailto 直投，
-        // 再不行给个分享列表挑，最后退到复制内容备用。
+        // 路线：先「ACTION_SEND + 收件人已填好」—— 各家邮箱只在这条正规路上把图片 / 视频挂进撰写页，
+        // 进邮箱就能看见附件，不用回头自己再挑一遍。它接不住才逐级退：
+        // ② 换一种类型再试一次 → ③ mailto 直投 → ④ 分享列表 → ⑤ 复制内容备用。
         //
-        // ⚠️ 这里**不要**事先用 queryIntentActivities 判断「有没有人接」再决定走哪条路：
-        // 只有文本附件时，那种查法返回的是微信 / QQ / 蓝牙这类「分享文本」的应用，
-        // 邮箱不在表里（它没给 text/plain 声明 DEFAULT），会被误判成没人接而掉进 mailto 直投，
-        // 而 mailto 那条路的附件正是被各家邮箱直接丢掉的 —— 症状就是「进了邮箱还得自己再挑一次图」。
-        // 所以直接开工，让人家自己抛异常决定，抛不了才退下一层。
-        val send = buildSendIntent(body, uris, mail = false)
+        // ⚠️ 两处坑都是「只勾运行日志」时才冒出来，症状一模一样（进邮箱还得自己挑一次图）：
+        // 1. **不要**事先用 queryIntentActivities 判断「有没有人接」再决定路线：只有文本附件时
+        //    那种查法返回的是微信 / QQ / 蓝牙这类「分享文本」的应用，邮箱不在表里
+        //    （它没给 text/plain 声明 DEFAULT），会被误判成没人接而掉进 mailto 直投。
+        // 2. 更要紧的是「有人接，但接错了分支」：只勾日志时如果给的是具体文本类，
+        //    邮箱会当成「转发一段文字」—— 正文抄进去、附件直接丢，撰写页照样空着。
+        //    所以附件里有纯文本时先按「分享一个文件」的分支去开（见 buildSendIntent 的 asFile）。
+        // 无论如何，日志内容都会同时贴在正文里（logInBody），所以「不用再挑一次」这条底线守住了。
+        val isTextOnly = uris.size == 1 && sharedType(uris).startsWith("text")
+        val send = buildSendIntent(body, uris, mail = false, asFile = isTextOnly)
+        val sendTyped = buildSendIntent(body, uris, mail = false)
         val mailTo = buildSendIntent(body, uris, mail = true)
-        val extra = if (uris.isEmpty()) {
+        val logExtra = if (logInBody) {
+            "，日志已带上，同一份也贴在正文里，进邮箱就算没看到附件也不用再挑"
+        } else if (uris.isEmpty()) {
             ""
-        } else if (logInBody) {
-            "，日志已带上，同一份也贴在正文里了，进邮箱看不到附件也没关系"
         } else {
             "，图片 / 视频 / 日志已带上 ${uris.size} 个"
         }
@@ -440,7 +445,15 @@ class FeedbackActivity : Activity() {
         if (openEmail(send, uris)) {
             Toast.makeText(
                 this,
-                "邮箱撰写页开好啦：收件人填成 $FEEDBACK_EMAIL，标题正文都备好$extra，点一下「发送」就到啦～",
+                "邮箱撰写页开好啦：收件人填成 $FEEDBACK_EMAIL，标题正文都备好$logExtra，点一下「发送」就到啦～",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+        if (openEmail(sendTyped, uris)) {
+            Toast.makeText(
+                this,
+                "邮箱撰写页开好啦：收件人填成 $FEEDBACK_EMAIL，标题正文都备好$logExtra，点一下「发送」就到啦～",
                 Toast.LENGTH_LONG
             ).show()
             return
@@ -448,7 +461,7 @@ class FeedbackActivity : Activity() {
         if (openEmail(mailTo, uris)) {
             Toast.makeText(
                 this,
-                "邮箱撰写页开好啦：收件人填成 $FEEDBACK_EMAIL$extra，点一下「发送」就到啦～",
+                "邮箱撰写页开好啦：收件人填成 $FEEDBACK_EMAIL$logExtra，点一下「发送」就到啦～",
                 Toast.LENGTH_LONG
             ).show()
             return
@@ -458,7 +471,7 @@ class FeedbackActivity : Activity() {
             startActivity(Intent.createChooser(send, "用哪个发给我？"))
             Toast.makeText(
                 this,
-                "没找到邮箱应用，挑一个能收附件的发给我就行$extra～",
+                "没找到邮箱应用，挑一个能收附件的发给我就行$logExtra～",
                 Toast.LENGTH_LONG
             ).show()
         } catch (_: Throwable) {
@@ -495,13 +508,17 @@ class FeedbackActivity : Activity() {
      * 2. 单个附件直接 `putExtra(EXTRA_STREAM, uri)`：只认单值的邮箱取不到 ArrayList 就当空；
      * 3. `setClipData`：系统只对 ClipData 与显式 Uri 发读取权限，没它附件读出来是「无权限」。
      */
-    private fun buildSendIntent(body: String, uris: List<Uri>, mail: Boolean): Intent {
+    private fun buildSendIntent(
+        body: String,
+        uris: List<Uri>,
+        mail: Boolean,
+        asFile: Boolean = false
+    ): Intent {
         val subject = "倒计时工具 意见反馈"
         val intent = if (mail) {
             Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$FEEDBACK_EMAIL"))
         } else {
             Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
                 putExtra(Intent.EXTRA_EMAIL, arrayOf(FEEDBACK_EMAIL))
             }
         }
@@ -511,7 +528,10 @@ class FeedbackActivity : Activity() {
             if (!mail) intent.type = "text/plain"
             return intent
         }
-        intent.type = sharedType(uris)
+        // 纯文本附件（也就是只勾「附带运行日志」）时走「分享一个文件」的分支：
+        // 给具体类型会让邮箱把它当成「转发一段文字」，正文照抄、附件直接丢 → 撰写页空着，
+        // 又要你自己回头再挑一次图片或视频。给通配类才是各家邮箱认的「收附件」正规路。
+        intent.type = if (asFile) "*/*" else sharedType(uris)
         intent.addFlags(
             Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         )
