@@ -77,6 +77,11 @@
             android:showWhenLocked="true"
             android:theme="@style/LockKeepTheme" />
 
+        <!-- 意见反馈页：从「关于」页的「意见反馈」按钮进入（昵称 / 联系方式可不填，能带图片视频与日志） -->
+        <activity
+            android:name=".FeedbackActivity"
+            android:exported="false" />
+
         <!-- 悬浮倒计时前台服务：specialUse 子类型说明必须作为 <service> 的子元素，
              否则 Android 14 调用 startForegroundService 会抛 MissingForegroundServiceTypeException 导致崩溃 -->
         <service
@@ -87,6 +92,14 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="countdown overlay floating window" />
         </service>
+
+        <!-- 意见反馈的附件共享器：把缓存目录里的图片 / 视频 / 日志以 content:// 交给邮箱客户端读取，
+             applied 时用 FLAG_GRANT_READ_URI_PERMISSION 授权，不往公共存储里塞文件、不需要存储权限 -->
+        <provider
+            android:name=".FeedbackProvider"
+            android:authorities="${applicationId}.feedback"
+            android:exported="true"
+            android:grantUriPermissions="true" />
 
         <!-- 应用内更新：以 content:// 方式把已下载的 APK 交给系统安装器 -->
         <provider
