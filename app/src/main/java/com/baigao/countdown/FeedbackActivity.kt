@@ -11,7 +11,9 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.text.Editable
 import android.text.TextUtils
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
@@ -74,6 +76,7 @@ class FeedbackActivity : Activity() {
     private lateinit var logDescTv: TextView
     private lateinit var submitBtn: Button
     private lateinit var copyBtn: Button
+    private lateinit var testBtn: Button
     private lateinit var fromEt: EditText
     private lateinit var passEt: EditText
     private lateinit var smtpStatusTv: TextView
@@ -98,6 +101,7 @@ class FeedbackActivity : Activity() {
         logDescTv = findViewById(R.id.logDescTv)
         submitBtn = findViewById(R.id.submitBtn)
         copyBtn = findViewById(R.id.copyBtn)
+        testBtn = findViewById(R.id.testBtn)
         fromEt = findViewById(R.id.fromEt)
         passEt = findViewById(R.id.passEt)
         smtpStatusTv = findViewById(R.id.smtpStatusTv)
@@ -121,12 +125,31 @@ class FeedbackActivity : Activity() {
         logSwitch.setOnCheckedChangeListener { _, _ -> refreshLogDesc() }
         submitBtn.setOnClickListener { submit() }
         copyBtn.setOnClickListener { copyToClipboard() }
+        // 填完邮箱 + 授权码后先点这个验一验，比憋一篇反馈再提交靠谱
+        testBtn.setOnClickListener { testSmtpSend() }
 
         refreshLogDesc()
         refreshAttachUi()
         // 上次填过的发信邮箱回填出来（授权码不回显，免得旁边有人看见）
         restoreSmtpCreds()
         refreshSmtpStatus()
+        // 边填边更新下面那行状态：填完立刻就知道这台服务器认不认得、走了哪个端口，
+        // 不用等点提交才被一句「认不出这个邮箱后缀」打回来。
+        watchSmtpFields()
+    }
+
+    /** 两个输入框一有改动就重刷状态行（TextWatcher 三个回调都得实现，不能只写 afterTextChanged）。 */
+    private fun watchSmtpFields() {
+        val w = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            // ⚠️ 第三个回调收的是 Editable，不是 CharSequence —— 写错就成了「override nothing」。
+            override fun afterTextChanged(s: Editable?) {
+                if (::fromEt.isInitialized && ::passEt.isInitialized) refreshSmtpStatus()
+            }
+        }
+        fromEt.addTextChangedListener(w)
+        passEt.addTextChangedListener(w)
     }
 
     // ---------------------------------------------------------------- 发信设置
@@ -150,17 +173,18 @@ class FeedbackActivity : Activity() {
     private fun smtpFrom(): String = fromEt.text?.toString()?.trim().orEmpty()
     private fun smtpPass(): String = passEt.text?.toString()?.trim().orEmpty()
 
-    /** 状态行：已经记住了 / 还没填，以及发到哪儿去。 */
+    /** 状态行：已经记住了 / 还没填，以及发到哪儿去、走哪台服务器。 */
     private fun refreshSmtpStatus() {
         val from = smtpFrom()
         val pass = smtpPass()
-        val server = if (from.contains("@")) SmtpSender.guess(from, "")?.host else null
+        val acc = if (from.contains("@")) SmtpSender.guess(from, "") else null
+        val where = acc?.let { "${it.host}:${it.port}" } ?: "认不出这个邮箱后缀对应的服务器"
         smtpStatusTv.text = when {
             from.isBlank() || pass.isBlank() ->
                 ("现在还没配好后台直发：免授权码那个公共通道在手机上发不出去（它只认网页表单）。"
-                        + "想后台直接发，就在上面填你自己的邮箱 + 授权码；不想填就点提交后改用邮箱应用发～"
-                        + "（选填，不想配就用邮箱应用发就行）")
-            else -> "已记住：$from（$server） → $FEEDBACK_EMAIL，点提交在后台直接发，不打开邮箱应用"
+                        + "想后台直接发，就在上面填你自己的邮箱 + 授权码，再点下面的「测一下能不能发」验一下；"
+                        + "不想配就点提交后改用邮箱应用发～（这两项选填）")
+            else -> "已记住：$from（$where） → $FEEDBACK_EMAIL：点提交就用你自己的邮箱后台直发，不打开邮箱应用"
         }
     }
 
@@ -471,8 +495,21 @@ class FeedbackActivity : Activity() {
         sendDirect(uris, files)
     }
 
-    /** 直发主流程：免密通道优先，挂了再退 SMTP（填了才试），最后退邮箱应用。 */
+    /**
+     * 直发主流程：填了「邮箱 + 授权码」就先走你自己的邮箱（SMTP），没填才走免授权码通道。
+     *
+     * ⚠️ 顺序是改过的：早先是「永远先撞一遍免授权码通道再退 SMTP」，可那条通道在手机上
+     * 基本注定失败，白等两个 20 秒超时，等轮到 SMTP 还以为卡住了。填了授权码说明用户就是想
+     * 用自己的邮箱发，那就直接走它——又快、失败原因也准。
+     */
     private fun sendDirect(uris: List<Uri>, files: List<File>) {
+        val from = smtpFrom()
+        val pass = smtpPass()
+        if (from.contains("@") && pass.isNotBlank() && SmtpSender.guess(from, pass) != null) {
+            sendViaSmtp(uris, files, from, pass)
+            return
+        }
+        // 免授权码通道只会当「没填自己邮箱」时的默认路
         sendViaHttp(uris, files)
     }
 
@@ -588,19 +625,24 @@ class FeedbackActivity : Activity() {
                 this, "这次没发成", "打开邮箱应用发", "知道了", true,
                 onPositive = { openEmailApp(uris) }
             ) { host ->
-                host.addView(noteTv("后台那条免授权码的通道没送出去，站点给的原因是："))
+                host.addView(noteTv("后台直发没送出去，服务器给的原因是："))
                 host.addView(noteTv(reason))
                 host.addView(noteTv("能用的两条路：① 点左边用邮箱应用接着发，内容和附件一模一样；"
-                        + "② 在上面填你自己的邮箱 + 授权码存下来，以后点提交就在后台直发，不用再打开邮箱应用。"))
-                host.addView(noteTv("上面填的那两项目前是可选的 —— 不想配就用第一条路，一样能送到。"))
+                        + "② 回头在上面填好「你的邮箱 + 授权码」，再点「测一下能不能发」验通了，"
+                        + "以后点提交就在后台直接发，不用再打开邮箱应用。"))
+                host.addView(noteTv("填的那两项目前是可选的 —— 不想配就用第一条路，一样能送到。"))
             }
         }
     }
 
     // ---------------------------------------------------------------- 直发（不打开邮箱应用）
 
-    /** 备用通道（自己邮箱 + 授权码）：子线程跑 SMTP，发完给用户一句准话。 */
-    private fun sendViaSmtp(from: String, pass: String, files: List<File>, onFail: (String) -> Unit) {
+    /**
+     * 自己邮箱 + 授权码直发：子线程跑 SMTP，发完给用户一句准话。
+     *
+     * 挂了也不算完：再退一遍免授权码那条通道，两条原因一起摆出来，别让人猜是哪条没通。
+     */
+    private fun sendViaSmtp(uris: List<Uri>, files: List<File>, from: String, pass: String) {
         val acc = SmtpSender.guess(from, pass)
         if (acc == null) {
             Toast.makeText(this, "邮箱地址看着不太对呢，检查一下上面填的那个～", Toast.LENGTH_LONG).show()
@@ -623,19 +665,91 @@ class FeedbackActivity : Activity() {
         val progress = UpdateManager.showStyledDialog(
             this, "正在发送…", "", "等一下", true, null
         ) { host ->
-            host.addView(noteTv("正在把你的反馈发出去…\\n这一小会儿别退出本页面，发完马上告诉你结果"))
+            host.addView(noteTv("正在用你填的邮箱把反馈发出去…\n这一小会儿别退出本页面，发完马上告诉你结果"))
         }
         Thread {
             val res = SmtpSender.send(acc, FEEDBACK_EMAIL, "倒计时工具 意见反馈", bodyFull, sendFiles)
+            if (res.ok) {
+                runOnUiThread {
+                    runCatching { progress.dismiss() }
+                    Toast.makeText(applicationContext, "反馈已发送，请耐心等待回复！", Toast.LENGTH_LONG).show()
+                    finish()
+                }
+                return@Thread
+            }
+            // 自己邮箱这条没通：让免授权码通道再试一次，两条原因都留着给用户看
+            val fb = runCatching {
+                HttpMailSender.send(FEEDBACK_EMAIL, "倒计时工具 意见反馈", bodyFull, sendFiles, contactOrFrom())
+            }.getOrNull()
+            if (fb != null && fb.ok) {
+                runOnUiThread {
+                    runCatching { progress.dismiss() }
+                    Toast.makeText(applicationContext, "反馈已发送，请耐心等待回复！", Toast.LENGTH_LONG).show()
+                    finish()
+                }
+                return@Thread
+            }
+            val why = "你填的邮箱（$from）那条：${res.message}" +
+                    (if (fb == null) "" else " ／ 免授权码通道那条：${fb.message}")
             runOnUiThread {
                 runCatching { progress.dismiss() }
                 submitBtn.isEnabled = true
                 submitBtn.text = "提交反馈（直接发到我的邮箱）"
+            }
+            showAllFailed(uris, files, why)
+        }.start()
+    }
+
+    /**
+     * 「测一下能不能发」：专门用来验证上面填的邮箱 + 授权码配没配好。
+     *
+     * 发一封很短的测试信到**你自己的**邮箱 —— 收件箱里一眼就能看见「能发」，
+     * 不用先憋一篇反馈、点提交、等半天才被告知授权码填错了。
+     */
+    private fun testSmtpSend() {
+        val from = smtpFrom()
+        val pass = smtpPass()
+        if (!from.contains("@") || pass.isBlank()) {
+            Toast.makeText(
+                this,
+                "先把上面两处都填上：你的邮箱 + 它的授权码，再点测试～",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+        val acc = SmtpSender.guess(from, pass)
+        if (acc == null) {
+            Toast.makeText(this, "邮箱地址看着不太对呢，检查一下上面填的那个～", Toast.LENGTH_LONG).show()
+            return
+        }
+        testBtn.isEnabled = false
+        val toast = Toast.makeText(this, "正在发一封测试信到 $from，等一两秒…", Toast.LENGTH_LONG)
+        toast.show()
+        Thread {
+            val res = SmtpSender.send(
+                acc, from, "倒计时工具 · 发信设置测试",
+                "这是一封测试信：说明你填的邮箱和授权码能正常往外发。\n"
+                        + "收到这封就代表配置没问题，以后点「提交反馈」直接在后台发，不用再打开邮箱应用了～\n"
+                        + "发送时间：${nowText()}",
+                emptyList()
+            )
+            runOnUiThread {
+                testBtn.isEnabled = true
+                toast.cancel()
                 if (res.ok) {
-                    Toast.makeText(applicationContext, "反馈已发送，请耐心等待回复！", Toast.LENGTH_LONG).show()
-                    finish()
+                    Toast.makeText(
+                        this, "发通啦！去 $from 收件箱看看那封测试信，能收到就没问题～", Toast.LENGTH_LONG
+                    ).show()
                 } else {
-                    onFail(res.message)
+                    UpdateManager.showStyledDialog(
+                        this, "这封没发出去", "知道了", "", true
+                    ) { host ->
+                        host.addView(noteTv("服务器给的原因是："))
+                        host.addView(noteTv(res.message))
+                        host.addView(noteTv("多半是授权码填错了（填的是授权码，不是登录密码），"
+                                + "或者这个邮箱还没开通 SMTP 服务 —— 去邮箱网页版「设置 → 账户」里打开 SMTP，"
+                                + "它会给你一个授权码，把它粘到上面再点一次测试。"))
+                    }
                 }
             }
         }.start()
@@ -651,7 +765,7 @@ class FeedbackActivity : Activity() {
                 saveSmtpCreds(from, pass)
                 refreshSmtpStatus()
                 if (from.contains("@") && pass.isNotBlank()) {
-                    sendViaSmtp(from, pass, files) { showAllFailed(uris, files, it) }
+                    sendViaSmtp(uris, files, from, pass)
                 } else {
                     Toast.makeText(this, "上面两处都填上才行：邮箱 + 授权码～", Toast.LENGTH_LONG).show()
                 }
