@@ -7,6 +7,7 @@ import android.database.MatrixCursor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
+import android.webkit.MimeTypeMap
 import java.io.File
 import java.io.FileNotFoundException
 
@@ -76,18 +77,30 @@ class FeedbackProvider : ContentProvider() {
     override fun getType(uri: Uri): String {
         val f = resolve(uri) ?: return "*/*"
         val name = f.name.lowercase()
+        // 认不出的后缀按常见的一一对应兜住，别让它掉进「什么都不是」→ 邮箱不认 → 让你自己再挑一次
         return when {
-            name.endsWith(".jpg") || name.endsWith(".jpeg") -> "image/jpeg"
+            name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".jfif") -> "image/jpeg"
             name.endsWith(".png") -> "image/png"
             name.endsWith(".webp") -> "image/webp"
             name.endsWith(".gif") -> "image/gif"
             name.endsWith(".bmp") -> "image/bmp"
-            name.endsWith(".mp4") -> "video/mp4"
+            name.endsWith(".heic") -> "image/heic"
+            name.endsWith(".heif") -> "image/heif"
+            name.endsWith(".avif") -> "image/avif"
+            name.endsWith(".mp4") || name.endsWith(".m4v") -> "video/mp4"
             name.endsWith(".mov") -> "video/quicktime"
             name.endsWith(".3gp") -> "video/3gpp"
             name.endsWith(".mkv") -> "video/x-matroska"
+            name.endsWith(".webm") -> "video/webm"
             name.endsWith(".avi") -> "video/x-msvideo"
-            else -> "text/plain"
+            name.endsWith(".jpe") -> "image/jpeg"
+            name.endsWith(".m4v") || name.endsWith(".mp4v") -> "video/mp4"
+            name.endsWith(".m4u8v") -> "video/mp2t"
+            name.endsWith(".mpeg") || name.endsWith(".mpg") -> "video/mpeg"
+            name.endsWith(".wmv") -> "video/x-ms-wmv"
+            name.endsWith(".tiff") || name.endsWith(".tif") -> "image/tiff"
+            name.endsWith(".ico") -> "image/x-icon"
+            else -> "application/octet-stream"
         }
     }
 
