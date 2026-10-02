@@ -343,13 +343,29 @@ class FeedbackActivity : Activity() {
             val f = writeLogFile()
             if (f != null) uris.add(uriOf(f))
         }
-        for (f in attachments) {
-            if (!f.exists() || f.length() <= 0L) {
-                Toast.makeText(this, "有附件读不出来了呢，先把它撤掉再提交～", Toast.LENGTH_LONG).show()
-                refreshAttachUi()
-                return
-            }
-            uris.add(uriOf(f))
+        // ① 附件先在缓存里整理成「扩展名跟文件头对得上」的干净副本：
+        //    邮箱靠扩展名和类型判断自己认不认得这个附件，认不出（比如 HEIC、没后缀、后缀被改名过）
+        //    就会把它当空气，然后反过来让你自己再挑一次图。
+        val canonical = canonicalAttachments()
+        // ② 再走一遍真正的 content 通路自检查：读不出来的直接剔掉，绝不半个附件混进去。
+        val keep = ArrayList<Uri>()
+        val dropped = ArrayList<String>()
+        for (f in canonical) {
+            val u = uriOf(f)
+            if (readableViaUri(u)) keep.add(u) else dropped.add(f.name)
+        }
+        if (dropped.isNotEmpty()) {
+            Toast.makeText(
+                this,
+                "「${dropped.first()}」读不出来了呢，先把这个撤掉再提交～",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+        uris.addAll(keep)
+        if (uris.isEmpty() && canonical.isNotEmpty()) {
+            Toast.makeText(this, "这几个附件读不出来了呢，先撤掉它们再提交～", Toast.LENGTH_LONG).show()
+            return
         }
 
         // 先走「ACTION_SEND + 收件人已填好」：各家邮箱只在这条正规路上把图片 / 视频挂进撰写页，
@@ -444,6 +460,9 @@ class FeedbackActivity : Activity() {
         intent.addFlags(
             Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         )
+        // 顺手确保落到邮箱的「新写信页」：不带这两个 flag 时，startActivity 常常把邮箱里
+        // 上次没写完、还挂在后台的旧写信页直接唤起来，那一页上自然没有这次的附件。
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         if (uris.size == 1) intent.putExtra(Intent.EXTRA_STREAM, uris[0])
         else intent.putExtra(Intent.EXTRA_STREAM, ArrayList(uris))
         val clip = ClipData.newUri(contentResolver, subject, uris[0])
@@ -493,6 +512,89 @@ class FeedbackActivity : Activity() {
     /** 缓存目录里的附件转成 content://，交给 FeedbackProvider 供邮箱读取。 */
     private fun uriOf(f: File): Uri =
         Uri.parse("content://$packageName.feedback/entry/${f.name}")
+
+    /**
+     * 把已选附件整理成「扩展名跟真实文件头一致」的干净副本（fb_1.jpg / fb_2.mp4 …）。
+     *
+     * 邮箱 / 短信这类应用基本是照着扩展名和 MIME 判断自己认不认得这个附件的：
+     * 相册给的名义后缀可能是 .heic、.jfif，甚至没有后缀（微信、QQ 转手过来的图常见），
+     * 认不出的附件它就不挂进写信页，于是你只能在邮箱里自己再挑一次图 —— 毛病就出在这儿。
+     */
+    private fun canonicalAttachments(): List<File> {
+        val dir = FeedbackProvider.attachDir(this)
+        dir.mkdirs()
+        val kept = ArrayList<File>()
+        for (i in attachments.indices) {
+            val src = attachments[i]
+            val f = File(dir, "fb_${i + 1}${detectExt(src)}")
+            try {
+                src.inputStream().use { it.copyTo(FileOutputStream(f)) }
+            } catch (_: Throwable) {
+                continue
+            }
+            if (f.length() > 0) kept.add(f)
+        }
+        return kept
+    }
+
+    /** 按文件头猜真实类型，返回带点的扩展名；认不出来就沿用原来的后缀。 */
+    private fun detectExt(f: File): String {
+        val head = try {
+            f.inputStream().use { it.readBytes().copyOf(16) }
+        } catch (_: Throwable) {
+            ByteArray(0)
+        }
+        val ext = when {
+            startsWith(head, 0xFF, 0xD8, 0xFF) -> ".jpg"                       // JPEG
+            startsWith(head, 0x89, 0x50, 0x4E, 0x47) -> ".png"                 // PNG
+            startsWith(head, 0x47, 0x49, 0x46, 0x38) -> ".gif"                 // GIF
+            asText(head, 0, "RIFF") && asText(head, 8, "WEBP") -> ".webp"      // WEBP
+            asText(head, 4, "ftyp") && asText(head, 8, "heic") -> ".heic"      // HEIC
+            asText(head, 4, "ftyp") && asText(head, 8, "heif") -> ".heif"      // HEIF
+            asText(head, 4, "ftyp") && asText(head, 8, "heix") -> ".heic"      // HEIC
+            asText(head, 4, "ftyp") && asText(head, 8, "qt  ") -> ".mov"       // QuickTime
+            asText(head, 4, "ftyp") && asText(head, 8, "3gp") -> ".3gp"        // 3GPP
+            asText(head, 4, "ftyp") -> ".mp4"                                  // MP4 通用
+            startsWith(head, 0x1A, 0x45, 0xDF, 0xA3) && asText(head, 8, "webm") -> ".webm"
+            startsWith(head, 0x1A, 0x45, 0xDF, 0xA3) -> ".mkv"                // Matroska
+            else -> {
+                val old = f.name.substringAfterLast('.', "").lowercase()
+                if (old.isNotBlank() && old.all { it.isLetterOrDigit() }) ".$old" else ""
+            }
+        }
+        return if (ext.isBlank()) oldExtOrEmpty(f) else ext
+    }
+
+    private fun oldExtOrEmpty(f: File): String {
+        val old = f.name.substringAfterLast('.', "").lowercase()
+        return if (old.isNotBlank() && old.all { it.isLetterOrDigit() }) ".$old" else ".bin"
+    }
+
+    private fun startsWith(head: ByteArray, vararg bytes: Int): Boolean {
+        if (head.size < bytes.size) return false
+        for (i in bytes.indices) if ((head[i].toInt() and 0xFF) != bytes[i]) return false
+        return true
+    }
+
+    private fun asText(head: ByteArray, from: Int, s: String): Boolean {
+        if (head.size < from + s.length) return false
+        for (i in s.indices) if (head[from + i].toInt() and 0xFF != s[i].code) return false
+        return true
+    }
+
+    /**
+     * 真的把附件通过 content 通路读一遍，确认邮箱那头取得到。
+     *
+     * 只查文件大小是不够的：文件在、但 provider 那条路没通时，邮箱拿到的是个空附件，
+     * 表现就是「没附件，你自己再挑一个」。
+     */
+    private fun readableViaUri(u: Uri): Boolean {
+        return try {
+            contentResolver.openInputStream(u)?.use { it.readBytes().size > 0 } ?: false
+        } catch (_: Throwable) {
+            false
+        }
+    }
 
     /** 兜底：把正文放进剪贴板（没装邮箱时用得上）。 */
     private fun copyToClipboard() {
