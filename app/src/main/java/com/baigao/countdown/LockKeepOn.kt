@@ -1,6 +1,8 @@
 package com.baigao.countdown
 
+import android.app.KeyguardManager
 import android.content.Context
+import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.PowerManager
@@ -11,28 +13,25 @@ import android.view.View
 import android.view.WindowManager
 
 /**
- * 「锁屏通知常亮」开关对应的屏幕常亮能力（v67 重做锁屏这一段）。
+ * 「锁屏通知常亮」开关：只要锁屏倒计时通知还挂在通知栏 / 锁屏上，屏幕就一直亮着。
  *
- * 规则（与「UI 界面常亮」「悬浮框常亮」同一套）：
- * - 开关打开：**只要锁屏倒计时的通知还挂在通知栏 / 锁屏上**，屏幕就一直亮着、不睡，
- *   锁屏界面上也能一直瞄那个倒计时；
- * - 开关关闭：立刻撤掉常亮，熄屏时间交还给手机系统设置。
+ * 规则：
+ * - 开关打开 → 屏幕一直亮着，锁屏界面上也能一直瞄那个倒计时；
+ * - 开关关闭 → 立刻撤掉常亮，熄屏时间交还给手机系统设置。
  *
- * v66 只靠「看不见的透明小窗 + FLAG_KEEP_SCREEN_ON」，而**锁屏状态下系统不允许
- * 第三方 App 挂悬浮窗**——小窗挂不上，退路的 PARTIAL 唤醒锁又只保 CPU 不保屏幕，
- * 这就是「锁屏界面上没保持常亮」的原因。v67 改成两手抓：
+ * v66 / v67 为什么没生效（教训）：
+ * 1) 官方文档写得很死：`FLAG_KEEP_SCREEN_ON` **只能在 Activity 里设**，服务 / 悬浮窗设了不算；
+ *    而且「应用回到后台后系统会照常熄屏」——所以透明小窗那一路在后台等于白挂；
+ * 2) Android 12+ 对后台应用持有的唤醒锁会强制释放 / 降权，屏幕级唤醒锁同样指望不上。
  *
- * 1) **屏幕级唤醒锁**（SCREEN_BRIGHT_WAKE_LOCK，仅需要已声明的 WAKE_LOCK 权限）：
- *    它是 PowerManager 级别的"按住屏幕"，不经过窗口层，**锁屏状态下照样有效**；
- *    再叠加 ACQUIRE_CAUSES_WAKEUP，接上的一瞬间顺便把屏幕点亮。
- *    条件满足期间**一直持有**（不看屏幕当前亮不亮）——这样屏幕压根走不到系统的
- *    熄屏倒计时；用户按电源键主动关掉仍然会关（电源键最大），再按一下点亮后就
- *    一直亮着不睡了。
- * 2) 透明 1dp 小窗（FLAG_KEEP_SCREEN_ON）：作为未锁屏时的补充保险，锁屏时挂不上
- *    就算了，不影响第 1 条。
+ * 现在的主角是 [LockKeepActivity]：一个挂在锁屏之上、全透明、不抢焦点不拦触摸的全屏 Activity，
+ * 带上 `FLAG_KEEP_SCREEN_ON` —— 系统闹钟能在锁屏上一直亮着，靠的就是这一手。
  *
- * 服务每秒调 [apply]、兜底闹钟每 10s 调 [apply]：开关关掉 / 通知被收掉 / 服务停掉
- * 都会走到 [detach] 把唤醒锁和小窗全撤掉，不会留下按住屏幕的幽灵。
+ * 另外两路降级为保险（谁有用算谁）：
+ * - 未锁屏时的透明小窗（FLAG_KEEP_SCREEN_ON）；
+ * - 屏幕级唤醒锁（SCREEN_BRIGHT_WAKE_LOCK + ACQUIRE_CAUSES_WAKEUP）。
+ *
+ * 触发时机：服务每秒 tick、兜底闹钟每 10 秒、以及屏幕点亮 / 解锁广播（见 LockScreenRefreshReceiver）。
  */
 object LockKeepOn {
 
@@ -41,20 +40,27 @@ object LockKeepOn {
     private const val KEY_ON = "lockscreen_keep_on"
     private const val TAG = "LockKeepOn"
 
-    /** 常亮小窗（一个什么都不画的 1dp 透明角落）。 */
+    /** 常亮小窗（未锁屏时的补充保险）。 */
     @Volatile
     private var keepView: View? = null
-    /** 小窗挂上了没有（挂窗失败时只靠唤醒锁，也算「已按住」）。 */
     @Volatile
     private var windowOn = false
-    /** 已按住屏幕（唤醒锁在手，或小窗挂上）。 */
-    @Volatile
-    private var holding = false
-    /** 挂小窗失败的下次重试时刻（锁屏时系统不让挂，别每秒狂刷日志）。 */
     @Volatile
     private var retryAt = 0L
     @Volatile
     private var wakeLock: PowerManager.WakeLock? = null
+    /** 屏幕级唤醒锁是否已到手（给界面显示状态用）。 */
+    @Volatile
+    private var holding = false
+    /** 常亮页是不是正开着（由 [LockKeepActivity] 自己同步）。 */
+    @Volatile
+    private var activityOn = false
+    /** 拉常亮页失败的下次重试时刻（后台启动被系统拦下时别每秒狂试）。 */
+    @Volatile
+    private var activityRetryAt = 0L
+    /** 用户碰过锁屏（想解锁）→ 这一轮先别接管，等他解完锁 / 屏幕重新点亮再说。 */
+    @Volatile
+    private var backedOff = false
 
     // ---------------- 开关 ----------------
 
@@ -64,20 +70,29 @@ object LockKeepOn {
     fun setOn(ctx: Context, on: Boolean) {
         ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
             .edit().putBoolean(KEY_ON, on).apply()
-        if (!on) detach(ctx)
+        if (on) backedOff = false else detach(ctx)
+    }
+
+    /** 该不该把屏幕按住：开关开 + 锁屏通知开 + 通知栏里确实还挂着锁屏倒计时。 */
+    fun shouldHold(ctx: Context): Boolean =
+        isOn(ctx) && LockScreenClock.isOn(ctx) && LockScreenClock.activeCount() > 0
+
+    /** 系统现在是不是处在锁屏状态。 */
+    fun isKeyguardShowing(ctx: Context): Boolean = try {
+        val km = ctx.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        km.isKeyguardLocked
+    } catch (_: Throwable) {
+        false
     }
 
     // ---------------- 按住屏幕 ----------------
 
     /**
-     * 按当前状态决定屏幕要不要保持亮着。
-     * 条件：开关开着 **且** 锁屏通知开关开着 **且** 通知栏里确实有锁屏倒计时。
-     * **不看屏幕当前亮不亮**——条件满足期间一直持有屏幕级唤醒锁，
-     * 锁屏界面才会一直亮着（v66 的教训：只在屏幕亮着时接，锁屏后照样被系统熄掉）。
+     * 按当前状态决定屏幕要不要保持亮着。服务每秒调一次，兜底闹钟与屏幕广播也会调。
+     * **不看屏幕当前亮不亮**：条件满足就一直持有，锁屏界面才不会到点熄掉。
      */
     fun apply(ctx: Context) {
-        val want = isOn(ctx) && LockScreenClock.isOn(ctx) && LockScreenClock.activeCount() > 0
-        if (!want) {
+        if (!shouldHold(ctx)) {
             detach(ctx)
             return
         }
@@ -85,10 +100,16 @@ object LockKeepOn {
             holding = true
             acquireWakeLock(ctx)
         }
-        // 小窗只是未锁屏时的补充保险：锁屏挂不上就 5 秒后再试，失败也不影响唤醒锁
+        // 保险一：未锁屏时挂个透明小窗（锁屏时系统不让挂，挂不上就 5 秒后再试）
         if (!windowOn && canOverlay(ctx) && System.currentTimeMillis() >= retryAt) {
             windowOn = tryAddWindow(ctx)
             if (!windowOn) retryAt = System.currentTimeMillis() + 5_000
+        }
+        // 主角：锁屏界面上的透明常亮页（FLAG_KEEP_SCREEN_ON 只认 Activity）
+        if (isKeyguardShowing(ctx) && isScreenOn(ctx) && !backedOff && !activityOn &&
+            System.currentTimeMillis() >= activityRetryAt
+        ) {
+            ensureActivity(ctx)
         }
     }
 
@@ -97,6 +118,8 @@ object LockKeepOn {
         holding = false
         windowOn = false
         retryAt = 0
+        activityRetryAt = 0
+        backedOff = false
         releaseWakeLock()
         try {
             val v = keepView ?: return
@@ -108,15 +131,60 @@ object LockKeepOn {
         }
     }
 
-    /** 当前是不是正把屏幕按在亮着（给「关于」页显示实时状态用）。 */
-    fun isHolding(): Boolean = holding
+    /** 当前常亮有没有真的接上（唤醒锁在手或常亮页开着，给界面显示状态用）。 */
+    fun isHolding(): Boolean = holding || activityOn
 
-    private fun prefs(ctx: Context) =
-        ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+    /** 常亮页是否正挂在锁屏上（界面状态里最想看到的那个「已接上」）。 */
+    fun isActivityOn(): Boolean = activityOn
+
+    // ---------------- 常亮页的生命周期回调 ----------------
+
+    internal fun onActivityShown() {
+        activityOn = true
+        activityRetryAt = 0
+    }
+
+    internal fun onActivityGone() {
+        activityOn = false
+    }
+
+    /** 用户碰了锁屏（要解锁 / 要拉通知栏）→ 退开一轮，别挡着人家。 */
+    internal fun onUserTouched() {
+        backedOff = true
+    }
+
+    /** 解锁了 / 屏幕重新点亮 → 解除退避，下次锁屏还能接着接管。 */
+    internal fun onUserPresent() {
+        backedOff = false
+    }
+
+    private fun ensureActivity(ctx: Context) {
+        try {
+            val i = Intent(ctx, LockKeepActivity::class.java)
+            i.addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_NO_ANIMATION or
+                        Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
+            )
+            ctx.startActivity(i)
+            // 起没起来由 Activity 自己回报（onActivityShown）；没回报就 3 秒后再试
+            activityRetryAt = System.currentTimeMillis() + 3_000
+        } catch (e: Throwable) {
+            Log.w(TAG, "keep activity: ${e.message}")
+            activityRetryAt = System.currentTimeMillis() + 3_000
+        }
+    }
 
     private fun canOverlay(ctx: Context): Boolean =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
             Settings.canDrawOverlays(ctx) else true
+
+    private fun isScreenOn(ctx: Context): Boolean = try {
+        val pm = ctx.getSystemService(Context.POWER_SERVICE) as PowerManager
+        pm.isInteractive
+    } catch (_: Throwable) {
+        true
+    }
 
     /** 挂一个 1dp 的透明小窗到右下角，只为了挂上 FLAG_KEEP_SCREEN_ON（未锁屏时才挂得上）。 */
     private fun tryAddWindow(ctx: Context): Boolean = try {
@@ -144,7 +212,7 @@ object LockKeepOn {
 
     /**
      * 屏幕级唤醒锁：把屏幕按在亮着的状态，锁屏界面也有效；
-     * ACQUIRE_CAUSES_WAKEUP 让接上的一瞬间顺便把屏幕点亮。
+     * ACQUIRE_CAUSES_WAKEUP 让接上的一瞬间顺便把屏幕点亮（Android 12+ 对后台锁定有降权，算保险）。
      */
     @Suppress("DEPRECATION")
     private fun acquireWakeLock(ctx: Context) = try {
