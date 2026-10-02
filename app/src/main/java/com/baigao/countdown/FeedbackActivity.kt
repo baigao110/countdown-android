@@ -52,6 +52,8 @@ class FeedbackActivity : Activity() {
         const val FEEDBACK_EMAIL = "baigao110@qq.com"
         private const val REQ_PICK_MEDIA = 1006
         private const val MAX_MEDIA = 9
+        /** 运行日志附件的规范名：跟图片视频一样走同一套类型认得出来的通路。 */
+        private const val LOG_ATTACH_NAME = "fb_log.txt"
     }
 
     private lateinit var nicknameEt: EditText
@@ -250,34 +252,58 @@ class FeedbackActivity : Activity() {
         return sb.toString()
     }
 
-    /** 「附带运行日志」那份 txt：真正能帮我定位的东西。 */
+    /**
+     * 「附带运行日志」那份 txt：真正能帮我定位的东西。
+     *
+     * ⚠️ 每一段都自己兜住：以前整段包在一个 try 里，等于「读倒计时列表 / 读 logcat / 读开关」
+     * 任何一小步没成功，整份日志就作废 —— 而调用方会把它当「附件没了」静默跳过，
+     * 最后你点提交进邮箱，附件栏空空的，还得自己再挑一次图片或视频。这种「悄悄少一个附件」
+     * 是最难查的，所以现在各段互不影响，丢就丢那一段，日志本身一定还在。
+     */
     private fun buildLogText(): String {
         val sb = StringBuilder()
         sb.append("倒计时工具 · 运行信息\n==============\n")
-        sb.append("提交时间：${nowText()}\n")
-        sb.append("应用版本：v${UpdateManager.CURRENT_VERSION_NAME}（versionCode ${appVersionCode()}）\n")
-        sb.append("系统：Android ${Build.VERSION.RELEASE}（SDK ${Build.VERSION.SDK_INT}）\n")
-        sb.append("设备：${Build.MANUFACTURER} ${Build.MODEL} / ${Build.DEVICE} / ${Build.DISPLAY}\n")
-        val dm = resources.displayMetrics
-        sb.append("屏幕：${dm.widthPixels}x${dm.heightPixels}（${dm.densityDpi}dpi）\n")
-        sb.append("语言：${Locale.getDefault()}  时区：${zoneText()}\n\n")
-        sb.append("长按开关状态：\n")
-        sb.append("  UI 界面常亮：${yesNo(ScreenKeepOn.isUiOn(this))}\n")
-        sb.append("  悬浮框常亮：${yesNo(ScreenKeepOn.isFloatOn(this))}\n")
-        sb.append("  锁屏通知显示：${yesNo(LockScreenClock.isOn(this))}\n")
-        sb.append("  锁屏通知常亮：${yesNo(LockKeepOn.isOn(this))}\n\n")
-        val list = try {
-            CountdownStore.load(this)
+        // ① 基础信息
+        try {
+            sb.append("提交时间：${nowText()}\n")
+            sb.append("应用版本：v${UpdateManager.CURRENT_VERSION_NAME}（versionCode ${appVersionCode()}）\n")
+            sb.append("系统：Android ${Build.VERSION.RELEASE}（SDK ${Build.VERSION.SDK_INT}）\n")
+            sb.append("设备：${Build.MANUFACTURER} ${Build.MODEL} / ${Build.DEVICE} / ${Build.DISPLAY}\n")
+            val dm = resources.displayMetrics
+            sb.append("屏幕：${dm.widthPixels}x${dm.heightPixels}（${dm.densityDpi}dpi）\n")
+            sb.append("语言：${Locale.getDefault()}  时区：${zoneText()}\n\n")
         } catch (_: Throwable) {
-            emptyList()
+            sb.append("（基础信息读不出来）\n\n")
         }
-        sb.append("当前倒计时（${list.size} 条）：\n")
-        list.forEachIndexed { i, c ->
-            val mode = CountdownFormatter.modeName(c.displayMode, c.builtIn)
-            sb.append("  ${i + 1}. ${c.title} ｜ 模式：$mode ｜ 剩余：${c.remainingText()} ｜ 已展开：${yesNo(c.isVisible)}\n")
+        // ② 开关状态
+        try {
+            sb.append("长按开关状态：\n")
+            sb.append("  UI 界面常亮：${yesNo(ScreenKeepOn.isUiOn(this))}\n")
+            sb.append("  悬浮框常亮：${yesNo(ScreenKeepOn.isFloatOn(this))}\n")
+            sb.append("  锁屏通知显示：${yesNo(LockScreenClock.isOn(this))}\n")
+            sb.append("  锁屏通知常亮：${yesNo(LockKeepOn.isOn(this))}\n\n")
+        } catch (_: Throwable) {
+            sb.append("（开关状态读不出来）\n\n")
         }
-        sb.append("\n运行日志（logcat 最近片段）：\n")
-        sb.append(tailLogcat())
+        // ③ 当前倒计时列表
+        try {
+            val list = CountdownStore.load(this)
+            sb.append("当前倒计时（${list.size} 条）：\n")
+            list.forEachIndexed { i, c ->
+                val mode = CountdownFormatter.modeName(c.displayMode, c.builtIn)
+                sb.append("  ${i + 1}. ${c.title} ｜ 模式：$mode ｜ 剩余：${c.remainingText()} ｜ 已展开：${yesNo(c.isVisible)}\n")
+            }
+            sb.append('\n')
+        } catch (_: Throwable) {
+            sb.append("（当前倒计时列表读不出来）\n\n")
+        }
+        // ④ logcat 片段
+        try {
+            sb.append("运行日志（logcat 最近片段）：\n")
+            sb.append(tailLogcat())
+        } catch (_: Throwable) {
+            sb.append("（运行日志读不出来）")
+        }
         return sb.toString()
     }
 
@@ -285,7 +311,7 @@ class FeedbackActivity : Activity() {
         return try {
             val dir = FeedbackProvider.attachDir(this)
             dir.mkdirs()
-            val f = File(dir, "countdown-feedback-log.txt")
+            val f = File(dir, LOG_ATTACH_NAME)
             FileOutputStream(f).use { out ->
                 out.write(buildLogText().toByteArray(java.nio.charset.StandardCharsets.UTF_8))
             }
@@ -338,21 +364,31 @@ class FeedbackActivity : Activity() {
         }
 
         val body = buildBody()
-        val uris = ArrayList<Uri>()
+        // ① 附件先在缓存里整理成「扩展名跟真实内容对得上」的干净副本（日志和图片视频同一条通路）：
+        //    邮箱靠扩展名和类型判断自己认不认得这个附件，认不出（比如 HEIC、没后缀、后缀被改名过，
+        //    或者像运行日志那样被判成「通用二进制件」）就当这封信没附件，反过来让你自己再挑一次图。
+        val files = ArrayList<File>()
         if (logSwitch.isChecked) {
-            val f = writeLogFile()
-            if (f != null) uris.add(uriOf(f))
+            val log = writeLogFile()
+            if (log == null) {
+                // 以前这里会静默跳过：日志没写成就当「没附件」直接发，你进邮箱看到空附件栏，
+                // 还以为附件没递过去。写不出来就得说清楚，别让人白跑一趟。
+                Toast.makeText(
+                    this,
+                    "运行日志这次没写出来呢，先把勾去掉再提交（正文一样发得出去）～",
+                    Toast.LENGTH_LONG
+                ).show()
+            } else {
+                files.add(log)
+            }
         }
-        // ① 附件先在缓存里整理成「扩展名跟文件头对得上」的干净副本：
-        //    邮箱靠扩展名和类型判断自己认不认得这个附件，认不出（比如 HEIC、没后缀、后缀被改名过）
-        //    就会把它当空气，然后反过来让你自己再挑一次图。
-        val canonical = canonicalAttachments()
+        files.addAll(canonicalAttachments())
         // ② 再走一遍真正的 content 通路自检查：读不出来的直接剔掉，绝不半个附件混进去。
-        val keep = ArrayList<Uri>()
+        val uris = ArrayList<Uri>()
         val dropped = ArrayList<String>()
-        for (f in canonical) {
+        for (f in files) {
             val u = uriOf(f)
-            if (readableViaUri(u)) keep.add(u) else dropped.add(f.name)
+            if (readableViaUri(u)) uris.add(u) else dropped.add(f.name)
         }
         if (dropped.isNotEmpty()) {
             Toast.makeText(
@@ -362,8 +398,7 @@ class FeedbackActivity : Activity() {
             ).show()
             return
         }
-        uris.addAll(keep)
-        if (uris.isEmpty() && canonical.isNotEmpty()) {
+        if (uris.isEmpty() && files.isNotEmpty()) {
             Toast.makeText(this, "这几个附件读不出来了呢，先撤掉它们再提交～", Toast.LENGTH_LONG).show()
             return
         }
@@ -473,13 +508,25 @@ class FeedbackActivity : Activity() {
         return intent
     }
 
-    /** 分享的 MIME：清一色图片就用图片类、清一色视频就用视频类，混合 / 日志就用通配类。 */
+    /**
+     * 分享的 MIME：永远交给邮箱一个**它认得的具体类型**，绝不轻易丢通配类。
+     *
+     * 只勾「附带运行日志」时，附件的真实类型是文本类；可 Type 表里没 txt 这一档时
+     * 会被判成通用二进制件，这里就落到通配类 —— 而国产邮箱 App 基本只认「图片类」「视频类」
+     * 「文本类」这些写死的类型，看到通配就当你是「分享一个普通文件」
+     * 而不是「写一封带附件的邮件」，于是撰写页打开、附件栏空着，又要你自选一次图。
+     * 所以混装时宁可按「主角」（有图按图、有视频按视频）给具体类型，也别退到通配。
+     * ⚠️ 注释里千万别出现斜杠星号连着的样子，Kotlin 会当成嵌套注释的开头报一堆假错。
+     */
     private fun sharedType(uris: List<Uri>): String {
         val types = uris.map { runCatching { contentResolver.getType(it) }.getOrNull() }
         return when {
             types.isNotEmpty() && types.all { it?.startsWith("image/") == true } -> "image/*"
             types.isNotEmpty() && types.all { it?.startsWith("video/") == true } -> "video/*"
-            types.isNotEmpty() && types.all { it?.startsWith("text/") == true } -> "text/*"
+            types.isNotEmpty() && types.all { it?.startsWith("text/") == true } -> "text/plain"
+            types.any { it?.startsWith("image/") == true } -> "image/*"
+            types.any { it?.startsWith("video/") == true } -> "video/*"
+            types.any { it?.startsWith("text/") == true } -> "text/plain"
             else -> "*/*"
         }
     }
@@ -521,20 +568,25 @@ class FeedbackActivity : Activity() {
      * 认不出的附件它就不挂进写信页，于是你只能在邮箱里自己再挑一次图 —— 毛病就出在这儿。
      */
     private fun canonicalAttachments(): List<File> {
-        val dir = FeedbackProvider.attachDir(this)
-        dir.mkdirs()
         val kept = ArrayList<File>()
         for (i in attachments.indices) {
             val src = attachments[i]
-            val f = File(dir, "fb_${i + 1}${detectExt(src)}")
-            try {
-                src.inputStream().use { it.copyTo(FileOutputStream(f)) }
-            } catch (_: Throwable) {
-                continue
-            }
-            if (f.length() > 0) kept.add(f)
+            canonicalCopy(src, "fb_${i + 1}${detectExt(src)}")?.let { kept.add(it) }
         }
         return kept
+    }
+
+    /** 在附件目录里存一份指定名字的干净副本（同名直接覆盖，每次提交前的产物都长得一样）。 */
+    private fun canonicalCopy(src: File, name: String): File? {
+        return try {
+            val dir = FeedbackProvider.attachDir(this)
+            dir.mkdirs()
+            val f = File(dir, name)
+            src.inputStream().use { it.copyTo(FileOutputStream(f)) }
+            if (f.exists() && f.length() > 0) f else null
+        } catch (_: Throwable) {
+            null
+        }
     }
 
     /** 按文件头猜真实类型，返回带点的扩展名；认不出来就沿用原来的后缀。 */
