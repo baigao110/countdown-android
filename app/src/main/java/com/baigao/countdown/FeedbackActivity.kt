@@ -6,7 +6,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -69,6 +68,9 @@ class FeedbackActivity : Activity() {
 
     /** 已经挑好的图片 / 视频（放到缓存目录里，等提交时作为附件发出去）。 */
     private val attachments = ArrayList<File>()
+
+    /** 上一次写出来的运行日志原文（贴进邮件正文兜底用，见 submit()）。 */
+    private var logTextCache = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -309,11 +311,15 @@ class FeedbackActivity : Activity() {
 
     private fun writeLogFile(): File? {
         return try {
+            val text = buildLogText()
+            // 原文留一份：只有「运行日志」这一个文本附件时，邮箱不一定肯把它挂成附件，
+            // 那就同一份内容再贴进邮件正文，保证这封反馈里一定有东西，不会逼你回头自己再挑图。
+            logTextCache = text
             val dir = FeedbackProvider.attachDir(this)
             dir.mkdirs()
             val f = File(dir, LOG_ATTACH_NAME)
             FileOutputStream(f).use { out ->
-                out.write(buildLogText().toByteArray(java.nio.charset.StandardCharsets.UTF_8))
+                out.write(text.toByteArray(java.nio.charset.StandardCharsets.UTF_8))
             }
             f
         } catch (_: Throwable) {
@@ -363,7 +369,6 @@ class FeedbackActivity : Activity() {
             return
         }
 
-        val body = buildBody()
         // ① 附件先在缓存里整理成「扩展名跟真实内容对得上」的干净副本（日志和图片视频同一条通路）：
         //    邮箱靠扩展名和类型判断自己认不认得这个附件，认不出（比如 HEIC、没后缀、后缀被改名过，
         //    或者像运行日志那样被判成「通用二进制件」）就当这封信没附件，反过来让你自己再挑一次图。
@@ -403,12 +408,34 @@ class FeedbackActivity : Activity() {
             return
         }
 
+        // 只剩「运行日志」这种文本文件当附件时，邮箱很可能不肯把它挂成附件（它只认图片 / 视频那类），
+        // 所以把同一份日志再贴进邮件正文：附件挂上了最好，挂不上也照样发得出、看得见，
+        // 不至于让你进了撰写页发现空空如也，还得自己回头再挑一次图。
+        val logInBody = logSwitch.isChecked && uris.size == 1 && sharedType(uris).startsWith("text")
+        val body = if (logInBody) {
+            buildBody() + "\n\n【运行日志（一并贴在正文，方便直接看）】\n" + logTextCache + "\n"
+        } else {
+            buildBody()
+        }
+
         // 先走「ACTION_SEND + 收件人已填好」：各家邮箱只在这条正规路上把图片 / 视频挂进撰写页，
-        // 进邮箱就能看见附件，不用回头自己再挑一遍。它没人接才退回 mailto 直投，
+        // 进邮箱就能看见附件，不用回头自己再挑一遍。它接不住才退回 mailto 直投，
         // 再不行给个分享列表挑，最后退到复制内容备用。
+        //
+        // ⚠️ 这里**不要**事先用 queryIntentActivities 判断「有没有人接」再决定走哪条路：
+        // 只有文本附件时，那种查法返回的是微信 / QQ / 蓝牙这类「分享文本」的应用，
+        // 邮箱不在表里（它没给 text/plain 声明 DEFAULT），会被误判成没人接而掉进 mailto 直投，
+        // 而 mailto 那条路的附件正是被各家邮箱直接丢掉的 —— 症状就是「进了邮箱还得自己再挑一次图」。
+        // 所以直接开工，让人家自己抛异常决定，抛不了才退下一层。
         val send = buildSendIntent(body, uris, mail = false)
         val mailTo = buildSendIntent(body, uris, mail = true)
-        val extra = if (uris.isEmpty()) "" else "，图片 / 视频 / 日志已带上 ${uris.size} 个"
+        val extra = if (uris.isEmpty()) {
+            ""
+        } else if (logInBody) {
+            "，日志已带上，同一份也贴在正文里了，进邮箱看不到附件也没关系"
+        } else {
+            "，图片 / 视频 / 日志已带上 ${uris.size} 个"
+        }
 
         if (openEmail(send, uris)) {
             Toast.makeText(
@@ -450,7 +477,6 @@ class FeedbackActivity : Activity() {
      * 返回 false 时调用方继续往下退一层，而不是丢一个闪退给用户看。
      */
     private fun openEmail(intent: Intent, uris: List<Uri>): Boolean {
-        if (!hasHandler(intent)) return false
         return try {
             grantAll(intent, uris)
             startActivity(intent)
@@ -459,12 +485,6 @@ class FeedbackActivity : Activity() {
             false
         }
     }
-
-    /** 这份 Intent 有没有应用肯接（空表就说明这手机上没装能收的邮箱）。 */
-    private fun hasHandler(intent: Intent): Boolean =
-        runCatching {
-            packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY).isNotEmpty()
-        }.getOrDefault(false)
 
     /**
      * 拼一个「附件会真的跟过去」的分享 Intent（v70 修邮箱里要再选一次图片的毛病）。
@@ -541,10 +561,10 @@ class FeedbackActivity : Activity() {
         if (uris.isEmpty()) return
         val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
         try {
-            val targets = packageManager.queryIntentActivities(
-                intent,
-                PackageManager.MATCH_DEFAULT_ONLY
-            )
+            // 这里刻意不用 MATCH_DEFAULT_ONLY：只勾运行日志时，能接 ACTION_SEND + 文本类的
+            // 往往只有微信 / QQ / 蓝牙这类「分享文本」的应用，授权给它们没用，
+            // 真正要读附件的是邮箱。用 0 把候选面放宽，挨个包把权限交到，多授几个无害。
+            val targets = packageManager.queryIntentActivities(intent, 0)
             for (ri in targets) {
                 val pkg = ri.activityInfo?.packageName ?: continue
                 for (u in uris) {
