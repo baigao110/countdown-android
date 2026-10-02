@@ -35,9 +35,12 @@ import java.util.Locale
  * 3. 可选的「附带运行日志」：把机型、系统版本、应用版本、当前倒计时列表、几类开关状态写成一个 txt 一起发，
  *    定位问题最快；里面不包含你的备注内容。
  *
- * 提交走系统邮箱（ACTION_SENDTO）：工程刻意零第三方依赖，没法在 App 里自带发信，
+ * 提交走系统邮箱：工程刻意零第三方依赖，没法在 App 里自带发信，
  * 所以「提交」= 打开邮箱应用、收件人已经填成 baigao110@qq.com、标题正文附件都备好，
- * 你点一下发送就到了。手机没装邮箱时，下面还有一个「复制内容备用」，粘到微信 / QQ 发同样收得到。
+ * 你点一下发送就到了。首选 ACTION_SEND（收件人走 EXTRA_EMAIL 填），因为各家邮箱
+ * 只在这条路上老老实实把图片 / 视频挂进撰写页；ACTION_SENDTO（mailto 直投）那条路
+ * 会被 Gmail 和不少手机自带邮箱直接丢掉附件。手机没装邮箱时，下面还有「复制内容备用」，
+ * 粘到微信 / QQ 发同样收得到。
  *
  * 附件用 FeedbackProvider（content:// + FLAG_GRANT_READ_URI_PERMISSION）交给邮箱读取，
  * 既不往公共存储里塞文件，也不需要任何存储权限。
@@ -349,32 +352,68 @@ class FeedbackActivity : Activity() {
             uris.add(uriOf(f))
         }
 
-        val intent = buildSendIntent(body, uris, mail = true)
-        try {
-            grantAll(intent, uris)
-            startActivity(intent)
-            val extra = if (uris.isEmpty()) "" else "，图片 / 视频 / 日志已一并带上 ${uris.size} 个"
+        // 先走「ACTION_SEND + 收件人已填好」：各家邮箱只在这条正规路上把图片 / 视频挂进撰写页，
+        // 进邮箱就能看见附件，不用回头自己再挑一遍。它没人接才退回 mailto 直投，
+        // 再不行给个分享列表挑，最后退到复制内容备用。
+        val send = buildSendIntent(body, uris, mail = false)
+        val mailTo = buildSendIntent(body, uris, mail = true)
+        val extra = if (uris.isEmpty()) "" else "，图片 / 视频 / 日志已带上 ${uris.size} 个"
+
+        if (openEmail(send, uris)) {
             Toast.makeText(
                 this,
-                "已交给邮箱应用：收件人已经填好啦，你点一下「发送」就到 $FEEDBACK_EMAIL 了$extra",
+                "邮箱撰写页开好啦：收件人填成 $FEEDBACK_EMAIL，标题正文都备好$extra，点一下「发送」就到啦～",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+        if (openEmail(mailTo, uris)) {
+            Toast.makeText(
+                this,
+                "邮箱撰写页开好啦：收件人填成 $FEEDBACK_EMAIL$extra，点一下「发送」就到啦～",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+        try {
+            grantAll(send, uris)
+            startActivity(Intent.createChooser(send, "用哪个发给我？"))
+            Toast.makeText(
+                this,
+                "没找到邮箱应用，挑一个能收附件的发给我就行$extra～",
                 Toast.LENGTH_LONG
             ).show()
         } catch (_: Throwable) {
-            // 没装邮箱：退到「分享」列表（同样带上附件），再不行就让用户复制
-            val fallback = buildSendIntent(body, uris, mail = false)
-            try {
-                grantAll(fallback, uris)
-                startActivity(Intent.createChooser(fallback, "用哪个发给我？"))
-            } catch (_: Throwable) {
-                Toast.makeText(
-                    this,
-                    "这台手机上没找到邮箱应用：先点「复制内容备用」，粘到微信 / QQ 发给我也一样收得到～",
-                    Toast.LENGTH_LONG
-                ).show()
-                copyToClipboard()
-            }
+            Toast.makeText(
+                this,
+                "这台手机上没找到邮箱应用：先点「复制内容备用」，粘到微信 / QQ 发给我也一样收得到～",
+                Toast.LENGTH_LONG
+            ).show()
+            copyToClipboard()
         }
     }
+
+    /**
+     * 打开邮箱写这封信，前提是这台手机上**真有应用接得住**这份 Intent。
+     *
+     * 返回 false 时调用方继续往下退一层，而不是丢一个闪退给用户看。
+     */
+    private fun openEmail(intent: Intent, uris: List<Uri>): Boolean {
+        if (!hasHandler(intent)) return false
+        return try {
+            grantAll(intent, uris)
+            startActivity(intent)
+            true
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    /** 这份 Intent 有没有应用肯接（空表就说明这手机上没装能收的邮箱）。 */
+    private fun hasHandler(intent: Intent): Boolean =
+        runCatching {
+            packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY).isNotEmpty()
+        }.getOrDefault(false)
 
     /**
      * 拼一个「附件会真的跟过去」的分享 Intent（v70 修邮箱里要再选一次图片的毛病）。
