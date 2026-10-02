@@ -7,7 +7,6 @@ import android.database.MatrixCursor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
-import android.webkit.MimeTypeMap
 import java.io.File
 import java.io.FileNotFoundException
 
@@ -100,6 +99,13 @@ class FeedbackProvider : ContentProvider() {
             name.endsWith(".wmv") -> "video/x-ms-wmv"
             name.endsWith(".tiff") || name.endsWith(".tif") -> "image/tiff"
             name.endsWith(".ico") -> "image/x-icon"
+            // 运行日志就是 txt，这一档最要紧：认不出来的话邮箱把它当成「什么都不是的通用件」，
+            // 直接不挂进撰写页 —— 症状就是「还要你自己再挑一次图片或视频」。
+            name.endsWith(".txt") || name.endsWith(".log") || name.endsWith(".json") ||
+                name.endsWith(".csv") || name.endsWith(".xml") || name.endsWith(".md") ||
+                name.endsWith(".java") || name.endsWith(".kt") || name.endsWith(".html") ||
+                name.endsWith(".htm") -> "text/plain"
+            name.endsWith(".zip") -> "application/zip"
             else -> "application/octet-stream"
         }
     }
