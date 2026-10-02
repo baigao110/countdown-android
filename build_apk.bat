@@ -97,7 +97,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-copy /Y "%OUT%" "%ROOT%\countdown-android-v1.0.0.39-release.apk"
+copy /Y "%OUT%" "%ROOT%\countdown-android-v1.0.0.38-release.apk"
 echo [3/3] ���ڸ��Ƶ� ��׿��APK Ŀ¼...
 set "DEST=%ROOT%\..\��׿��APK"
 if not exist "%DEST%" mkdir "%DEST%"
