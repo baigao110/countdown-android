@@ -73,6 +73,8 @@ class AboutActivity : Activity() {
     /** 本次进入页面是否已自动检查过（避免 onResume 反复弹窗）。 */
     private var autoChecked = false
     private val REQ_NOTIFY = 1004
+    /** 锁屏常亮页需要「显示在其他应用上层」权限，去设置页的请求码。 */
+    private val REQ_OVERLAY = 1005
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -234,11 +236,16 @@ class AboutActivity : Activity() {
             if (checked) {
                 // 立刻接上（不用等服务下一跳），并把屏幕按在亮着的状态
                 LockKeepOn.apply(this)
-                Toast.makeText(
-                    this,
-                    "锁屏通知常亮开啦：只要锁屏 / 通知栏上还有倒计时，屏幕就一直亮着，\n不会按手机的熄屏时间睡去（有点费电哦）",
-                    Toast.LENGTH_LONG
-                ).show()
+                if (canOverlayForKeep()) {
+                    Toast.makeText(
+                        this,
+                        "锁屏通知常亮开啦：只要锁屏 / 通知栏上还有倒计时，屏幕就一直亮着，\n不会按手机的熄屏时间睡去（有点费电哦）",
+                        Toast.LENGTH_LONG
+                    ).show()
+                } else {
+                    // 没这个权限的话，系统不让 App 在后台把常亮页挂到锁屏上（系统闹钟也是靠它）
+                    askOverlayForKeep()
+                }
             } else {
                 Toast.makeText(
                     this,
@@ -424,24 +431,71 @@ class AboutActivity : Activity() {
         lockStateTv.text = sb.toString()
     }
 
-    /** 「锁屏通知常亮」开关的说明 + 当前到底按没按住屏幕。 */
+    /** 「锁屏通知常亮」开关的说明 + 当前到底接上没有。 */
     private fun refreshLockKeepDesc() {
         if (!::lockKeepDescTv.isInitialized) return
         val on = LockKeepOn.isOn(this)
         val holding = LockKeepOn.isHolding()
+        val pageOn = LockKeepOn.isActivityOn()
+        val perm = canOverlayForKeep()
         val sb = StringBuilder()
         sb.append("锁屏通知常亮：打开后，只要锁屏 / 通知栏上还挂着倒计时，屏幕就一直亮着、\n")
         sb.append("锁屏界面上也能一直瞄那个倒计时，不会按手机的熄屏时间睡去；\n")
         sb.append("关掉就立刻恢复手机里设的熄屏时间（想省电随手关掉就行；按电源键仍可主动关屏）。\n")
+        sb.append("做法：在锁屏之上挂一个全透明的常亮页（系统闹钟也是这么干的），\n")
+        sb.append("它不抢焦点、不拦触摸，锁屏照常能划能点；摸到它身上会自动退开，绝不会挡着你解锁。\n")
         sb.append("（没展开任何倒计时、或者把「锁屏通知显示」关掉时，这个开关不会亮屏，不会白耗电哦）\n")
-        if (!on) {
-            sb.append("当前：已关掉，屏幕熄屏时间跟随手机系统设置")
-        } else if (holding) {
-            sb.append("当前：常亮已接上（锁屏界面上也会一直亮着哦）")
-        } else {
-            sb.append("当前：还没接上（锁屏上还没有倒计时通知，通知一挂出来就会自动常亮）")
+        when {
+            !on -> sb.append("当前：已关掉，屏幕熄屏时间跟随手机系统设置")
+            !perm -> sb.append("当前：还差「显示在其他应用上层」权限，点上面的开关按提示开一下就好啦")
+            pageOn -> sb.append("当前：常亮已接上（锁屏界面上也会一直亮着哦）")
+            holding -> sb.append("当前：已开始接管，锁屏后屏幕一亮就会一直亮着")
+            else -> sb.append("当前：还没接上（锁屏上还没有倒计时通知，通知一挂出来就会自动常亮）")
         }
         lockKeepDescTv.text = sb.toString()
+    }
+
+    /** 有没有「显示在其他应用上层」权限（锁屏常亮页要靠它才能在后台挂上锁屏）。 */
+    private fun canOverlayForKeep(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
+
+    /** 缺权限时给个明白话 + 一键跳过去打开。 */
+    private fun askOverlayForKeep() {
+        AlertDialog.Builder(this)
+            .setTitle("还差一个权限呀")
+            .setMessage(
+                "想让它锁屏上也一直亮着，需要「显示在其他应用上层」这个权限哦" +
+                    "（系统闹钟能在锁屏上常亮，靠的也是它）。\n\n" +
+                    "点「去设置看看」打开开关，返回后它会立刻接上；不想现在弄也没关系，" +
+                    "开关会一直开着，等权限给上了自动生效。"
+            )
+            .setPositiveButton("去设置看看") { _, _ ->
+                try {
+                    startActivityForResult(
+                        Intent(
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:$packageName")
+                        ),
+                        REQ_OVERLAY
+                    )
+                } catch (_: Throwable) {
+                    Toast.makeText(
+                        this,
+                        "打不开系统设置呢，请在「设置 → 应用 → 倒计时」里打开「显示在其他应用上层」哦",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+            .setNegativeButton("等会儿", null)
+            .show()
+    }
+
+    /** 从权限页回来：立刻按新权限重试一次，并刷新状态与说明。 */
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != REQ_OVERLAY) return
+        LockKeepOn.apply(this)
+        refreshKeepSwitches()
     }
 
     /** 倒计时刷新服务是不是在跑（锁屏通知与悬浮窗都由它驱动）。 */
