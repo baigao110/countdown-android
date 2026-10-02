@@ -21,3 +21,6 @@ local.properties
 # 系统
 .DS_Store
 Thumbs.db
+# 本地构建/同步日志（不入库）
+build_log*.txt
+sync_log*.txt
