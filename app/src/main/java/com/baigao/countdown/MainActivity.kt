@@ -1076,7 +1076,9 @@ class MainActivity : Activity() {
          * 整块操作面板跟着淡入、并从右侧轻轻滑进来；两颗按钮再错开一点出场 ——
          * 编辑稍早、删除稍晚，各自带横向位移 + 从小幅放大回弹到原尺寸，
          * 展开时看着像依次弹出来；收回时按同样的顺序倒着淡回去。
-         * 前景同时轻微放大一点点，做出「卡片被推开」的层次感。
+         * 另一半是「倒计时淡出」：左滑时上面那块倒计时整片慢慢淡掉（推到头几乎全透明，
+         * 看着像卡片被掀开露出底下两层）；往右滑收回正好反过来 —— 倒计时淡回来、
+         * 两颗按钮倒着淡出。前景同时轻微放大一点点，做出「卡片被推开」的层次感。
          */
         private fun applyReveal(p: Float) {
             ensureActionsWidth()
@@ -1086,6 +1088,7 @@ class MainActivity : Activity() {
                 // 完全收起时把面板属性擦干净，免得下次滑开带着半透明的旧状态
                 actions.alpha = 1f
                 actions.translationX = 0f
+                front.alpha = 1f
                 front.scaleX = 1f
                 front.scaleY = 1f
                 resetButtons()
@@ -1105,6 +1108,9 @@ class MainActivity : Activity() {
             deleteBtn.translationY = (1f - da) * (-dp(14)).toFloat()
             deleteBtn.scaleX = 0.7f + 0.3f * da
             deleteBtn.scaleY = 0.7f + 0.3f * da
+            // 左滑：操作层往里淡入的同时，上面那块倒计时整片淡出（推到头几乎全透明）；
+            // 往右滑收回时 p 变小，这一行自然反过来 —— 倒计时淡回来、按钮倒着淡出。
+            front.alpha = 1f - e
             front.scaleX = 1f + 0.03f * e
             front.scaleY = 1f + 0.03f * e
         }
