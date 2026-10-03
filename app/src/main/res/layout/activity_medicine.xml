@@ -27,7 +27,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="‹ 返回"
-                android:textColor="#00FFFF"
+                android:textColor="#FFA63D"
                 android:textSize="16sp"
                 android:padding="4dp" />
 
@@ -36,7 +36,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="吃药日历"
-                android:textColor="#00FFFF"
+                android:textColor="#FFA63D"
                 android:textSize="20sp"
                 android:textStyle="bold"
                 android:gravity="center"
@@ -119,7 +119,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="● 吃过啦"
-                android:textColor="#00FFFF"
+                android:textColor="#FFA63D"
                 android:textSize="13sp" />
 
             <TextView
@@ -135,7 +135,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="14dp"
                 android:text="○ 今天"
-                android:textColor="#4DFBFF"
+                android:textColor="#FFB877"
                 android:textSize="13sp" />
         </LinearLayout>
 
