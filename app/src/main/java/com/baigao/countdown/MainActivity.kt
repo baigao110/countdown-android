@@ -1,5 +1,8 @@
 package com.baigao.countdown
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.BroadcastReceiver
@@ -19,6 +22,8 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.FrameLayout
@@ -1014,8 +1019,11 @@ class MainActivity : Activity() {
             actions.setOnClickListener { if (isOpen()) closeIfOpen() }
 
             refreshAll()
-            // 未滑动时不绘制操作层（invisible 仍会测量，宽度照常可测）
+            // 未滑动时不绘制操作层（invisible 仍会测量，宽度照常可测），
+            // 同时掐掉可能还在跑的滑动动画、把按钮透明度/缩放复位，免得复用视图时带着旧状态
+            stopRevealAnim()
             setActionsRevealed(false)
+            applyReveal(0f)
             // 布局完成后获取“露出门宽度”（取操作层宽度，右滑即露出编辑/删除按钮）
             post { actionsWidth = actions.measuredWidth }
         }
@@ -1034,15 +1042,94 @@ class MainActivity : Activity() {
             actions.visibility = if (revealed) View.VISIBLE else View.INVISIBLE
         }
 
-        /** 动画移动到指定 translationX。 */
-        private fun animateTo(target: Float) {
-            if (target < 0f) setActionsRevealed(true)
-            front.animate().translationX(target).setDuration(160)
-                .withEndAction { if (target >= 0f) setActionsRevealed(false) }
-                .start()
+        /** 当前滑动露出进度（0 完全收起 / 1 完全展开）。 */
+        private fun revealProgress(): Float {
+            if (actionsWidth <= 0) return 0f
+            return (-front.translationX / actionsWidth).coerceIn(0f, 1f)
         }
 
-        /** 若已滑开则收起。 */
+        /**
+         * 把「露出进度」落到画面上（左滑动画的核心）：
+         * 两颗按钮错开一点点出场 —— 编辑稍早、删除稍晚，各自带一点横向位移 + 轻微缩小，
+         * 展开时看着像依次弹出来；收回时按同样的顺序倒着淡回去。
+         */
+        private fun applyReveal(p: Float) {
+            if (actionsWidth <= 0) return
+            val e = p.coerceIn(0f, 1f)
+            val ea = (e * 1.7f).coerceIn(0f, 1f)
+            editBtn.alpha = ea
+            editBtn.translationX = (1f - ea) * 22f
+            editBtn.translationY = (1f - ea) * -10f
+            editBtn.scaleX = 0.82f + 0.18f * ea
+            editBtn.scaleY = 0.82f + 0.18f * ea
+            val da = ((e - 0.28f) * 1.7f).coerceIn(0f, 1f)
+            deleteBtn.alpha = da
+            deleteBtn.translationX = (1f - da) * 22f
+            deleteBtn.translationY = (1f - da) * -10f
+            deleteBtn.scaleX = 0.82f + 0.18f * da
+            deleteBtn.scaleY = 0.82f + 0.18f * da
+        }
+
+        /** 跟手滑动时立刻按当前位移画一遍（手指走多少，按钮就淡入多少）。 */
+        private fun syncRevealFromDrag() {
+            if (actionsWidth <= 0) return
+            if (front.translationX < -1f) setActionsRevealed(true)
+            applyReveal(revealProgress())
+        }
+
+        /** 当前正在跑的滑动动画（用户重新上手 / 开始拖排序时要掐掉它）。 */
+        private var revealAnim: ValueAnimator? = null
+
+        /** 掐掉正在跑的滑动动画，保持画面停在当前进度。 */
+        private fun stopRevealAnim() {
+            revealAnim?.cancel()
+            revealAnim = null
+        }
+
+        /**
+         * 滑到指定 translationX：左滑展开（target 为负）与右滑收回（target = 0）都走这里。
+         * 用 ValueAnimator 一条动画同时驱动「前景位移」和「按钮淡入淡出」，两者永远同步。
+         */
+        private fun animateTo(target: Float) {
+            if (actionsWidth <= 0) actionsWidth = actions.measuredWidth
+            val open = target < -1f
+            stopRevealAnim()
+            if (open) setActionsRevealed(true)
+            if (actionsWidth <= 0) { // 操作层宽度还没量到：直接落位，不做动画
+                front.translationX = target
+                applyReveal(if (open) 1f else 0f)
+                if (!open) setActionsRevealed(false)
+                return
+            }
+            val from = revealProgress()
+            val anim = ValueAnimator.ofFloat(from, if (open) 1f else 0f)
+            anim.addUpdateListener { va ->
+                val p = va.animatedValue as Float
+                front.translationX = target * p
+                applyReveal(p)
+            }
+            anim.addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    if (revealAnim !== animation) return
+                    revealAnim = null
+                    if (open) {
+                        front.translationX = target
+                        applyReveal(1f)
+                    } else {
+                        front.translationX = 0f
+                        applyReveal(0f)
+                        setActionsRevealed(false)
+                    }
+                }
+            })
+            anim.duration = 220L
+            // 展开来一下小回弹（橡皮筋感），收回则稳稳减速就位，不向右过冲
+            anim.interpolator = if (open) OvershootInterpolator(1.2f) else DecelerateInterpolator(1.5f)
+            revealAnim = anim
+            anim.start()
+        }
+
+        /** 若已滑开则收起（右滑动画走的是上面同一套）。 */
         fun closeIfOpen() {
             if (isOpen()) animateTo(0f)
         }
@@ -1131,7 +1218,9 @@ class MainActivity : Activity() {
         /** 拖动结束后复位手势状态（复位到静止、未滑动）。 */
         fun resetDragState() {
             mode = 0
+            stopRevealAnim()
             front.translationX = 0f
+            applyReveal(0f)
             setActionsRevealed(false)
         }
 
@@ -1146,6 +1235,7 @@ class MainActivity : Activity() {
                     lastX = e.x
                     velX = 0f
                     mode = 0
+                    stopRevealAnim() // 重新上手：掐掉未跑完的滑动动画，交回手指控制
                     if (actionsWidth == 0) actionsWidth = actions.measuredWidth
                     removeCallbacks(longPress)
                     postDelayed(longPress, LONG_PRESS)
@@ -1213,7 +1303,8 @@ class MainActivity : Activity() {
                         var tx = startTx + dx
                         tx = tx.coerceIn(-actionsWidth.toFloat(), 0f)
                         front.translationX = tx
-                        setActionsRevealed(tx < -1f) // 露出多少画多少，收起后立刻隐藏
+                        // 左滑跟手动画：手指走多少，下面的编辑/删除就淡入多少
+                        syncRevealFromDrag()
                         return true
                     }
                     return false
