@@ -5,6 +5,8 @@ import android.content.Intent
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Bundle
+import android.view.View
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.DatePicker
@@ -58,6 +60,7 @@ class AddEditActivity : Activity() {
         val timePicker = findViewById<TimePicker>(R.id.timePicker)
         val colorSpinner = findViewById<Spinner>(R.id.colorSpinner)
         val modeSpinner = findViewById<Spinner>(R.id.modeSpinner)
+        val standardSpinner = findViewById<Spinner>(R.id.standardSpinner)
         val animSpinner = findViewById<Spinner>(R.id.animSpinner)
         val remarkEt = findViewById<EditText>(R.id.etRemark)
         val soundBtn = findViewById<Button>(R.id.btnSound)
@@ -76,10 +79,18 @@ class AddEditActivity : Activity() {
 
         colorSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, colorNames)
         (colorSpinner.adapter as ArrayAdapter<*>).setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        val modeNameList = CountdownFormatter.modeNames(startBuiltIn)
         modeSpinner.adapter = ArrayAdapter(
-            this, android.R.layout.simple_spinner_item, CountdownFormatter.modeNames(startBuiltIn)
+            this, android.R.layout.simple_spinner_item, modeNameList
         )
         (modeSpinner.adapter as ArrayAdapter<*>).setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        // 「标准模式」下拉框：选项与该倒计时的可选模式一致（按类型自动收掉装不下的那几档），
+        // 选它之后下面的「显示模式」立刻同步成同一个模式；反过来在「显示模式」里选也会同步回去。
+        // 两边都随时能改，没有次数限制。
+        standardSpinner.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_item, modeNameList
+        )
+        (standardSpinner.adapter as ArrayAdapter<*>).setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         animSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, AnimStyle.NAMES)
         (animSpinner.adapter as ArrayAdapter<*>).setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
 
@@ -96,7 +107,9 @@ class AddEditActivity : Activity() {
             var ci = colors.indexOfFirst { it == c.customColorArgb }
             if (ci < 0) ci = 0
             colorSpinner.setSelection(ci)
-            modeSpinner.setSelection(CountdownFormatter.modeIndex(c.displayMode, startBuiltIn))
+            val mi = CountdownFormatter.modeIndex(c.displayMode, startBuiltIn)
+            modeSpinner.setSelection(mi)
+            standardSpinner.setSelection(mi)
             animSpinner.setSelection(c.animStyle.coerceIn(0, AnimStyle.NAMES.size - 1))
             remarkEt.setText(c.remark)
             soundBtn.text = if (c.soundUri != null) {
@@ -117,6 +130,31 @@ class AddEditActivity : Activity() {
             } else {
                 "用默认提示音（点一下选一个）"
             }
+        }
+
+        // 两个模式下拉框互相同步：在「标准模式」里选一个，下面的「显示模式」立刻跟着走到同一个模式，
+        // 在「显示模式」里选也会同步回「标准模式」。两个框都随时能改、没有次数限制，
+        // 最终存盘的永远是「显示模式」选中的那一个。
+        // modeSyncGuard 只用来打断「setSelection → 触发对方监听 → 又 setSelection」的来回调用。
+        var modeSyncGuard = false
+        val syncPartner: (Spinner, Int) -> Unit = { box, pos ->
+            if (!modeSyncGuard) {
+                modeSyncGuard = true
+                box.setSelection(pos)
+                modeSyncGuard = false
+            }
+        }
+        standardSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                syncPartner(modeSpinner, position)
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        modeSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                syncPartner(standardSpinner, position)
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
         if (builtInEdit) {
