@@ -881,7 +881,7 @@ class MainActivity : Activity() {
                     minWidth = 0
                     minimumWidth = 0
                     includeFontPadding = false
-                    buttonTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#FFFFA63D"))
+                    buttonTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#FF00FFFF"))
                     setOnCheckedChangeListener { _, b -> checked[i] = b }
                 }
                 boxes.add(cb)
