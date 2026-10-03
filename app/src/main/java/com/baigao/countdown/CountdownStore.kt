@@ -47,10 +47,9 @@ object CountdownStore {
             customColorArgb = o.optInt("customColorArgb", 0xFF00FFFF.toInt()),
             displayMode = run {
                 val m = CountdownFormatter.normalizeMode(o.optInt("displayMode", 0))
-                // 当日倒计时的「天数模式」v29 起下线（它永远显示 0 天），旧数据退回标准模式
-                if ((builtIn == BuiltIn.DAY || builtIn == BuiltIn.HOUR || builtIn == BuiltIn.HALF_HOUR) && m == CountdownFormatter.MODE_DAY) {
-                    CountdownFormatter.MODE_STANDARD
-                } else m
+                // 按类型已收掉的那些模式（当日倒计时的「天时分秒 / 天时分」、每小时与每半小时的
+                // 「小时模式 / 天时分秒 / 天时分」等）对旧数据一样生效，不在可选列表里就退回标准模式
+                if (m in CountdownFormatter.availableModes(builtIn)) m else CountdownFormatter.MODE_STANDARD
             },
             animStyle = o.optInt("animStyle", AnimStyle.NONE),
             isVisible = o.optBoolean("isVisible", true),
