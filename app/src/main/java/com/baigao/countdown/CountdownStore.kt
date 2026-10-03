@@ -48,7 +48,7 @@ object CountdownStore {
             displayMode = run {
                 val m = CountdownFormatter.normalizeMode(o.optInt("displayMode", 0))
                 // 当日倒计时的「天数模式」v29 起下线（它永远显示 0 天），旧数据退回标准模式
-                if ((builtIn == BuiltIn.DAY || builtIn == BuiltIn.HOUR) && m == CountdownFormatter.MODE_DAY) {
+                if ((builtIn == BuiltIn.DAY || builtIn == BuiltIn.HOUR || builtIn == BuiltIn.HALF_HOUR) && m == CountdownFormatter.MODE_DAY) {
                     CountdownFormatter.MODE_STANDARD
                 } else m
             },
@@ -62,7 +62,8 @@ object CountdownStore {
             collapsed = o.optBoolean("collapsed", false),
             posX = o.optInt("posX", -1),
             posY = o.optInt("posY", -1),
-            builtIn = builtIn
+            builtIn = builtIn,
+            builtInManual = o.optBoolean("builtInManual", false)
         )
     }
 
@@ -85,6 +86,7 @@ object CountdownStore {
         o.put("posY", c.posY)
         o.put("builtIn", c.builtIn)
         o.put("animStyle", c.animStyle)
+        o.put("builtInManual", c.builtInManual)
         return o
     }
 
