@@ -1,8 +1,8 @@
 {
-  "versionCode": 91,
+  "versionCode": 92,
   "versionName": "1.0.0.38",
   "date": "2026-10-03",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-  "note": "v91：更新日志里后来整个撤掉的功能都打上 ✗ 并整条划掉 —— 「意见反馈」整块、左滑操作层里那颗「提示音」按钮、编辑页那个「显示模式」下拉框，一眼看出哪些老条目已经点不着了。"
+  "note": "v92：更新日志又补一刀 —— v1.0.0.7 那条老记录整条打叉划掉（上面那三条「意见反馈」「显示模式下拉框」「左滑提示音按钮」也是同样的标法）。带 ✗ 的条目说的都是已经拿掉的老功能。"
 }
