@@ -241,7 +241,13 @@ object CountdownFormatter {
 
     /** 模式号常量：MODE_NAMES 的索引即值，只能在末尾追加。 */
     const val MODE_STANDARD = 0
+    const val MODE_HOUR = 1     // 小时模式：恒显示「N时」（当日倒计时最多 24 小时，有意义）
+    const val MODE_MINUTE = 2
+    const val MODE_SECOND = 3
     const val MODE_DAY = 4      // 天数模式：当日倒计时永远 0 天，对它已下线
+    const val MODE_HMS = 5      // 时分秒模式
+    const val MODE_DAY_HMS = 6  // 天时分秒模式：前面那截恒 0 天，短周期内置项用不上
+    const val MODE_DAY_HM = 7   // 天时分模式：同「天时分秒模式」
 
     val MODE_NAMES = arrayOf(
         "标准模式",     // 0  xx周xx天xx时xx分xx秒
@@ -294,11 +300,30 @@ object CountdownFormatter {
         else -> mode
     }
 
-    /** 该条目可选的模式号列表：当日 / 每小时 / 每半小时倒计时不含「天数模式」（天数恒为 0）。 */
-    fun availableModes(builtIn: Int): List<Int> =
-        MODE_NAMES.indices.filter { m ->
-            !((builtIn == BuiltIn.DAY || builtIn == BuiltIn.HOUR || builtIn == BuiltIn.HALF_HOUR) && m == MODE_DAY)
+    /**
+     * 该条目可选的模式号列表（编辑页两个模式下拉框、悬浮窗与主界面的模式循环都按它走）。
+     * 短周期的内置项把「前面那截永远是 0」的几档收掉：
+     *
+     * - **每小时 / 每半小时倒计时**（最多 1 小时）：砍「小时模式」（恒显示 0 时）、「天数模式」
+     *   （恒 0 天）以及「天时分秒 / 天时分模式」（开头那截恒 0 天），只留 标准 / 分钟 / 秒 / 时分秒。
+     * - **当日倒计时**（最多 24 小时）：砍「天数模式」加上「天时分秒 / 天时分模式」，
+     *   「小时模式」可以留（它能实实在在显示 x 时）。
+     * - 其余倒计时（每周 / 每月 / 华都云境悦府 / GTA6 / 普通）八档全开。
+     */
+    fun availableModes(builtIn: Int): List<Int> {
+        val blocked = HashSet<Int>()
+        if (builtIn == BuiltIn.HOUR || builtIn == BuiltIn.HALF_HOUR) {
+            blocked.add(MODE_HOUR)
+            blocked.add(MODE_DAY)
+            blocked.add(MODE_DAY_HMS)
+            blocked.add(MODE_DAY_HM)
+        } else if (builtIn == BuiltIn.DAY) {
+            blocked.add(MODE_DAY)
+            blocked.add(MODE_DAY_HMS)
+            blocked.add(MODE_DAY_HM)
         }
+        return MODE_NAMES.indices.filter { m -> m !in blocked }
+    }
 
     /** 该条目可选模式的名称（编辑页下拉框用）。 */
     fun modeNames(builtIn: Int): Array<String> =
