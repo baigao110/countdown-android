@@ -44,7 +44,7 @@ object CountdownStore {
             id = o.optString("id", UUID.randomUUID().toString()),
             title = o.optString("title", ""),
             targetTime = target,
-            customColorArgb = o.optInt("customColorArgb", 0xFFFFA63D.toInt()),
+            customColorArgb = o.optInt("customColorArgb", 0xFF00FFFF.toInt()),
             displayMode = run {
                 val m = CountdownFormatter.normalizeMode(o.optInt("displayMode", 0))
                 // 按类型已收掉的那些模式（当日倒计时的「天时分秒 / 天时分」、每小时与每半小时的
