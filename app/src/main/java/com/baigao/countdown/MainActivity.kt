@@ -1032,7 +1032,10 @@ class MainActivity : Activity() {
         private var lastX = 0f
 
         /** 当前是否已滑开（露出操作按钮）。 */
-        private fun isOpen(): Boolean = front.translationX < -actionsWidth / 2f
+        private fun isOpen(): Boolean {
+            ensureActionsWidth()
+            return front.translationX < -actionsWidth / 2f
+        }
 
         /**
          * 是否绘制底层操作按钮（编辑 / 删除）。
@@ -1042,36 +1045,87 @@ class MainActivity : Activity() {
             actions.visibility = if (revealed) View.VISIBLE else View.INVISIBLE
         }
 
+        /**
+         * 量「露出门」的宽度。
+         *
+         * bind() 里是在 post 回调里量操作层的宽度，刚按下手指那一下它可能还是 0
+         * ——那样跟手阶段会被整个跳过、松手也会走「直接落位不做动画」的分支，
+         * 看着就像「左滑没反应 / 动画没生效」。这里每次用到都先兜底量一次，
+         * 量不到就按两颗按钮的宽度估一个，保证手势一开始就正常。
+         */
+        private fun ensureActionsWidth() {
+            if (actionsWidth > 0) return
+            val w = actions.measuredWidth
+            if (w > 0) {
+                actionsWidth = w
+                return
+            }
+            actionsWidth = editBtn.width + deleteBtn.width + dp(24)
+            if (actionsWidth < dp(72)) actionsWidth = dp(72) // 至少能露出一颗按钮
+        }
+
         /** 当前滑动露出进度（0 完全收起 / 1 完全展开）。 */
         private fun revealProgress(): Float {
+            ensureActionsWidth()
             if (actionsWidth <= 0) return 0f
             return (-front.translationX / actionsWidth).coerceIn(0f, 1f)
         }
 
         /**
          * 把「露出进度」落到画面上（左滑动画的核心）：
-         * 两颗按钮错开一点点出场 —— 编辑稍早、删除稍晚，各自带一点横向位移 + 轻微缩小，
+         * 整块操作面板跟着淡入、并从右侧轻轻滑进来；两颗按钮再错开一点出场 ——
+         * 编辑稍早、删除稍晚，各自带横向位移 + 从小幅放大回弹到原尺寸，
          * 展开时看着像依次弹出来；收回时按同样的顺序倒着淡回去。
+         * 前景同时轻微放大一点点，做出「卡片被推开」的层次感。
          */
         private fun applyReveal(p: Float) {
+            ensureActionsWidth()
             if (actionsWidth <= 0) return
             val e = p.coerceIn(0f, 1f)
-            val ea = (e * 1.7f).coerceIn(0f, 1f)
+            if (e <= 0f) {
+                // 完全收起时把面板属性擦干净，免得下次滑开带着半透明的旧状态
+                actions.alpha = 1f
+                actions.translationX = 0f
+                front.scaleX = 1f
+                front.scaleY = 1f
+                resetButtons()
+                return
+            }
+            actions.alpha = 0.3f + 0.7f * e
+            actions.translationX = (1f - e) * dp(40).toFloat()
+            val ea = (e * 1.55f).coerceIn(0f, 1f)
             editBtn.alpha = ea
-            editBtn.translationX = (1f - ea) * 22f
-            editBtn.translationY = (1f - ea) * -10f
-            editBtn.scaleX = 0.82f + 0.18f * ea
-            editBtn.scaleY = 0.82f + 0.18f * ea
-            val da = ((e - 0.28f) * 1.7f).coerceIn(0f, 1f)
+            editBtn.translationX = (1f - ea) * dp(32).toFloat()
+            editBtn.translationY = (1f - ea) * (-dp(14)).toFloat()
+            editBtn.scaleX = 0.7f + 0.3f * ea
+            editBtn.scaleY = 0.7f + 0.3f * ea
+            val da = ((e - 0.32f) * 1.55f).coerceIn(0f, 1f)
             deleteBtn.alpha = da
-            deleteBtn.translationX = (1f - da) * 22f
-            deleteBtn.translationY = (1f - da) * -10f
-            deleteBtn.scaleX = 0.82f + 0.18f * da
-            deleteBtn.scaleY = 0.82f + 0.18f * da
+            deleteBtn.translationX = (1f - da) * dp(32).toFloat()
+            deleteBtn.translationY = (1f - da) * (-dp(14)).toFloat()
+            deleteBtn.scaleX = 0.7f + 0.3f * da
+            deleteBtn.scaleY = 0.7f + 0.3f * da
+            front.scaleX = 1f + 0.03f * e
+            front.scaleY = 1f + 0.03f * e
+        }
+
+        /** 把两颗按钮的属性复位到「没滑开」的样子。 */
+        private fun resetButtons() {
+            editBtn.alpha = 0f
+            deleteBtn.alpha = 0f
+            editBtn.translationX = 0f
+            editBtn.translationY = 0f
+            editBtn.scaleX = 1f
+            editBtn.scaleY = 1f
+            deleteBtn.translationX = 0f
+            deleteBtn.translationY = 0f
+            deleteBtn.scaleX = 1f
+            deleteBtn.scaleY = 1f
         }
 
         /** 跟手滑动时立刻按当前位移画一遍（手指走多少，按钮就淡入多少）。 */
         private fun syncRevealFromDrag() {
+            ensureActionsWidth()
             if (actionsWidth <= 0) return
             if (front.translationX < -1f) setActionsRevealed(true)
             applyReveal(revealProgress())
@@ -1080,10 +1134,17 @@ class MainActivity : Activity() {
         /** 当前正在跑的滑动动画（用户重新上手 / 开始拖排序时要掐掉它）。 */
         private var revealAnim: ValueAnimator? = null
 
-        /** 掐掉正在跑的滑动动画，保持画面停在当前进度。 */
+        /**
+         * 掐掉正在跑的滑动动画，保持画面停在当前进度。
+         *
+         * 先摘掉引用再 cancel：cancel() 会顺带触发 onAnimationEnd，
+         * 那里靠「引用是否还是自己」判断是不是自己那份收尾 —— 先置空就不会
+         * 把上一轮动画的终态（比如收起时的归零）盖到刚恢复跟手的手指上。
+         */
         private fun stopRevealAnim() {
-            revealAnim?.cancel()
+            val a = revealAnim
             revealAnim = null
+            a?.cancel()
         }
 
         /**
@@ -1091,11 +1152,11 @@ class MainActivity : Activity() {
          * 用 ValueAnimator 一条动画同时驱动「前景位移」和「按钮淡入淡出」，两者永远同步。
          */
         private fun animateTo(target: Float) {
-            if (actionsWidth <= 0) actionsWidth = actions.measuredWidth
+            ensureActionsWidth()
             val open = target < -1f
             stopRevealAnim()
             if (open) setActionsRevealed(true)
-            if (actionsWidth <= 0) { // 操作层宽度还没量到：直接落位，不做动画
+            if (actionsWidth <= 0) { // 实在量不到宽度：直接落位，不做动画
                 front.translationX = target
                 applyReveal(if (open) 1f else 0f)
                 if (!open) setActionsRevealed(false)
@@ -1122,9 +1183,9 @@ class MainActivity : Activity() {
                     }
                 }
             })
-            anim.duration = 220L
+            anim.duration = if (open) 280L else 240L
             // 展开来一下小回弹（橡皮筋感），收回则稳稳减速就位，不向右过冲
-            anim.interpolator = if (open) OvershootInterpolator(1.2f) else DecelerateInterpolator(1.5f)
+            anim.interpolator = if (open) OvershootInterpolator(1.4f) else DecelerateInterpolator(1.6f)
             revealAnim = anim
             anim.start()
         }
@@ -1300,6 +1361,7 @@ class MainActivity : Activity() {
                         (parent as? ViewGroup)?.requestDisallowInterceptTouchEvent(true)
                         velX = e.x - lastX
                         lastX = e.x
+                        if (actionsWidth <= 0) ensureActionsWidth()
                         var tx = startTx + dx
                         tx = tx.coerceIn(-actionsWidth.toFloat(), 0f)
                         front.translationX = tx
