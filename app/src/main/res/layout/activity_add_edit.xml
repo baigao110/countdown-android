@@ -151,6 +151,32 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:text="标准模式"
+                android:textColor="#00FFFF"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:layout_marginTop="16dp" />
+
+            <Spinner
+                android:id="@+id/standardSpinner"
+                style="@style/GlassSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center"
+                android:lineSpacingExtra="3dp"
+                android:text="在「标准模式」里选好，下面的「显示模式」就跟着走；两个都能反复改，没有次数限制"
+                android:textColor="#8A93AE"
+                android:textSize="12sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 android:text="显示模式"
                 android:textColor="#00FFFF"
                 android:textSize="13sp"
@@ -159,14 +185,10 @@
 
             <Spinner
                 android:id="@+id/modeSpinner"
+                style="@style/GlassSpinner"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:minHeight="46dp"
-                android:background="@drawable/field_bg"
-                android:popupBackground="#1B2138"
-                android:paddingStart="12dp"
-                android:paddingEnd="8dp" />
+                android:layout_marginTop="6dp" />
 
             <TextView
                 android:layout_width="match_parent"
