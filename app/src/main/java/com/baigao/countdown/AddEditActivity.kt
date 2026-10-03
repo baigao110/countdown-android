@@ -66,12 +66,11 @@ class AddEditActivity : Activity() {
         val saveBtn = findViewById<Button>(R.id.btnSave)
         val cancelBtn = findViewById<Button>(R.id.btnCancel)
 
-        // 内置倒计时自 v1.0.0.9 起同样可以编辑：标题 / 颜色 / 模式 / 动画 / 备注随便改，
-        // 日期时间也可以改 —— 只要改了目标时间，该条就转为普通倒计时（BuiltIn.NONE），
-        // 不再由系统每天 / 每月滚动，避免用户自己指定的时刻被下一帧覆盖掉。
+        // 内置倒计时同样可以编辑：名字 / 颜色 / 显示模式 / 跳秒动画 / 提示音 / 备注随便改。
+        // 日期时间那栏填了也不会生效 —— 内置倒计时的时刻是系统自己往下跳的（每小时 / 每半小时 / 当日 /
+        // 每周 / 每月），保存时仍写回系统此刻的目标，它永远是内置倒计时，不会被降级成普通倒计时。
         val builtInEdit = c != null && c.isBuiltIn()
-        // 进入本页时的内置类型：模式下拉框按它过滤（当日倒计时没有天数模式）。
-        // 注意用户在页面里改了目标时间会让该条降级为普通倒计时，但下拉框已按此列表铺好，
+        // 进入本页时的内置类型：模式下拉框按它过滤（当日 / 每小时 / 每半小时倒计时没有天数模式）。
         // 保存时仍用同一个列表还原模式号，两者不会错位。
         val startBuiltIn = c?.builtIn ?: BuiltIn.NONE
 
@@ -121,7 +120,12 @@ class AddEditActivity : Activity() {
         }
 
         if (builtInEdit) {
-            Toast.makeText(this, "小内置倒计时也能改哦：改了日期或时间后会变成普通倒计时", Toast.LENGTH_LONG).show()
+            Toast.makeText(
+                this,
+                "内置小倒计时也能改：名字、颜色、模式、动画、提示音、备注都能改；时刻是系统自己往下跳的，" +
+                    "它一直是内置小倒计时",
+                Toast.LENGTH_LONG
+            ).show()
         }
 
         soundBtn.setOnClickListener {
@@ -157,10 +161,11 @@ class AddEditActivity : Activity() {
                 val existing = list.find { it.id == c.id }
                 if (existing != null) {
                     existing.title = titleEt.text.toString()
-                    // 内置项：以「系统此刻的目标时间」为基准，用户改过时间就降级为普通倒计时
+                    // 内置项：目标时刻由系统自己往下跳（每小时 / 每半小时 / 当日 / 每周 / 当月），
+                    // 用户在这里改的日期时间不会存盘，免得下一帧就被系统算出来的目标覆盖掉、看着像「白改」。
+                    // 无论怎么改，它都还是内置倒计时（ BuiltIn 保持原样，绝不降级成普通倒计时）。
                     val sysTarget = if (existing.builtIn != BuiltIn.NONE) existing.currentBuiltInTarget() else target
-                    existing.targetTime = target
-                    if (existing.builtIn != BuiltIn.NONE && target != sysTarget) existing.builtIn = BuiltIn.NONE
+                    existing.targetTime = if (existing.builtIn != BuiltIn.NONE) sysTarget else target
                     existing.customColorArgb = colors[colorSpinner.selectedItemPosition]
                     existing.displayMode =
                         CountdownFormatter.modeAt(modeSpinner.selectedItemPosition, startBuiltIn)
