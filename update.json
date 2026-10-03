@@ -1,8 +1,8 @@
 {
-  "versionCode": 94,
+  "versionCode": 96,
   "versionName": "1.0.0.38",
   "date": "2026-10-03",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-  "note": "v94：界面主题色从青蓝换成了暖橙琥珀（#FFA63D），浮窗里那几颗按钮的浅蓝字同步改成浅橙；深色背景没动。"
+  "note": "v96：倒计时卡片的背景调透了一点 —— 压在卡片上的那层白玻璃和深色底都降了透明度，背后的模糊光斑能隐约透上来，整体看着更通透、没那么“糊”。左滑露出来的“编辑 / 删除”照旧被卡片挡住，不会跟倒计时文字叠在一起。这轮颜色没动，还是上几轮还原回来的那抹青蓝，功能也一个字没改。"
 }
