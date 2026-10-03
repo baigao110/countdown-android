@@ -33,6 +33,7 @@ import subprocess
 import time
 import urllib.request
 import urllib.error
+import http.client
 from urllib.parse import quote
 
 OWNER = "baigao110"
@@ -99,6 +100,15 @@ def api(method, path, data=None, quiet=False):
             if attempt == 4:
                 raise
             print(f"  [网络] {method} {path} {e.reason}，第 {attempt} 次重试")
+            time.sleep(2.0 * attempt)
+        except http.client.IncompleteRead as e:
+            # 大文件（APK 794KB / 悬浮窗截图 1.8MB）走 contents 接口会返回 ~1MB 的 base64，
+            # 本机代理偶发只吐一半就掐断 → http.client 抛这个（既不是 HTTPError 也不是 URLError，
+            # 不加这个分支整轮同步会被一次抖动直接打断）。
+            if attempt == 4:
+                raise
+            print(f"  [网络] {method} {path} 响应截断（{len(e.partial)} 字节），"
+                  f"第 {attempt} 次重试")
             time.sleep(2.0 * attempt)
 
 
