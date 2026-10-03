@@ -1,8 +1,10 @@
 <div align="center">
 
-# 🌐 Language / 语言
+# 🌐 Language / 语言切换
 
-**[简体中文](README.md)** ｜ **English (current)**
+| 🇨🇳 [简体中文](README.md) | 🇬🇧 [English](README_EN.md) |
+|:---:|:---:|
+| 同一份说明的中文版 | **Current page · English** |
 
 </div>
 
