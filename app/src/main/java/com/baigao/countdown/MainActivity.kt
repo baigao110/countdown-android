@@ -634,14 +634,20 @@ class MainActivity : Activity() {
         syncService()
     }
 
-    fun onEdit(c: Countdown) {
+    /**
+     * 点「编辑」：内置项先弹一句说明。
+     *
+     * @param row 被点开的这一行（左滑操作层上的按钮才会传），提示框关掉时它要自己滑回原位。
+     */
+    fun onEdit(c: Countdown, row: CountdownRow? = null) {
         if (c.isBuiltIn()) {
             // 内置倒计时也能改（v1.0.0.9 起），只是先问一句：点「继续」才进编辑页。
             showBuiltInNotice(
                 title = "要改内置小倒计时吗",
                 message = "「${c.title}」是系统自带的小内置倒计时，名字、颜色、显示模式、跳秒动画、提示音、备注、时刻都能照常改。\n改完它还是内置倒计时，只是开始按你选的那个时刻走，不再自己跳到下一个整点。\n点「继续」就进编辑页，想放一放就点「先不了」。",
                 okText = "继续",
-                onOk = { openEditor(c) }
+                onOk = { openEditor(c) },
+                swipeRow = row
             )
         } else openEditor(c)
     }
@@ -660,7 +666,12 @@ class MainActivity : Activity() {
         startActivityForResult(i, REQ_EDIT)
     }
 
-    fun onDelete(c: Countdown) {
+    /**
+     * 点「删除」：内置项先弹一句说明，普通项弹系统确认框。
+     *
+     * @param row 被点开的这一行（左滑操作层上的按钮才会传），确认框关掉时它要自己滑回原位。
+     */
+    fun onDelete(c: Countdown, row: CountdownRow? = null) {
         // 内置倒计时同样可以删除（v1.0.0.9 起），但删之前先跟用户说清楚：
         // 它一直是内置倒计时，收回列表后随时能「找回小内置」原样回来，点「继续」才收。
         if (c.isBuiltIn()) {
@@ -668,16 +679,19 @@ class MainActivity : Activity() {
                 title = "要收起内置小倒计时吗",
                 message = "「${c.title}」是系统自带的小内置倒计时，收起来只是暂时从列表里拿掉，它的内置身份一直都在。\n收起前会把你配好的东西（主题颜色、显示模式、跳秒动画、提示音、悬浮窗显隐这些）一起存成快照，之后点加号菜单里的「找回小内置」就能原样找回来。\n点「继续」就收起它，舍不得就点「先留着」。",
                 okText = "继续",
-                onOk = { removeBuiltInEntry(c) }
+                onOk = { removeBuiltInEntry(c) },
+                swipeRow = row
             )
             return
         }
-        AlertDialog.Builder(this)
+        val dlg = AlertDialog.Builder(this)
             .setTitle("要和小倒计时说拜拜吗")
             .setMessage("要把「${c.title}」这个小倒计时收起来吗？它会舍不得你呢～\n（收起后就不显示在列表里啦）")
             .setPositiveButton("好呀，收起") { _, _ -> removeEntry(c) }
             .setNegativeButton("先留着", null)
             .show()
+        // 左滑点出来的删除框：点了「先留着」/按返回/点框外，这一行就滑回原位
+        if (row != null) dlg.setOnDismissListener { row.closeIfOpen() }
     }
 
     /** 普通倒计时的删除（用户自己建的，无需额外确认）。 */
@@ -698,9 +712,18 @@ class MainActivity : Activity() {
     /**
      * 内置倒计时「改 / 删」前的说明提示：与「关于」页、更新提示同一套玻璃风格，
      * 只有点了「继续」才继续往下走（见 onEdit / onDelete）。
+     *
+     * @param swipeRow 从「左滑露出的按钮」触发时才传这一行：提示框一关（点「先不了」/按返回/
+     *                 点框外），这一行就自己滑回原位，不留着敞着的操作层挡在下面。
      */
-    private fun showBuiltInNotice(title: String, message: String, okText: String, onOk: () -> Unit) {
-        UpdateManager.showStyledDialog(
+    private fun showBuiltInNotice(
+        title: String,
+        message: String,
+        okText: String,
+        onOk: () -> Unit,
+        swipeRow: CountdownRow? = null
+    ): AlertDialog {
+        val dialog = UpdateManager.showStyledDialog(
             activity = this,
             title = title,
             positiveText = okText,
@@ -716,6 +739,8 @@ class MainActivity : Activity() {
             tv.setPadding(dp(4), dp(6), dp(4), dp(6))
             host.addView(tv)
         }
+        if (swipeRow != null) dialog.setOnDismissListener { swipeRow.closeIfOpen() }
+        return dialog
     }
 
     // ---------------- 内置倒计时的删除 / 恢复 ----------------
@@ -927,7 +952,6 @@ class MainActivity : Activity() {
         lateinit var animBtn: Button
         lateinit var soundLabelBtn: Button // 按钮行上的「提示音名称」
         lateinit var editBtn: Button
-        lateinit var soundBtn: Button
         lateinit var deleteBtn: Button
         var boundId: String = ""
         private var bound: Countdown? = null
@@ -968,7 +992,6 @@ class MainActivity : Activity() {
             modeBtn = v.findViewById(R.id.itemMode)
             animBtn = v.findViewById(R.id.itemAnim)
             editBtn = v.findViewById(R.id.itemEdit)
-            soundBtn = v.findViewById(R.id.itemSound)
             deleteBtn = v.findViewById(R.id.itemDelete)
             soundLabelBtn = v.findViewById(R.id.itemSoundLabel)
 
@@ -978,11 +1001,13 @@ class MainActivity : Activity() {
             showBtn.setOnClickListener { bound?.let { this@MainActivity.onShowToggle(it) } }
             modeBtn.setOnClickListener { bound?.let { this@MainActivity.onModeCycle(it) } }
             animBtn.setOnClickListener { bound?.let { this@MainActivity.onAnimCycle(it) } }
-            // 提示音名称按钮：直接打开系统铃声选择器（与左滑露出的「提示音」按钮一致）
+            // 提示音名称按钮：直接打开系统铃声选择器（左滑操作层已不再放「提示音」按钮，
+            // 换提示音一律走这一颗名称按钮）
             soundLabelBtn.setOnClickListener { bound?.let { this@MainActivity.onSound(it) } }
-            editBtn.setOnClickListener { bound?.let { this@MainActivity.onEdit(it) } }
-            soundBtn.setOnClickListener { bound?.let { this@MainActivity.onSound(it) } }
-            deleteBtn.setOnClickListener { bound?.let { this@MainActivity.onDelete(it) } }
+            // 把「这一行」一起交给下面两个动作：提示框被取消（或点「先不了」）时，
+            // 这一行要自己滑回原位，别一直敞着操作层留在那儿。
+            editBtn.setOnClickListener { bound?.let { this@MainActivity.onEdit(it, this@CountdownRow) } }
+            deleteBtn.setOnClickListener { bound?.let { this@MainActivity.onDelete(it, this@CountdownRow) } }
 
             // 展开（滑开）状态下：点一下前景主内容区、或点一下操作面板空白处，都能收回
             front.setOnClickListener { if (isOpen()) closeIfOpen() }
@@ -991,7 +1016,7 @@ class MainActivity : Activity() {
             refreshAll()
             // 未滑动时不绘制操作层（invisible 仍会测量，宽度照常可测）
             setActionsRevealed(false)
-            // 布局完成后获取“露出门宽度”（取操作层宽度，右滑即露出编辑/提示音/删除按钮）
+            // 布局完成后获取“露出门宽度”（取操作层宽度，右滑即露出编辑/删除按钮）
             post { actionsWidth = actions.measuredWidth }
         }
 
@@ -1002,7 +1027,7 @@ class MainActivity : Activity() {
         private fun isOpen(): Boolean = front.translationX < -actionsWidth / 2f
 
         /**
-         * 是否绘制底层操作按钮（编辑 / 提示音 / 删除）。
+         * 是否绘制底层操作按钮（编辑 / 删除）。
          * 未滑开时整层不绘制，避免它被半透明前景透出来、与倒计时文字重叠。
          */
         fun setActionsRevealed(revealed: Boolean) {
