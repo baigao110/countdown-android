@@ -25,8 +25,11 @@
     <!-- 应用内更新：下载 APK 后拉起系统安装界面（Android 8.0+ 需要该权限） -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- 反馈页的 SMTP 走 587 那档时，开头那几步是明文的；Android 9 起默认拦明文连接，
+         不加这条会实实在在连不上服务器（表现为「点了半天没动静」）。465 那档不受影响。 -->
     <application
         android:allowBackup="true"
+        android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:theme="@style/AppTheme">
