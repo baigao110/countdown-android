@@ -24,3 +24,6 @@ Thumbs.db
 # 本地构建/同步日志（不入库）
 build_log*.txt
 sync_log*.txt
+
+# 本地归档/暂存目录（不入库）
+_apk_stale_trash/
