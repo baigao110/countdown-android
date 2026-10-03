@@ -1,8 +1,8 @@
 {
-  "versionCode": 88,
+  "versionCode": 89,
   "versionName": "1.0.0.38",
   "date": "2026-10-03",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-  "note": "v88：卡片左滑/右滑都加了动画 —— 按钮跟着手指淡入淡出、错开弹出来，展开有轻轻回弹，收回稳稳就位，上手立刻接管。"
+  "note": "v89：左滑/右滑动画做明显了 —— 手指推多少按钮和整块操作面板就淡入滑出，编辑先出场、删除跟上，松手轻轻回弹；修了三处「看着像没生效」的边界。"
 }
