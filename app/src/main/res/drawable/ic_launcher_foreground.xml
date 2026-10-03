@@ -6,13 +6,13 @@
     <!-- 时钟外环 -->
     <path
         android:pathData="M54,18a36,36 0 1,0 0.1,0 Z"
-        android:strokeColor="#FFA63D"
+        android:strokeColor="#00FFFF"
         android:strokeWidth="8"
         android:fillColor="#00000000" />
     <!-- 指针 -->
     <path
         android:pathData="M54,54 L54,30 M54,54 L72,62"
-        android:strokeColor="#FFA63D"
+        android:strokeColor="#00FFFF"
         android:strokeWidth="8"
         android:fillColor="#00000000"
         android:strokeLineCap="round" />
