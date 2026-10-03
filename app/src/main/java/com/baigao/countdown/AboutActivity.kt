@@ -59,7 +59,7 @@ class AboutActivity : Activity() {
     private lateinit var lockKeepDescTv: TextView
     private lateinit var timeFormatSpinner: Spinner
     private lateinit var timeFormatDescTv: TextView
-    private lateinit var feedbackBtn: Button
+
     /** 备注时间制式下拉框的两个候选项（下标即取值）。 */
     private val timeFormatOptions = arrayOf("24 小时制", "12 小时制")
 
@@ -132,16 +132,6 @@ class AboutActivity : Activity() {
         }
         timeFormatSpinner = findViewById(R.id.timeFormatSpinner)
         timeFormatDescTv = findViewById(R.id.timeFormatDescTv)
-        // 「意见反馈」：昵称 / 联系方式可以不填，能带图片视频与运行日志，提交即进邮箱
-        feedbackBtn = findViewById(R.id.feedbackBtn)
-        feedbackBtn.setOnClickListener {
-            try {
-                startActivity(Intent(this, FeedbackActivity::class.java))
-            } catch (e: Throwable) {
-                Toast.makeText(this, "打不开反馈页呢，等会儿再试一下～", Toast.LENGTH_SHORT).show()
-            }
-        }
-
         versionTv.text = "版本 v${UpdateManager.CURRENT_VERSION_NAME}"
         findViewById<TextView>(R.id.githubLinkTv).setOnClickListener {
             try {
