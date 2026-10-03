@@ -177,7 +177,7 @@ class FeedbackActivity : Activity() {
     private fun refreshSmtpStatus() {
         val from = smtpFrom()
         val pass = smtpPass()
-        val acc = if (from.contains("@")) SmtpSender.guess(from, "") else null
+        val acc = if (from.contains("@")) SmtpSender.profileOf(from, "")?.routes?.get(0) else null
         val where = acc?.let { "${it.host}:${it.port}" } ?: "认不出这个邮箱后缀对应的服务器"
         smtpStatusTv.text = when {
             from.isBlank() || pass.isBlank() ->
@@ -505,7 +505,7 @@ class FeedbackActivity : Activity() {
     private fun sendDirect(uris: List<Uri>, files: List<File>) {
         val from = smtpFrom()
         val pass = smtpPass()
-        if (from.contains("@") && pass.isNotBlank() && SmtpSender.guess(from, pass) != null) {
+        if (from.contains("@") && pass.isNotBlank() && SmtpSender.profileOf(from, pass) != null) {
             sendViaSmtp(uris, files, from, pass)
             return
         }
@@ -589,10 +589,10 @@ class FeedbackActivity : Activity() {
             val from = smtpFrom()
             val pass = smtpPass()
             if (from.contains("@") && pass.isNotBlank()) {
-                val acc = SmtpSender.guess(from, pass)
-                if (acc != null) {
+                val profileFallback = SmtpSender.profileOf(from, pass)
+                if (profileFallback != null) {
                     val smtpRes = SmtpSender.send(
-                        acc, FEEDBACK_EMAIL, subject, bodyFull, sendFiles
+                        profileFallback, FEEDBACK_EMAIL, subject, bodyFull, sendFiles
                     )
                     if (smtpRes.ok) {
                         runOnUiThread {
@@ -629,7 +629,9 @@ class FeedbackActivity : Activity() {
                 host.addView(noteTv(reason))
                 host.addView(noteTv("能用的两条路：① 点左边用邮箱应用接着发，内容和附件一模一样；"
                         + "② 回头在上面填好「你的邮箱 + 授权码」，再点「测一下能不能发」验通了，"
-                        + "以后点提交就在后台直接发，不用再打开邮箱应用。"))
+                        + "以后点提交就在后台直接发，不用再打开邮箱应用。"))  // v82：把最容易踩的两点说透
+                host.addView(noteTv("授权码不是登录密码（是邮箱「设置 → 账户」里开启 SMTP 后给的 16 位码）；"
+                        + "密码错着连点几次还会被临时限流，填好就别反复点，或者隔十几分钟再试。"))
                 host.addView(noteTv("填的那两项目前是可选的 —— 不想配就用第一条路，一样能送到。"))
             }
         }
@@ -643,8 +645,8 @@ class FeedbackActivity : Activity() {
      * 挂了也不算完：再退一遍免授权码那条通道，两条原因一起摆出来，别让人猜是哪条没通。
      */
     private fun sendViaSmtp(uris: List<Uri>, files: List<File>, from: String, pass: String) {
-        val acc = SmtpSender.guess(from, pass)
-        if (acc == null) {
+        val profile = SmtpSender.profileOf(from, pass)
+        if (profile == null) {
             Toast.makeText(this, "邮箱地址看着不太对呢，检查一下上面填的那个～", Toast.LENGTH_LONG).show()
             return
         }
@@ -668,35 +670,34 @@ class FeedbackActivity : Activity() {
             host.addView(noteTv("正在用你填的邮箱把反馈发出去…\n这一小会儿别退出本页面，发完马上告诉你结果"))
         }
         Thread {
-            val res = SmtpSender.send(acc, FEEDBACK_EMAIL, "倒计时工具 意见反馈", bodyFull, sendFiles)
-            if (res.ok) {
-                runOnUiThread {
-                    runCatching { progress.dismiss() }
-                    Toast.makeText(applicationContext, "反馈已发送，请耐心等待回复！", Toast.LENGTH_LONG).show()
-                    finish()
-                }
-                return@Thread
-            }
-            // 自己邮箱这条没通：让免授权码通道再试一次，两条原因都留着给用户看
-            val fb = runCatching {
-                HttpMailSender.send(FEEDBACK_EMAIL, "倒计时工具 意见反馈", bodyFull, sendFiles, contactOrFrom())
-            }.getOrNull()
-            if (fb != null && fb.ok) {
-                runOnUiThread {
-                    runCatching { progress.dismiss() }
-                    Toast.makeText(applicationContext, "反馈已发送，请耐心等待回复！", Toast.LENGTH_LONG).show()
-                    finish()
-                }
-                return@Thread
-            }
-            val why = "你填的邮箱（$from）那条：${res.message}" +
-                    (if (fb == null) "" else " ／ 免授权码通道那条：${fb.message}")
+            val res = SmtpSender.send(profile, FEEDBACK_EMAIL, "倒计时工具 意见反馈", bodyFull, sendFiles)
             runOnUiThread {
                 runCatching { progress.dismiss() }
                 submitBtn.isEnabled = true
                 submitBtn.text = "提交反馈（直接发到我的邮箱）"
             }
-            showAllFailed(uris, files, why)
+            if (res.ok) {
+                runOnUiThread {
+                    Toast.makeText(applicationContext, "反馈已发送，请耐心等待回复！", Toast.LENGTH_LONG).show()
+                    finish()
+                }
+                return@Thread
+            }
+            // 只是「没连上」（网络 / 超时 / 握手失败）：那条免授权码的公共通道在手机上同样发不出去，
+            // 再撞一遍纯属白等，还把人拖在转圈里。直接把写好的这封信交给邮箱应用，一键就能发走。
+            if (res.retryable) {
+                runOnUiThread {
+                    Toast.makeText(
+                        applicationContext,
+                        "你自己的邮箱这次没连上（${res.message}），信已经交给邮箱应用了，点一下发送就行～",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    openEmailApp(uris)
+                }
+                return@Thread
+            }
+            // 授权码不对 / 没开 SMTP 这类硬伤：把服务器原话摆出来，别再把人往必败那条路上推。
+            runOnUiThread { showAllFailed(uris, files, res.message) }
         }.start()
     }
 
@@ -717,8 +718,8 @@ class FeedbackActivity : Activity() {
             ).show()
             return
         }
-        val acc = SmtpSender.guess(from, pass)
-        if (acc == null) {
+        val profile = SmtpSender.profileOf(from, pass)
+        if (profile == null) {
             Toast.makeText(this, "邮箱地址看着不太对呢，检查一下上面填的那个～", Toast.LENGTH_LONG).show()
             return
         }
@@ -727,7 +728,7 @@ class FeedbackActivity : Activity() {
         toast.show()
         Thread {
             val res = SmtpSender.send(
-                acc, from, "倒计时工具 · 发信设置测试",
+                profile, from, "倒计时工具 · 发信设置测试",
                 "这是一封测试信：说明你填的邮箱和授权码能正常往外发。\n"
                         + "收到这封就代表配置没问题，以后点「提交反馈」直接在后台发，不用再打开邮箱应用了～\n"
                         + "发送时间：${nowText()}",
