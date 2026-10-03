@@ -65,7 +65,7 @@ data class Countdown(
     var id: String = UUID.randomUUID().toString(),
     var title: String = "",
     var targetTime: Long = 0L,                 // 目标时间，epoch 毫秒
-    var customColorArgb: Int = 0xFF00FFFF.toInt(), // 主题颜色
+    var customColorArgb: Int = 0xFFFFA63D.toInt(), // 主题颜色
     var displayMode: Int = 0,                  // 显示模式（见 CountdownFormatter.MODE_NAMES）
     var isVisible: Boolean = true,             // 是否在悬浮窗显示
     var remark: String = "",                   // 备注
