@@ -1,7 +1,20 @@
+<div align="center">
+
+# 🌐 语言切换 / Language
+
+**简体中文（当前）** ｜ **[English](README_EN.md)**
+
+</div>
+
+---
+
 # 倒计时（Android 版）
 
 一款轻量、无广告、纯原生 Kotlin 编写的 Android 倒计时工具。
 添加好倒计时后可在主界面查看，也能让它悬浮在其它应用之上，随时瞄一眼还剩多久。
+
+> 本文件是**中文版**（README.md）；想看英文版请点上面的 **[English](README_EN.md)**。
+> 该软件暂无英语或其他版本，请见谅！
 
 ---
 
@@ -252,3 +265,5 @@ build_apk.bat
 ---
 
 `Win11倒计时工具BYbaigao110`
+
+> 英文版见 [README_EN.md](README_EN.md) —— 可点上面的「English」切到英文版。
