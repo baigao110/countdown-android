@@ -18,9 +18,9 @@
     <color name="glass_highlight">#B3FFFFFF</color>
 
     <!-- 强调色（青）与其玻璃渐变 -->
-    <color name="glass_accent">#FF00FFFF</color>
+    <color name="glass_accent">#FFFFA63D</color>
     <color name="glass_accent_sheen">#66FFFFFF</color>
-    <color name="glass_accent_deep">#FF00C2D9</color>
+    <color name="glass_accent_deep">#FFC26A00</color>
 
     <!-- 文字 -->
     <color name="glass_text">#FFEAF6FF</color>
