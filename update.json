@@ -1,8 +1,8 @@
 {
-  "versionCode": 93,
+  "versionCode": 94,
   "versionName": "1.0.0.38",
   "date": "2026-10-03",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-  "note": "v93：更新日志里跟「授权码」「意见反馈」「附带运行日志」沾边的记录，15 条已全部打叉划掉（都是早拿掉的老功能）；功能本身一个没动。"
+  "note": "v94：界面主题色从青蓝换成了暖橙琥珀（#FFA63D），浮窗里那几颗按钮的浅蓝字同步改成浅橙；深色背景没动。"
 }
