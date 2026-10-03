@@ -93,7 +93,7 @@
                 android:includeFontPadding="false"
                 android:maxLines="1"
                 android:ellipsize="none"
-                android:textColor="#FFA63D" />
+                android:textColor="#00FFFF" />
 
             <TextView
                 android:id="@+id/itemTimeLast"
@@ -104,7 +104,7 @@
                 android:includeFontPadding="false"
                 android:maxLines="1"
                 android:ellipsize="none"
-                android:textColor="#FFA63D" />
+                android:textColor="#00FFFF" />
 
             <TextView
                 android:id="@+id/itemTimeTail"
@@ -115,7 +115,7 @@
                 android:includeFontPadding="false"
                 android:maxLines="1"
                 android:ellipsize="none"
-                android:textColor="#FFA63D" />
+                android:textColor="#00FFFF" />
         </LinearLayout>
 
         <TextView
