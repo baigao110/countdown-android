@@ -21,7 +21,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="‹ 返回"
-            android:textColor="#FFA63D"
+            android:textColor="#00FFFF"
             android:textSize="16sp"
             android:padding="4dp" />
 
@@ -30,7 +30,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="吃药提醒"
-            android:textColor="#FFA63D"
+            android:textColor="#00FFFF"
             android:textSize="20sp"
             android:textStyle="bold"
             android:gravity="center"
@@ -65,7 +65,7 @@
                     android:layout_height="wrap_content"
                     android:gravity="center"
                     android:text="吃药提醒"
-                    android:textColor="#FFA63D"
+                    android:textColor="#00FFFF"
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
