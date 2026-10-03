@@ -92,7 +92,7 @@ class MainActivity : Activity() {
         }
     }
 
-    /** 读取本地数据，并确保六个内置项（每小时 / 当日 / 每周 / 当月 / 华都云境悦府 / GTA6）始终存在。 */
+    /** 读取本地数据，并确保七个内置项（每小时 / 每半小时 / 当日 / 每周 / 当月 / 华都云境悦府 / GTA6）始终存在。 */
     private fun loadData() {
         data = CountdownStore.load(this)
         if (ensureBuiltInTimers()) CountdownStore.save(this, data)
@@ -101,12 +101,14 @@ class MainActivity : Activity() {
     /** 补齐全部内置倒计时；返回是否新建（新建后才需要落盘）。 */
     private fun ensureBuiltInTimers(): Boolean {
         // 每个内置项都插到列表头部，因此按「倒序」补齐，
-        // 最终列表顺序才是：每小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6
+        // 最终列表顺序才是：每小时 → 每半小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6
+        // 「每半小时」要在「每小时」之前补（同样插到头部，于是排在每小时后面一位）。
         var added = ensureBuiltIn(BuiltIn.GTA6, "GTA6倒计时", "距离 GTA6 发售（2026-11-19 08:00）")
         added = ensureBuiltIn(BuiltIn.HUADU, "华都云境悦府倒计时", "距离华都云境悦府交付（2026-10-31 00:00）") || added
         added = ensureBuiltIn(BuiltIn.MONTH, "当月倒计时", "距离本月结束") || added
         added = ensureBuiltIn(BuiltIn.WEEK, "每周倒计时", "距离本周结束") || added
         added = ensureBuiltIn(BuiltIn.DAY, "当日倒计时", "距离今日结束") || added
+        added = ensureBuiltIn(BuiltIn.HALF_HOUR, "每半小时倒计时", "距离本半小时结束") || added
         added = ensureBuiltIn(BuiltIn.HOUR, "每小时倒计时", "距离本小时结束") || added
         return added
     }
@@ -124,7 +126,8 @@ class MainActivity : Activity() {
             backup.builtIn = type
             if (backup.title.isBlank()) backup.title = title
             if (backup.remark.isBlank()) backup.remark = remark
-            backup.finished = false // 重新计时，允许再次响铃
+            backup.finished = false      // 重新计时，允许再次响铃
+            backup.builtInManual = false // 恢复出来的内置项回到系统周期（不再沿用用户指定的旧时刻）
             backup
         } else {
             Countdown(
@@ -632,6 +635,19 @@ class MainActivity : Activity() {
     }
 
     fun onEdit(c: Countdown) {
+        if (c.isBuiltIn()) {
+            // 内置倒计时也能改（v1.0.0.9 起），只是先问一句：点「继续」才进编辑页。
+            showBuiltInNotice(
+                title = "要改内置小倒计时吗",
+                message = "「${c.title}」是系统自带的小内置倒计时，名字、颜色、显示模式、跳秒动画、提示音、备注、时刻都能照常改。\n改完它还是内置倒计时，只是开始按你选的那个时刻走，不再自己跳到下一个整点。\n点「继续」就进编辑页，想放一放就点「先不了」。",
+                okText = "继续",
+                onOk = { openEditor(c) }
+            )
+        } else openEditor(c)
+    }
+
+    /** 真正拉起编辑页（内置项会先弹上面的提示）。 */
+    private fun openEditor(c: Countdown) {
         val i = Intent(this, AddEditActivity::class.java)
         i.putExtra("id", c.id)
         startActivityForResult(i, REQ_EDIT)
@@ -645,24 +661,61 @@ class MainActivity : Activity() {
     }
 
     fun onDelete(c: Countdown) {
+        // 内置倒计时同样可以删除（v1.0.0.9 起），但删之前先跟用户说清楚：
+        // 它一直是内置倒计时，收回列表后随时能「找回小内置」原样回来，点「继续」才收。
+        if (c.isBuiltIn()) {
+            showBuiltInNotice(
+                title = "要收起内置小倒计时吗",
+                message = "「${c.title}」是系统自带的小内置倒计时，收起来只是暂时从列表里拿掉，它的内置身份一直都在。\n收起前会把你配好的东西（主题颜色、显示模式、跳秒动画、提示音、悬浮窗显隐这些）一起存成快照，之后点加号菜单里的「找回小内置」就能原样找回来。\n点「继续」就收起它，舍不得就点「先留着」。",
+                okText = "继续",
+                onOk = { removeBuiltInEntry(c) }
+            )
+            return
+        }
         AlertDialog.Builder(this)
             .setTitle("要和小倒计时说拜拜吗")
             .setMessage("要把「${c.title}」这个小倒计时收起来吗？它会舍不得你呢～\n（收起后就不显示在列表里啦）")
-            .setPositiveButton("好呀，收起") { _, _ ->
-                // 内置倒计时同样可以删除（v1.0.0.9 起）：记下类型，之后不再自动补齐。
-                // 先把它的全部设置（主题颜色 / 显示模式 / 动画 / 提示音 / 悬浮窗显隐等）
-                // 存成快照，之后点「恢复内置」时原样还原，不用重新配置一遍。
-                if (c.isBuiltIn()) {
-                    saveBuiltInBackup(c)
-                    markBuiltInRemoved(c.builtIn)
-                }
-                data.removeAll { it.id == c.id }
-                CountdownStore.save(this, data)
-                rebuildList()
-                syncService()
-            }
+            .setPositiveButton("好呀，收起") { _, _ -> removeEntry(c) }
             .setNegativeButton("先留着", null)
             .show()
+    }
+
+    /** 普通倒计时的删除（用户自己建的，无需额外确认）。 */
+    private fun removeEntry(c: Countdown) {
+        data.removeAll { it.id == c.id }
+        CountdownStore.save(this, data)
+        rebuildList()
+        syncService()
+    }
+
+    /** 内置倒计时的删除：存快照 + 记下类型不再自动补齐，之后「找回小内置」可原样还原。 */
+    private fun removeBuiltInEntry(c: Countdown) {
+        saveBuiltInBackup(c)
+        markBuiltInRemoved(c.builtIn)
+        removeEntry(c)
+    }
+
+    /**
+     * 内置倒计时「改 / 删」前的说明提示：与「关于」页、更新提示同一套玻璃风格，
+     * 只有点了「继续」才继续往下走（见 onEdit / onDelete）。
+     */
+    private fun showBuiltInNotice(title: String, message: String, okText: String, onOk: () -> Unit) {
+        UpdateManager.showStyledDialog(
+            activity = this,
+            title = title,
+            positiveText = okText,
+            negativeText = "先不了",
+            onPositive = onOk
+        ) { host ->
+            val tv = TextView(this)
+            tv.text = message
+            tv.setTextColor(Color.parseColor("#FFE4EEFF"))
+            tv.textSize = 14f
+            tv.setLineSpacing(0f, 1.45f)
+            tv.setShadowLayer(2f, 0f, 1f, Color.parseColor("#CC000000"))
+            tv.setPadding(dp(4), dp(6), dp(4), dp(6))
+            host.addView(tv)
+        }
     }
 
     // ---------------- 内置倒计时的删除 / 恢复 ----------------
@@ -670,6 +723,7 @@ class MainActivity : Activity() {
     /** 内置倒计时的默认定义（顺序即列表里的展示顺序）。 */
     private val builtInDefs = listOf(
         Triple(BuiltIn.HOUR, "每小时倒计时", "距离本小时结束"),
+        Triple(BuiltIn.HALF_HOUR, "每半小时倒计时", "距离本半小时结束"),
         Triple(BuiltIn.DAY, "当日倒计时", "距离今日结束"),
         Triple(BuiltIn.WEEK, "每周倒计时", "距离本周结束"),
         Triple(BuiltIn.MONTH, "当月倒计时", "距离本月结束"),
@@ -717,7 +771,7 @@ class MainActivity : Activity() {
                 .apply()
         }
         // 兜底：某些项可能既不在列表里、也没有被标记删除（例如被改成普通倒计时），
-        // 这里统一补齐，保证点「确定」之后六个内置项真的回到列表里
+        // 这里统一补齐，保证点「确定」之后七个内置项真的回到列表里
         if (ensureBuiltInTimers()) changed = true
         if (changed) CountdownStore.save(this, data)
         rebuildList()
@@ -727,7 +781,7 @@ class MainActivity : Activity() {
     /**
      * 当前「不在列表里」的内置倒计时：
      * 既包括用户删掉的（记在 removedBuiltIns 里），也包括列表里查不到该类型的。
-     * 为空表示六个内置倒计时都在列表里，此时不需要显示「恢复内置」。
+     * 为空表示七个内置倒计时都在列表里，此时不需要显示「恢复内置」。
      */
     private fun missingBuiltIns(): List<Triple<Int, String, String>> =
         builtInDefs.filter { def -> def.first in removedBuiltIns || data.none { it.builtIn == def.first } }
@@ -744,7 +798,7 @@ class MainActivity : Activity() {
     private fun showRestoreBuiltInDialog() {
         val missing = missingBuiltIns()
         if (missing.isEmpty()) {
-            Toast.makeText(this, "六个小内置倒计时都乖乖在列表里啦", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "七个小内置倒计时都乖乖在列表里啦", Toast.LENGTH_SHORT).show()
             return
         }
         val checked = BooleanArray(missing.size) { true }
