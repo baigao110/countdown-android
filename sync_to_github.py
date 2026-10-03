@@ -108,6 +108,36 @@ def tracked_files():
     return [l.strip() for l in text.splitlines() if l.strip()]
 
 
+def remote_tree():
+    """远端 main 分支的完整文件树（只取 blob 路径），用于清掉本地已删除的残留文件。
+
+    /repos/{owner}/{repo}/git/trees/main?recursive=1 能一次拿全量路径，
+    比逐个 contents 探测省得多；这里只是「读」一个只读接口，不写任何东西。
+    """
+    d = api("GET", f"/repos/{OWNER}/{REPO}/git/trees/main?recursive=1")
+    if not d or "tree" not in d:
+        return []
+    return [t["path"] for t in d["tree"] if t.get("type") == "blob"]
+
+
+def delete_remote(path):
+    """删除远端文件（本地已删、远端还留着的残留）。
+
+    只在调用方明确比对过「本地跟踪清单」之后才调用；同时限定只动 app/src/ 下的源码，
+    避免误删仓库里别的（构建日志、脚本等）文件。
+    """
+    meta = api("GET", f"/repos/{OWNER}/{REPO}/contents/{path}?ref=main")
+    if meta is None:
+        return False
+    payload = {"message": f"同步安卓版源码：删除 {path}", "sha": meta.get("sha")}
+    res = api("PUT", f"/repos/{OWNER}/{REPO}/contents/{path}?ref=main", payload)
+    if res is None:
+        print(f"  [删除失败] {path}")
+        return False
+    print(f"  [已删除] {path}")
+    return True
+
+
 def content_equal(remote: bytes, local: bytes, path: str) -> bool:
     """内容是否等价：先比字节，再按文本解码（兼容 UTF-8/GBK 与 CRLF/LF）比较。"""
     if remote == local:
@@ -253,6 +283,19 @@ def check_release_asset():
 
 def main():
     files = tracked_files()
+    print(f"=== 0. 清理远端残留（本地已跟踪清单里没有、却还留在远端的文件）===")
+    tracked = set(files)
+    for remote_path in remote_tree():
+        # 只清 app/src/ 下的源码：构建日志、脚本、APK 之类的仓库文件一律不动
+        if not remote_path.startswith("app/src/"):
+            continue
+        if remote_path in tracked:
+            continue
+        local_path = os.path.join(ROOT, remote_path.replace("/", os.sep))
+        if os.path.isfile(local_path):
+            continue
+        delete_remote(remote_path)
+
     print(f"=== 1. 源码全量比对（本地跟踪 {len(files)} 个文件）===")
     counts = {"SAME": 0, "UPDATED": 0, "NEW": 0, "FAILED": 0}
     for rel in files:
