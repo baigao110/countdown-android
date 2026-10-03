@@ -1,3 +1,13 @@
+<div align="center">
+
+# 🌐 Language / 语言
+
+**[简体中文](README.md)** ｜ **English (current)**
+
+</div>
+
+---
+
 # Countdown (Android Version)
 
 A lightweight, ad-free Android countdown tool written in native Kotlin.
@@ -5,9 +15,9 @@ Once you add a countdown you can see it on the main screen, or let it float abov
 so you can glance at how much time is left at any moment.
 
 > 该软件暂无英语或其他版本，请见谅！
->
-> *This app is currently only available in Simplified Chinese — there is no English or other
+> *This app is currently available in Simplified Chinese only — there is no English or other
 > language version yet. Thank you for your understanding!*
+> 中文版请点上面的 **[简体中文](README.md)**。
 
 ---
 
@@ -293,3 +303,4 @@ Versions support four segments, `versionToNumber = major*1e6 + minor*1e4 + patch
 `Countdown (Android) BY baigao110`
 
 > 该软件暂无英语或其他版本，请见谅！
+> 中文版见 [README.md](README.md) — 可点上面的「简体中文」切回中文版。
