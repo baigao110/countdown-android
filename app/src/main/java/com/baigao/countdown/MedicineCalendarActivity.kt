@@ -187,7 +187,7 @@ class MedicineCalendarActivity : Activity() {
 
         when {
             isTaken -> {
-                tv.background = bubble(0xFF00FFFF.toInt(), 0)
+                tv.background = bubble(0xFFFFA63D.toInt(), 0)
                 tv.setTextColor(0xFF001018.toInt())
             }
             isFuture -> {
