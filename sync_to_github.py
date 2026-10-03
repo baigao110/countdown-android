@@ -72,7 +72,10 @@ def current_version() -> str:
 def api(method, path, data=None, quiet=False):
     # 路径可能含中文文件名（如「同步到GitHub.bat」），必须先做 URL 编码，
     # 否则 http.client 会用 ascii 编码请求行而抛 UnicodeEncodeError。
-    url = f"https://api.github.com{quote(path, safe='/@:')}"
+    # safe 里必须保留 ?（如 contents/xxx?ref=main、git/trees/main?recursive=1）：
+    # 转义成 %3F 后 GitHub 会把整串当成一个路径段，一律 404 —— 而且 404 是静默返回的，
+    # 上层只会看到「读不到文件」，极易误判成「文件不存在」而刷出一堆错误的新增。
+    url = f"https://api.github.com{quote(path, safe='/@:?=')}"
     body = json.dumps(data).encode("utf-8") if data is not None else None
     req = urllib.request.Request(url, data=body, headers=HDR, method=method)
     req.add_header("Content-Type", "application/json")
@@ -128,9 +131,11 @@ def delete_remote(path):
     """
     meta = api("GET", f"/repos/{OWNER}/{REPO}/contents/{path}?ref=main")
     if meta is None:
-        return False
+        # 读不到（多半是已经没了）：按「已删掉」处理，不要因此中断整轮同步
+        return True
     payload = {"message": f"同步安卓版源码：删除 {path}", "sha": meta.get("sha")}
-    res = api("PUT", f"/repos/{OWNER}/{REPO}/contents/{path}?ref=main", payload)
+    # 删除要用 DELETE + sha；用 PUT 的话 GitHub 会回 422（"content" wasn't supplied）。
+    res = api("DELETE", f"/repos/{OWNER}/{REPO}/contents/{path}?ref=main", payload)
     if res is None:
         print(f"  [删除失败] {path}")
         return False
