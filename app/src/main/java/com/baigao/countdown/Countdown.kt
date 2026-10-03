@@ -14,6 +14,8 @@ object BuiltIn {
     const val GTA6 = 4   // GTA6 倒计时：固定目标 2026-11-19 08:00:00
     const val WEEK = 5   // 每周倒计时：目标为「下周一 00:00:00」（本周结束的那一刻）
     const val HOUR = 6   // 每小时倒计时：目标为「下一个整点 00:00」（本小时结束的那一刻）
+    const val HALF_HOUR = 7 // 每半小时倒计时：目标为「下一个半点 30 分」（本半小时结束的那一刻）
+
 
     /**
      * 固定目标时间的内置项（不随日期滚动）：返回 epoch 毫秒；滚动型内置项返回 null。
@@ -75,6 +77,7 @@ data class Countdown(
     var posX: Int = -1,                        // 悬浮窗位置 X（<0 表示未保存，使用默认错开位置）
     var posY: Int = -1,                        // 悬浮窗位置 Y
     var builtIn: Int = BuiltIn.NONE,           // 内置倒计时类型（见 BuiltIn）；旧数据缺省为普通倒计时
+    var builtInManual: Boolean = false,        // 内置项被用户自己指定了时刻：不再自动滚动，但仍是内置项
     var animStyle: Int = AnimStyle.NONE        // 跳秒动画样式（见 AnimStyle）；旧数据缺省为无动画
 ) {
     /** 是否为系统内置倒计时（当日 / 当月 / 华都云境悦府 / GTA6）——内置项不可删除 */
@@ -87,6 +90,9 @@ data class Countdown(
      */
     fun refreshBuiltInTarget(): Boolean {
         if (builtIn == BuiltIn.NONE) return false
+        // 用户自己给内置项指定了时刻（builtInManual）：从这一刻起不再由系统滚动覆盖，
+        // 但它的内置身份（builtIn 类型）保持不变——内置倒计时永远是内置倒计时。
+        if (builtInManual) return false
         // 固定目标时间的内置项：直接取常量时刻
         val fixed = BuiltIn.fixedTargetMillis(builtIn)
         if (fixed != null) {
@@ -103,6 +109,22 @@ data class Countdown(
                 cal.set(Calendar.SECOND, 0)
                 cal.set(Calendar.MILLISECOND, 0)
                 cal.add(Calendar.HOUR_OF_DAY, 1)
+                val t = cal.timeInMillis
+                if (t == targetTime) return false
+                targetTime = t
+                return true
+            }
+            BuiltIn.HALF_HOUR -> {
+                // 本半小时结束的那一刻：分钟不到 30 就走到「本小时 30 分」，
+                // 过了 30 分则归零分钟再进一小时，即「下一个整点」。
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
+                if (cal.get(Calendar.MINUTE) < 30) {
+                    cal.set(Calendar.MINUTE, 30)
+                } else {
+                    cal.set(Calendar.MINUTE, 0)
+                    cal.add(Calendar.HOUR_OF_DAY, 1)
+                }
                 val t = cal.timeInMillis
                 if (t == targetTime) return false
                 targetTime = t
@@ -177,6 +199,16 @@ data class Countdown(
         return when (builtIn) {
             BuiltIn.HOUR ->
                 "距离${TimeFormatPref.clockText(cal.get(Calendar.HOUR_OF_DAY), use24Hour)}结束"
+            BuiltIn.HALF_HOUR -> {
+                val h = cal.get(Calendar.HOUR_OF_DAY)
+                if (cal.get(Calendar.MINUTE) == 0) {
+                    "距离${TimeFormatPref.clockText(h, use24Hour)}结束"
+                } else {
+                    // 「17点整」去掉「整」字再补个「半」：距离 17 点半结束（与每小时那句同一路数）
+                    val half = TimeFormatPref.clockText(h, use24Hour).replace("点整", "点")
+                    "距离${half}半结束"
+                }
+            }
             BuiltIn.DAY -> "距离${month}月${day}日${midnight}结束"
             BuiltIn.WEEK -> "距离${month}月${day}日${midnight}结束"
             BuiltIn.MONTH -> "距离${month}月1日${midnight}结束"
@@ -257,15 +289,15 @@ object CountdownFormatter {
      * 其余倒计时、其余模式**一律原样返回**，行为不变。
      */
     fun effectiveMode(mode: Int, builtIn: Int): Int = when (builtIn) {
-        BuiltIn.DAY, BuiltIn.HOUR -> if (mode == 0 || mode == 4) 5 else mode  // 标准 / 天数 → 时分秒
+        BuiltIn.DAY, BuiltIn.HOUR, BuiltIn.HALF_HOUR -> if (mode == 0 || mode == 4) 5 else mode  // 标准 / 天数 → 时分秒
         BuiltIn.WEEK -> if (mode == 0) 6 else mode              // 标准 → 天时分秒
         else -> mode
     }
 
-    /** 该条目可选的模式号列表：当日 / 每小时倒计时不含「天数模式」（天数恒为 0）。 */
+    /** 该条目可选的模式号列表：当日 / 每小时 / 每半小时倒计时不含「天数模式」（天数恒为 0）。 */
     fun availableModes(builtIn: Int): List<Int> =
         MODE_NAMES.indices.filter { m ->
-            !((builtIn == BuiltIn.DAY || builtIn == BuiltIn.HOUR) && m == MODE_DAY)
+            !((builtIn == BuiltIn.DAY || builtIn == BuiltIn.HOUR || builtIn == BuiltIn.HALF_HOUR) && m == MODE_DAY)
         }
 
     /** 该条目可选模式的名称（编辑页下拉框用）。 */
