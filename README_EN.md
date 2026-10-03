@@ -18,7 +18,6 @@ so you only need to glance at it to check how much time is left.
 
 > This file is the **English version** (README_EN.md). Tap **🇨🇳 简体中文** in the table above to
 > switch to the Chinese version, and tap **🇬🇧 English** to come back.
-> 该软件暂无英语或其他版本，请见谅！
 > *This app is currently available in Simplified Chinese only — there is no English or other
 > language version yet. Thank you for your understanding!*
 
