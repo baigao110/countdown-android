@@ -170,25 +170,9 @@
                 android:layout_marginTop="6dp"
                 android:gravity="center"
                 android:lineSpacingExtra="3dp"
-                android:text="在「标准模式」里选好，下面的「显示模式」就跟着走；两个都能反复改，没有次数限制"
+                android:text="选好之后这个倒计时的显示方式就定啦，以后随时能回来改，没有次数限制"
                 android:textColor="#8A93AE"
                 android:textSize="12sp" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="显示模式"
-                android:textColor="#00FFFF"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:layout_marginTop="16dp" />
-
-            <Spinner
-                android:id="@+id/modeSpinner"
-                style="@style/GlassSpinner"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp" />
 
             <TextView
                 android:layout_width="match_parent"
