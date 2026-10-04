@@ -1,8 +1,8 @@
 {
-  "versionCode": 100,
+  "versionCode": 101,
   "versionName": "1.0.0.38",
   "date": "2026-10-04",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-  "note": "修了悬浮窗抽屉里的「目标:」不同步的问题：以前它只在开抽屉那一刻算一次， 退到后台跨过整点 / 日期之后就停在旧值（倒计时数字照样在跳，看着像没同步）； 现在它跟着每秒跳秒一起刷新，内置项跨到下一个周期（下一个整点 / 半点 / 整分 / 次日零点）会自动换成新的目标时刻，退到后台不动也跟着变。"
+  "note": "悬浮窗和列表里的按钮说法改清楚啦：上一模式 / 下一模式改为上一个显示模式 / 下一个显示模式，卡片上的「模式」改叫「显示模式」，「展开 / 收起」改叫「展开悬浮窗 / 收起悬浮窗」；悬浮窗里的目标时间依旧跟着跳秒同步刷新。"
 }
