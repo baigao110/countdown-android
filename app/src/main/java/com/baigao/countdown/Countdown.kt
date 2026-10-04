@@ -332,20 +332,28 @@ object CountdownFormatter {
         MODE_NAMES[normalizeMode(mode).coerceIn(0, MODE_NAMES.size - 1)]
 
     /**
-     * 内置「当日 / 每周」倒计时的周期长度决定哪个模式才有意义：
+     * 内置倒计时的周期长度决定哪个模式才有意义：
      *
-     * - **当日倒计时**（目标 = 次日 00:00，最多 24 小时）：周、天永远是 0，
-     *   所以「标准模式」直接给 **xx时xx分xx秒**；「天数模式」同样没有意义，一并作废。
+     * - **每分钟倒计时**（最多 1 分钟）：「时 / 分」两截永远是 0，
+     *   所以「标准模式」直接给 **xx秒**；「分钟模式」同理没有意义。
+     * - **每 5 / 10 分钟倒计时**（最多 10 分钟）：「时」那截永远是 0，
+     *   所以「标准模式」直接给 **xx分**；「时分秒模式」里恒 0 的「时」没意义。
+     * - **每小时 / 每半小时**（最多 1 小时）与**当日倒计时**（最多 24 小时）：「标准模式」给 **xx时xx分xx秒**；
+     *   「天数模式」同样没有意义，一并作废。
      * - **每周倒计时**（目标 = 下周一 00:00，最多 7 天）：周永远是 0，
      *   所以「标准模式」给 **xx天xx时xx分xx秒**。
      *
      * 其余倒计时、其余模式**一律原样返回**，行为不变。
      */
     fun effectiveMode(mode: Int, builtIn: Int): Int = when (builtIn) {
-        // 短周期内置项：最多 1 分钟 / 5 分钟 / 10 分钟 / 半小时 / 1 小时，周与天那两截永远是 0，
-        // 所以「标准模式」直接给 时分秒；「天数模式」同样没有意义，一并作废（与每小时一致）
-        BuiltIn.DAY, BuiltIn.HOUR, BuiltIn.HALF_HOUR, BuiltIn.MINUTE, BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN ->
-            if (mode == 0 || mode == 4) 5 else mode   // 标准 / 天数 → 时分秒
+        // 短周期内置项：周与天那两截永远是 0，所以「标准模式」不能直接给「时分秒」摆出恒 0 的「时」；
+        // 「天数模式」同样没有意义，一并作废
+        BuiltIn.MINUTE ->
+            if (mode == 0 || mode == 4) MODE_SECOND else mode   // 标准 / 天数 → 秒模式（最多 1 分钟）
+        BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN ->
+            if (mode == 0 || mode == 4) MODE_MINUTE else mode   // 标准 / 天数 → 分钟模式（最多 10 分钟）
+        BuiltIn.DAY, BuiltIn.HOUR, BuiltIn.HALF_HOUR ->
+            if (mode == 0 || mode == 4) MODE_HMS else mode   // 标准 / 天数 → 时分秒
         BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6 ->
             if (mode == 0) 6 else mode   // 标准 / 天时分秒 → 天时分秒模式
         else -> mode
@@ -355,6 +363,10 @@ object CountdownFormatter {
      * 该条目可选的模式号列表（编辑页的模式下拉框、悬浮窗与主界面的模式循环都按它走）。
      * 短周期的内置项把「前面那截永远是 0」的几档收掉：
      *
+     * - **每分钟倒计时**（最多 1 分钟）：砍「分钟模式」（恒显示 0 分）、「时分秒模式」（恒 0 时）
+     *   以及「小时模式 / 天数模式 / 天时分秒 / 天时分模式」，只留 标准（= 秒）/ 秒。
+     * - **每 5 / 10 分钟倒计时**（最多 10 分钟）：砍「时分秒模式」（恒 0 时），
+     *   再叠上「小时模式 / 天数模式 / 天时分秒 / 天时分模式」，剩 标准（= 分）/ 分钟 / 秒。
      * - **每小时 / 每半小时倒计时**（最多 1 小时）：砍「小时模式」（恒显示 0 时）、「天数模式」
      *   （恒 0 天）以及「天时分秒 / 天时分模式」（开头那截恒 0 天），只留 标准 / 分钟 / 秒 / 时分秒。
      * - **当日倒计时**（最多 24 小时）：砍「天数模式」加上「天时分秒 / 天时分模式」，
@@ -363,6 +375,14 @@ object CountdownFormatter {
      */
     fun availableModes(builtIn: Int): List<Int> {
         val blocked = HashSet<Int>()
+        if (builtIn == BuiltIn.MINUTE) {
+            // 每分钟倒计时：分钟与时分秒那两档只会显示成 0 分 / 0 时，全都砍掉
+            blocked.add(MODE_MINUTE)
+            blocked.add(MODE_HMS)
+        } else if (builtIn == BuiltIn.FIVE_MIN || builtIn == BuiltIn.TEN_MIN) {
+            // 每 5 / 10 分钟倒计时：时分秒那档的「时」恒 0，砍掉
+            blocked.add(MODE_HMS)
+        }
         if (builtIn == BuiltIn.HOUR || builtIn == BuiltIn.HALF_HOUR ||
             builtIn == BuiltIn.MINUTE || builtIn == BuiltIn.FIVE_MIN || builtIn == BuiltIn.TEN_MIN
         ) {
