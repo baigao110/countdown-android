@@ -15,6 +15,10 @@ object BuiltIn {
     const val WEEK = 5   // 每周倒计时：目标为「下周一 00:00:00」（本周结束的那一刻）
     const val HOUR = 6   // 每小时倒计时：目标为「下一个整点 00:00」（本小时结束的那一刻）
     const val HALF_HOUR = 7 // 每半小时倒计时：目标为「下一个半点 30 分」（本半小时结束的那一刻）
+    // 以下三条短周期倒计时（8 / 9 / 10 只能末尾追加，改小会顶掉旧数据里的类型号）
+    const val MINUTE = 8    // 每分钟倒计时：目标为「下一个整分」（本分钟结束的那一刻）
+    const val FIVE_MIN = 9  // 每 5 分钟倒计时：目标为下一个 5 分边界（:05 / :10 / …）
+    const val TEN_MIN = 10  // 每 10 分钟倒计时：目标为下一个 10 分边界（:10 / :20 / …）
 
 
     /**
@@ -130,6 +134,35 @@ data class Countdown(
                 targetTime = t
                 return true
             }
+            BuiltIn.MINUTE -> {
+                // 本分钟结束的那一刻：秒/毫秒归零后 +1 分钟 = 下一个整分 00 秒。
+                // 与每小时同一路数：必须走这段单独分支，不能落进下面「统一归零到 00:00:00」。
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
+                cal.add(Calendar.MINUTE, 1)
+                val t = cal.timeInMillis
+                if (t == targetTime) return false
+                targetTime = t
+                return true
+            }
+            BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN -> {
+                // 本 5 分钟（或 10 分钟）段结束的那一刻：秒/毫秒归零后跳到下一个 5 分（10 分）边界，
+                // 边界分钟数为 60 时回绕到「下 0 分」，效果与每小时跳整点完全一致。
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
+                val step = if (builtIn == BuiltIn.FIVE_MIN) 5 else 10
+                val m = cal.get(Calendar.MINUTE)
+                var nm = (m / step + 1) * step
+                if (nm >= 60) {
+                    nm = 0
+                    cal.add(Calendar.HOUR_OF_DAY, 1)
+                }
+                cal.set(Calendar.MINUTE, nm)
+                val t = cal.timeInMillis
+                if (t == targetTime) return false
+                targetTime = t
+                return true
+            }
             BuiltIn.DAY -> {
                 cal.add(Calendar.DAY_OF_MONTH, 1) // 次日
             }
@@ -208,6 +241,20 @@ data class Countdown(
                     val half = TimeFormatPref.clockText(h, use24Hour).replace("点整", "点")
                     "距离${half}半结束"
                 }
+            }
+            BuiltIn.MINUTE -> {
+                val h = cal.get(Calendar.HOUR_OF_DAY)
+                val mm = cal.get(Calendar.MINUTE)
+                if (mm == 0) "距离${TimeFormatPref.clockText(h, use24Hour)}结束"
+                else "距离${h}点${String.format("%02d", mm)}分结束"
+            }
+            BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN -> {
+                // 「距离18点05分结束」（5 分档）/「距离18点20分结束」（10 分档）；:
+                // 正好落在整点时退成跟每小时同一句「距离18点整结束」
+                val h = cal.get(Calendar.HOUR_OF_DAY)
+                val mm = cal.get(Calendar.MINUTE)
+                if (mm == 0) "距离${TimeFormatPref.clockText(h, use24Hour)}结束"
+                else "距离${h}点${String.format("%02d", mm)}分结束"
             }
             BuiltIn.DAY -> "距离${month}月${day}日${midnight}结束"
             BuiltIn.WEEK -> "距离${month}月${day}日${midnight}结束"
@@ -295,7 +342,10 @@ object CountdownFormatter {
      * 其余倒计时、其余模式**一律原样返回**，行为不变。
      */
     fun effectiveMode(mode: Int, builtIn: Int): Int = when (builtIn) {
-        BuiltIn.DAY, BuiltIn.HOUR, BuiltIn.HALF_HOUR -> if (mode == 0 || mode == 4) 5 else mode  // 标准 / 天数 → 时分秒
+        // 短周期内置项：最多 1 分钟 / 5 分钟 / 10 分钟 / 半小时 / 1 小时，周与天那两截永远是 0，
+        // 所以「标准模式」直接给 时分秒；「天数模式」同样没有意义，一并作废（与每小时一致）
+        BuiltIn.DAY, BuiltIn.HOUR, BuiltIn.HALF_HOUR, BuiltIn.MINUTE, BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN ->
+            if (mode == 0 || mode == 4) 5 else mode   // 标准 / 天数 → 时分秒
         BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6 ->
             if (mode == 0) 6 else mode   // 标准 / 天时分秒 → 天时分秒模式
         else -> mode
@@ -313,7 +363,9 @@ object CountdownFormatter {
      */
     fun availableModes(builtIn: Int): List<Int> {
         val blocked = HashSet<Int>()
-        if (builtIn == BuiltIn.HOUR || builtIn == BuiltIn.HALF_HOUR) {
+        if (builtIn == BuiltIn.HOUR || builtIn == BuiltIn.HALF_HOUR ||
+            builtIn == BuiltIn.MINUTE || builtIn == BuiltIn.FIVE_MIN || builtIn == BuiltIn.TEN_MIN
+        ) {
             blocked.add(MODE_HOUR)
             blocked.add(MODE_DAY)
             blocked.add(MODE_DAY_HMS)
