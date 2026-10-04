@@ -47,9 +47,15 @@ object CountdownStore {
             customColorArgb = o.optInt("customColorArgb", 0xFF00FFFF.toInt()),
             displayMode = run {
                 val m = CountdownFormatter.normalizeMode(o.optInt("displayMode", 0))
+                // 当月 / 华都云境悦府 / GTA6 三档的「标准模式」自 v97 起改为「天时分秒模式」：
+                // 老数据绕机器一电平级成 6，显示、下拉框选中项、悬浮窗标题三者一致。
                 // 按类型已收掉的那些模式（当日倒计时的「天时分秒 / 天时分」、每小时与每半小时的
                 // 「小时模式 / 天时分秒 / 天时分」等）对旧数据一样生效，不在可选列表里就退回标准模式
-                if (m in CountdownFormatter.availableModes(builtIn)) m else CountdownFormatter.MODE_STANDARD
+                val upgraded = if (m == CountdownFormatter.MODE_STANDARD && builtIn in intArrayOf(BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6)) {
+                    CountdownFormatter.MODE_DAY_HMS
+                } else m
+                if (upgraded in CountdownFormatter.availableModes(builtIn)) upgraded
+                    else CountdownFormatter.MODE_STANDARD
             },
             animStyle = o.optInt("animStyle", AnimStyle.NONE),
             isVisible = o.optBoolean("isVisible", true),
