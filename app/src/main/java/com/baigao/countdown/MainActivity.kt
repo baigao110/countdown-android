@@ -97,7 +97,7 @@ class MainActivity : Activity() {
         }
     }
 
-    /** 读取本地数据，并确保七个内置项（每小时 / 每半小时 / 当日 / 每周 / 当月 / 华都云境悦府 / GTA6）始终存在。 */
+    /** 读取本地数据，并确保十个内置项（每10分钟 / 每5分钟 / 每分钟 / 每小时 / 每半小时 / 当日 / 每周 / 当月 / 华都云境悦府 / GTA6）始终存在。 */
     private fun loadData() {
         data = CountdownStore.load(this)
         if (ensureBuiltInTimers()) CountdownStore.save(this, data)
@@ -113,6 +113,10 @@ class MainActivity : Activity() {
         added = ensureBuiltIn(BuiltIn.MONTH, "当月倒计时", "距离本月结束") || added
         added = ensureBuiltIn(BuiltIn.WEEK, "每周倒计时", "距离本周结束") || added
         added = ensureBuiltIn(BuiltIn.DAY, "当日倒计时", "距离今日结束") || added
+        // 三个短周期内置项与每小时同款（插到头部，于是排在「每小时 / 每半小时」后面一位）
+        added = ensureBuiltIn(BuiltIn.MINUTE, "每分钟倒计时", "距离本分钟结束") || added
+        added = ensureBuiltIn(BuiltIn.FIVE_MIN, "每5分钟倒计时", "距离本5分钟结束") || added
+        added = ensureBuiltIn(BuiltIn.TEN_MIN, "每10分钟倒计时", "距离本10分钟结束") || added
         added = ensureBuiltIn(BuiltIn.HALF_HOUR, "每半小时倒计时", "距离本半小时结束") || added
         added = ensureBuiltIn(BuiltIn.HOUR, "每小时倒计时", "距离本小时结束") || added
         return added
@@ -757,6 +761,9 @@ class MainActivity : Activity() {
     private val builtInDefs = listOf(
         Triple(BuiltIn.HOUR, "每小时倒计时", "距离本小时结束"),
         Triple(BuiltIn.HALF_HOUR, "每半小时倒计时", "距离本半小时结束"),
+        Triple(BuiltIn.TEN_MIN, "每10分钟倒计时", "距离本10分钟结束"),
+        Triple(BuiltIn.FIVE_MIN, "每5分钟倒计时", "距离本5分钟结束"),
+        Triple(BuiltIn.MINUTE, "每分钟倒计时", "距离本分钟结束"),
         Triple(BuiltIn.DAY, "当日倒计时", "距离今日结束"),
         Triple(BuiltIn.WEEK, "每周倒计时", "距离本周结束"),
         Triple(BuiltIn.MONTH, "当月倒计时", "距离本月结束"),
@@ -804,7 +811,7 @@ class MainActivity : Activity() {
                 .apply()
         }
         // 兜底：某些项可能既不在列表里、也没有被标记删除（例如被改成普通倒计时），
-        // 这里统一补齐，保证点「确定」之后七个内置项真的回到列表里
+        // 这里统一补齐，保证点「确定」之后十个内置项真的回到列表里
         if (ensureBuiltInTimers()) changed = true
         if (changed) CountdownStore.save(this, data)
         rebuildList()
@@ -814,7 +821,7 @@ class MainActivity : Activity() {
     /**
      * 当前「不在列表里」的内置倒计时：
      * 既包括用户删掉的（记在 removedBuiltIns 里），也包括列表里查不到该类型的。
-     * 为空表示七个内置倒计时都在列表里，此时不需要显示「恢复内置」。
+     * 为空表示十个内置倒计时都在列表里，此时不需要显示「恢复内置」。
      */
     private fun missingBuiltIns(): List<Triple<Int, String, String>> =
         builtInDefs.filter { def -> def.first in removedBuiltIns || data.none { it.builtIn == def.first } }
@@ -831,7 +838,7 @@ class MainActivity : Activity() {
     private fun showRestoreBuiltInDialog() {
         val missing = missingBuiltIns()
         if (missing.isEmpty()) {
-            Toast.makeText(this, "七个小内置倒计时都乖乖在列表里啦", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "十个小内置倒计时都乖乖在列表里啦", Toast.LENGTH_SHORT).show()
             return
         }
         val checked = BooleanArray(missing.size) { true }
