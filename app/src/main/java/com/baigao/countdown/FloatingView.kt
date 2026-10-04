@@ -53,6 +53,8 @@ class FloatingView(
     private var lastTimeText = ""
     /** 上一次展示的备注文本（内置项备注会随整点/日期变化，用于去重避免每秒重写视图）。 */
     private var lastRemark = ""
+    /** 上一次展示的目标时间文本：内置项跨整点 / 跨天时目标会滚动，同样去重避免每秒重写视图。 */
+    private var lastTarget = ""
     private val modeTv: TextView = view.findViewById(R.id.fMode)
     private val remarkMain: TextView = view.findViewById(R.id.fRemark)
     private val drawerBtn: Button = view.findViewById(R.id.fDrawer)
@@ -146,9 +148,7 @@ class FloatingView(
             timeTail.setTextColor(data.customColorArgb)
             modeTv.text = CountdownFormatter.modeName(data.displayMode, data.builtIn) +
                 " | " + AnimStyle.name(data.animStyle)
-            data.refreshBuiltInTarget() // 内置项对齐目标时间，保证「目标:」显示当前周期
-            targetTv.text = "目标: " +
-                    SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(data.targetTime))
+            applyTarget() // 内置项对齐目标时间，保证「目标:」显示当前周期
             applyRemark()
             opacityBar.progress = 100 - data.opacity.coerceIn(20, 100)
         } catch (e: Throwable) {
@@ -174,7 +174,29 @@ class FloatingView(
         } catch (_: Throwable) { }
     }
 
-    /** 每秒调用：只刷新倒计时数字。now 由调用方统一给定（多个悬浮窗同步跳秒）。 */
+    /**
+     * 刷新「目标:」这一行（抽屉里的目标时间）。
+     *
+     * 内置项（每小时 / 每半小时 / 每 1·5·10 分钟 / 当日 / 每周 / 当月 …）的目标时间是**滚动**的：
+     * 过了整点就跳到下一个周期、过了零点就跳到次日 —— 必须随每秒的跳秒一起刷新，
+     * 否则退到后台之后「目标:」会一直停在建立时或建窗那一刻的旧值，
+     * 而倒计时数字照样在走，看起来就像「目标时间没同步」。
+     * 文本没变就不重设，避免每秒无谓改写视图。
+     */
+    private fun applyTarget() {
+        try {
+            data.refreshBuiltInTarget() // 内置项对齐目标时间
+            val t = "目标: " +
+                SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(data.targetTime))
+            if (t == lastTarget) return
+            lastTarget = t
+            targetTv.text = t
+        } catch (e: Throwable) {
+            Log.w(TAG, "applyTarget: ${e.message}")
+        }
+    }
+
+    /** 每秒调用：刷新倒计时数字 / 目标时间 / 备注。now 由调用方统一给定（多个悬浮窗同步跳秒）。 */
     fun update(now: Long = System.currentTimeMillis()) {
         try {
             val text = data.remainingText(now)
@@ -185,6 +207,8 @@ class FloatingView(
             }
             // 整点 / 跨天时备注也要跟着换说法（悬浮窗是常驻的，不能只靠 bindTexts）
             applyRemark()
+            // 目标时间同理：滚动型内置项跨周期后「目标:」必须跟着变
+            applyTarget()
         } catch (e: Throwable) {
             Log.w(TAG, "update: ${e.message}")
         }
