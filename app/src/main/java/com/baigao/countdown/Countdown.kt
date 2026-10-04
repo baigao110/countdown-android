@@ -249,7 +249,7 @@ data class Countdown(
                 else "距离${h}点${String.format("%02d", mm)}分结束"
             }
             BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN -> {
-                // 「距离18点05分结束」（5 分档）/「距离18点20分结束」（10 分档）；:
+                // 「距离18点05分结束」（5 分档）、「距离18点20分结束」（10 分档）；
                 // 正好落在整点时退成跟每小时同一句「距离18点整结束」
                 val h = cal.get(Calendar.HOUR_OF_DAY)
                 val mm = cal.get(Calendar.MINUTE)
