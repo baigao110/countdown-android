@@ -1226,8 +1226,8 @@ class MainActivity : Activity() {
             AnimStyle.reset(timeLast, c.customColorArgb)
             // 备注：内置项用随目标时间同步变化的实时备注（跨整点 / 跨天立刻跟着变）
             refreshRemark()
-            showBtn.text = if (c.isVisible) "收起" else "展开"
-            // 动画效果名称显示在「显示 / 模式」按钮之后
+            showBtn.text = if (c.isVisible) "收起悬浮窗" else "展开悬浮窗"
+            // 动画效果名称显示在「显示 / 显示模式」按钮之后
             animBtn.text = AnimStyle.name(c.animStyle)
             // 再后面显示本条倒计时设置的提示音名称；没设过就显示「未设置提示音」
             soundLabelBtn.text = SoundNames.name(context, c.soundUri)
