@@ -139,7 +139,10 @@ class MainActivity : Activity() {
                 title = title,
                 remark = remark,
                 builtIn = type,
-                displayMode = 0,
+                // 当月 / 华都云境悦府 / GTA6 的「标准模式」就是「天时分秒模式」（与记录读取时的数据升级保持一致）
+                displayMode = if (type in intArrayOf(BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6)) {
+                    CountdownFormatter.MODE_DAY_HMS
+                } else 0,
                 isVisible = false   // 默认不强制弹出悬浮窗，可在列表中点「显示」
             )
         }
