@@ -296,7 +296,8 @@ object CountdownFormatter {
      */
     fun effectiveMode(mode: Int, builtIn: Int): Int = when (builtIn) {
         BuiltIn.DAY, BuiltIn.HOUR, BuiltIn.HALF_HOUR -> if (mode == 0 || mode == 4) 5 else mode  // 标准 / 天数 → 时分秒
-        BuiltIn.WEEK -> if (mode == 0) 6 else mode              // 标准 → 天时分秒
+        BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6 ->
+            if (mode == 0) 6 else mode   // 标准 / 天时分秒 → 天时分秒模式
         else -> mode
     }
 
