@@ -354,7 +354,11 @@ object CountdownFormatter {
             if (mode == 0 || mode == 4) MODE_SECOND else mode   // 标准 / 天数 → 秒模式（最多 1 分钟）
         BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN ->
             if (mode == 0 || mode == 4) MODE_MINUTE else mode   // 标准 / 天数 → 分钟模式（最多 10 分钟）
-        BuiltIn.DAY, BuiltIn.HOUR, BuiltIn.HALF_HOUR ->
+        // 每半小时（最多 1 小时）：「标准模式」(0) 直接给「分秒模式」（xx分xx秒），
+        // 前面那截恒 0 的「时」去掉，看着干净；这条要排在 DAY / HOUR 那条前面
+        BuiltIn.HALF_HOUR ->
+            if (mode == 0 || mode == 4) MODE_MINUTE_SECOND else mode
+        BuiltIn.DAY, BuiltIn.HOUR ->
             if (mode == 0 || mode == 4) MODE_HMS else mode   // 标准 / 天数 → 时分秒
         BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6 ->
             if (mode == 0) 6 else mode   // 标准 / 天时分秒 → 天时分秒模式
@@ -404,7 +408,13 @@ object CountdownFormatter {
             blocked.add(MODE_DAY_HMS)
             blocked.add(MODE_DAY_HM)
         }
-        return MODE_NAMES.indices.filter { m -> m !in blocked }
+        val list = MODE_NAMES.indices.filter { m -> m !in blocked }
+        // 去重：某档渲染出来的格式和「标准模式」一模一样时，它就没存在必要了
+        // （标准模式本身永远保留），留着只会让两个名字不同、长得一样的档位互相顶替。
+        // 例如「每分钟」的标准模式就是秒模式，那一档「秒模式」必须撤掉，
+        // 于是每分钟只剩一种显示，按钮也就跟着收起来了。
+        val stdKey = formatKey(effectiveMode(MODE_STANDARD, builtIn))
+        return list.filter { m -> m == MODE_STANDARD || formatKey(effectiveMode(m, builtIn)) != stdKey }
     }
 
     /** 该条目可选模式的名称（编辑页下拉框用）。 */
@@ -417,6 +427,34 @@ object CountdownFormatter {
         return if (i >= 0) i else 0
     }
 
+    /**
+     * 显示格式的「指纹」：effectiveMode 之后落进 remaining() 的哪个分支。
+     * 两个档位指纹相同 = 显示出来长得一模一样（用来判断是不是重复档位）。
+     */
+    private fun formatKey(m: Int): Int = when (m) {
+        0 -> 0
+        1 -> 1
+        2 -> 2
+        3 -> 3
+        4 -> 4
+        5 -> 5
+        6 -> 6
+        7 -> 7
+        else -> 8
+    }
+
+    /**
+     * 这条倒计时还剩「两种以上」可以切的显示模式吗。
+     * 只剩一种（例如「每分钟」只有标准模式）时，卡片上的模式按钮、悬浮窗抽屉里
+     * 那两颗「上一个 / 下一个显示模式」、以及编辑页的模式下拉框都要收起来，
+     * 免得点一下切不动还白占地方。
+     */
+    fun hasModeSwitch(builtIn: Int): Boolean = availableModes(builtIn).size > 1
+
+    /**
+     * 显示格式的「指纹」：effectiveMode 之后落进 remaining() 的哪个分支。
+     * 两个档位指纹相同 = 显示出来长得一模一样（用来判断是不是重复档位）。
+     */
     /** 把下拉框选中位置还原成模式号。 */
     fun modeAt(index: Int, builtIn: Int): Int {
         val list = availableModes(builtIn)
