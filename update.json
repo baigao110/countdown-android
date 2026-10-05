@@ -1,8 +1,8 @@
 {
-  "versionCode": 105,
+  "versionCode": 106,
   "versionName": "1.0.0.38",
   "date": "2026-10-05",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-  "note": "悬浮窗的「玻璃透明度」滑块现在只淡化玻璃底 —— 卡片、抽屉面板、按钮这些玻璃背景可以单独调 淡 / 调实，标题、备注、目标时间和倒计时数字始终全亮清晰，跳秒动画一个没少，拖滑块往左更透、往右更实。"
+  "note": "这轮把每半小时倒计时的标准显示改成了「分秒模式」（xx分xx秒），跟标准写法一模一样的显示档位自动删掉，只剩一种显示方式的就不再摆切换按钮；长按任意一条可进多选删除（勾几条一起收起），长按后滑动照旧能拖排序；内置倒计时的出厂顺序找回来了（每分钟开头、GTA6 收尾），拖出来的自定义排序单独记着，在「恢复内置」里点「回到默认排序」即可复位。"
 }
