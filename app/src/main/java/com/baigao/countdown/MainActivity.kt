@@ -1068,7 +1068,19 @@ class MainActivity : Activity() {
         applyBuiltInOrder()
         CountdownStore.save(this, data)
         rebuildList()
-        Toast.makeText(this, "小内置的顺序回到出厂顺序啦（每分钟开头，GTA6 收尾）", Toast.LENGTH_SHORT).show()
+        syncService()
+        // 回显真实结果：点了没变化就别让用户以为这颗按钮坏了
+        val nowTypes = data.mapNotNull { if (it.isBuiltIn()) it.builtIn else null }
+        val names = nowTypes.joinToString(" → ") { t -> builtInInfo[t]?.first ?: "$t" }
+        val isDefault = nowTypes == defaultBuiltInOrder
+        Toast.makeText(
+            this,
+            if (isDefault)
+                "小内置已经回到出厂顺序（每分钟开头，GTA6 收尾）"
+            else
+                "小内置现在是：\n$names",
+            Toast.LENGTH_LONG
+        ).show()
     }
 
     // ---------------- 长按多选删除 ----------------
@@ -1076,6 +1088,8 @@ class MainActivity : Activity() {
     /** 长按（按住不动）进入多选：这一条先勾上，顶部横幅亮出来，每行都露出勾选框。 */
     fun enterMultiSelect(c: Countdown) {
         if (dragInfo != null) return
+        // 兜底：这条已经被收掉了（比如批量删完、或数据刚被别处换过）就别再勾它
+        if (!data.any { it.id == c.id }) return
         multiSelectOn = true
         selectedIds.clear()
         selectedIds.add(c.id)
@@ -1109,6 +1123,9 @@ class MainActivity : Activity() {
         selBar.visibility = View.GONE
     }
 
+    /** 当前列表里所有倒计时 id 的集合（回调里判断「这一条还在不在」用，避免每次都遍历）。 */
+    private fun hasIds(): Set<String> = data.map { it.id }.toSet()
+
     /** 横幅上的「已选 N 个」。 */
     private fun updateSelectBar() {
         selCountTv.text = "已经挑了 ${selectedIds.size} 个"
@@ -1136,10 +1153,19 @@ class MainActivity : Activity() {
 
     /** 执行批量删除：内置项走「收起」流程（存快照 + 记不再自动补齐），普通项直接划掉。 */
     private fun removeSelected() {
-        for (c in data) {
-            if (c.id in selectedIds) {
+        // ⚠️ 必须遍历「快照」：下面要一边删一边改 data，直接 for (c in data) 会抛
+        // ConcurrentModificationException（批量删两条以上必闪退）
+        val picked = data.filter { it.id in selectedIds }
+        if (picked.isEmpty()) {
+            exitMultiSelect()
+            return
+        }
+        try {
+            for (c in picked) {
                 if (c.isBuiltIn()) removeBuiltInEntryQuiet(c) else removeEntryQuiet(c)
             }
+        } catch (e: Throwable) {
+            android.util.Log.w("MainActivity", "removeSelected: ${e.message}")
         }
         selectedIds.clear()
         multiSelectOn = false
@@ -1180,14 +1206,23 @@ class MainActivity : Activity() {
         private var downRawY = 0f
         private var startTx = 0f
         private var mode = 0 // 0 无 / 1 横向滑动 / 2 纵向滚动 / 3 拖动
+        /** 这一行当前是否还挂在窗口上（rebuildList 会把旧行摘掉，摘掉后不能再回调它）。 */
+        private var attached = false
         private val LONG_PRESS = 350L
         /** 长按已到时：接下来按住不动 = 进多选，接着往上下滑 = 拖动排序。 */
         private var pressArmed = false
+        /** 最近一次触摸点（判断「按住不动」还是「手指在挪」用，见 longPressSelect）。 */
+        private var lastTouchX = 0f
+        private var lastTouchY = 0f
         private val SLOP = 12
 
         /** 长按之后「按住不动」的那一半：进多选删除。 */
         private val longPressSelect = Runnable {
-            if (mode == 0 && bound != null) {
+            // 手指已经挪开（>8px）就不算「按住不动」：那是想拖排序，不该进多选
+            if (Math.abs(lastTouchX - downX) > 8f || Math.abs(lastTouchY - downY) > 8f) return@Runnable
+            // ⚠️ attached 这道门必须留着：进多选会整表重建、把这一行摘下来，
+            // 摘下来之后这个 260ms 的回调还可能再跑一次，若不挡就会对着旧行反复重建列表
+            if (mode == 0 && bound != null && attached && boundId in this@MainActivity.hasIds()) {
                 pressArmed = false
                 this@MainActivity.enterMultiSelect(bound!!)
             }
@@ -1549,10 +1584,17 @@ class MainActivity : Activity() {
                 }
                 MotionEvent.ACTION_MOVE -> {
                     if (mode == 3) return true
+                    lastTouchX = e.x
+                    lastTouchY = e.y
                     if (mode == 0) {
                         val dx = e.x - downX
                         val dy = e.y - downY
                         // 长按满 350ms 之后手指接着往上下滑 —— 这时还是「拖动排序」
+                        // ⚠️ 手指一离开原地（超过 8px），这一轮就只认「拖排序」：
+                        // 原设计里慢慢往上/下滑时，260ms 后的「进多选」回调会抢先触发、把
+                        // pressArmed 清掉，于是拖动排序永远走不到 —— 自定义排序看着像「没反应」。
+                        // 现在只要手指动了就撤掉进多选这一半，"按住不动才进多选"。
+                        if (Math.abs(dx) > 8f || Math.abs(dy) > 8f) removeCallbacks(longPressSelect)
                         if (pressArmed && Math.abs(dy) > 24f) {
                             removeCallbacks(longPressSelect)
                             pressArmed = false
@@ -1657,8 +1699,18 @@ class MainActivity : Activity() {
             return false
         }
 
+        override fun onAttachedToWindow() {
+            attached = true
+            super.onAttachedToWindow()
+        }
+
         override fun onDetachedFromWindow() {
+            attached = false
+            // 两个长按回调都要掐：只掐 longPress 的话，挂在 longPressSelect 上的那颗
+            // 会在条目已经被 rebuildList() 摘掉之后还跑一遍，对着旧行重建列表
             removeCallbacks(longPress)
+            removeCallbacks(longPressSelect)
+            pressArmed = false
             super.onDetachedFromWindow()
         }
     }
