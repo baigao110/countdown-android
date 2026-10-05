@@ -1,8 +1,8 @@
 {
-  "versionCode": 103,
+  "versionCode": 104,
   "versionName": "1.0.0.38",
-  "date": "2026-10-04",
+  "date": "2026-10-05",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-  "note": "新加了一档「分秒模式」（只显示 x分x秒）：每分钟 / 每5分钟 / 每10分钟 倒计时都能挑到它；每小时 / 每半小时 原来那档「时分秒模式」换成了「分秒模式」。下拉框、主界面、悬浮窗、锁屏通知四处完全同步."
+  "note": "上一轮新加的「分秒模式」从「每分钟倒计时」这里撤掉了 —— 它在一分钟里只能写成 0分30秒 这种，下拉框、主界面、悬浮窗、锁屏通知都不再出现这档；每5分钟 / 每10分钟 照旧还能选。已经设成该模式的老数据自动退回秒模式，显示的样子跟以前一样"
 }
