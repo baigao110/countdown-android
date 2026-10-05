@@ -1597,15 +1597,17 @@ class MainActivity : Activity() {
                         val dx = e.x - downX
                         val dy = e.y - downY
                         // 长按满 350ms 之后手指接着往上下滑 —— 这时还是「拖动排序」
-                        // ⚠️ 手指一离开原地（超过 8px），这一轮就只认「拖排序」：
-                        // 原设计里慢慢往上/下滑时，260ms 后的「进多选」回调会抢先触发、把
-                        // pressArmed 清掉，于是拖动排序永远走不到 —— 自定义排序看着像「没反应」。
-                        // 现在只要手指动了就撤掉进多选这一半，"按住不动才进多选"。
+                        // 手指一离开原地（超过 8px）就撤掉进多选这一半：
+                        // 之后只认「拖排序」，"按住不动才进多选"。
                         if (Math.abs(dx) > 8f || Math.abs(dy) > 8f) {
                             removeCallbacks(longPressSelect)
                             selectPend = false // 手指在挪 = 只想拖排序，别再进多选
                         }
-                        if (pressArmed && Math.abs(dy) > 24f) {
+                        // ⚠️ 阈值必须 <= SLOP(12)：原来写 24f 时，手指刚滑过 12px 就先被下面
+                        //    的「纵向滚动」分支（mode=2）抢走并 removeCallbacks(longPress)，
+                        //    pressArmed 永远置不上位，beginDrag 一次也走不到 —— 这就是
+                        //    「自定义排序点了没反应」的真根因。
+                        if (pressArmed && Math.abs(dy) > SLOP) {
                             removeCallbacks(longPressSelect)
                             pressArmed = false
                             beginDrag(this@CountdownRow, bound!!, downRawY.toInt())
