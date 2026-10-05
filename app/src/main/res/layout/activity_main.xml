@@ -24,6 +24,50 @@
             android:textStyle="bold"
             android:paddingBottom="4dp" />
 
+    <!-- 长按任意一条进入「多选删除」后出现的横幅：挑了几个、一起收起、退出多选 -->
+    <LinearLayout
+        android:id="@+id/selectBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="4dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/selCountTv"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="已经挑了 0 个"
+            android:textColor="#00FFFF"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/selOkBtn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="收起选中"
+            android:textSize="12sp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:background="@drawable/glass_chip"
+            android:padding="6dp"
+            android:layout_marginStart="10dp" />
+
+        <Button
+            android:id="@+id/selCancelBtn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="取消"
+            android:textSize="12sp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:background="@drawable/glass_chip"
+            android:padding="6dp"
+            android:layout_marginStart="6dp" />
+    </LinearLayout>
+
         <ScrollView
             android:id="@+id/scroll"
             android:layout_width="match_parent"
