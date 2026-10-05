@@ -1208,7 +1208,7 @@ class MainActivity : Activity() {
         private var mode = 0 // 0 无 / 1 横向滑动 / 2 纵向滚动 / 3 拖动
         /** 这一行当前是否还挂在窗口上（rebuildList 会把旧行摘掉，摘掉后不能再回调它）。 */
         private var attached = false
-        private val LONG_PRESS = 350L
+        private val LONG_PRESS = 300L
         /** 长按已到时：接下来按住不动 = 进多选，接着往上下滑 = 拖动排序。 */
         private var pressArmed = false
         /** 最近一次触摸点（判断「原地抬手」还是「手指挪开了」用，见 ACTION_UP 分支）。 */
@@ -1225,6 +1225,10 @@ class MainActivity : Activity() {
                 // ⚠️ 旧写法是「到账后再挂 420ms 宽限期，期内不动就进多选」，手慢一点必然被
                 //    「进多选」抢走，想拖排序的用户看着就是"自定义排序点了没反应"（v118~v120 连报三次）。
                 pressArmed = true
+                // v122：长按到点的瞬间就告诉外层「别再抢这串手势」——
+                // 外层 ScrollView 只要看到纵向漂移超过 slop 就会收走事件，
+                // 手指还没拖起来整串就 CANCEL 了（这就是「拖不动」的第二个原因）
+                (parent as? ViewGroup)?.requestDisallowInterceptTouchEvent(true)
                 performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
             }
         }
@@ -1260,6 +1264,17 @@ class MainActivity : Activity() {
             checkBox = v.findViewById(R.id.itemCheck)
             checkBox.visibility = if (this@MainActivity.multiSelectOn) View.VISIBLE else View.GONE
             checkBox.isChecked = c.id in this@MainActivity.selectedIds
+            // v122：勾选框现在浮在卡片上层（见 item_countdown.xml），
+            // 亮出来时给卡片内容让出右边一条（勾选框 30dp + 外边距 10dp），
+            // 否则它会盖在标题文字上面；退出多选再原样收回去
+            val d = resources.displayMetrics.density
+            val side = (12 * d).toInt()
+            val rightPad = if (checkBox.visibility == View.VISIBLE) {
+                side + (40 * d).toInt()
+            } else {
+                side
+            }
+            front.setPadding(side, side, rightPad, side)
 
             showBtn.setOnClickListener { bound?.let { this@MainActivity.onShowToggle(it) } }
             modeBtn.setOnClickListener { bound?.let { this@MainActivity.onModeCycle(it) } }
@@ -1584,8 +1599,8 @@ class MainActivity : Activity() {
                         val dx = e.x - downX
                         val dy = e.y - downY
                         // 长按满 350ms 之后手指接着往上下滑 —— 这时还是「拖动排序」
-                        // 手指一离开原地（超过 8px）就撤掉进多选这一半：
-                        // 之后只认「拖排序」，"按住不动才进多选"。
+                        // 长按预备这条只保留「往上下滑 = 拖排序」的走法，
+                        // 进多选那一半改由 ACTION_UP 的「原地抬手」负责（见下）。
                         // ⚠️ 阈值必须 <= SLOP(12)：原来写 24f 时，手指刚滑过 12px 就先被下面
                         //    的「纵向滚动」分支（mode=2）抢走并 removeCallbacks(longPress)，
                         //    pressArmed 永远置不上位，beginDrag 一次也走不到 —— 这就是
