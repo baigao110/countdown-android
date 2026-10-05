@@ -1286,13 +1286,13 @@ class MainActivity : Activity() {
             checkBox = v.findViewById(R.id.itemCheck)
             checkBox.visibility = if (this@MainActivity.multiSelectOn) View.VISIBLE else View.GONE
             checkBox.isChecked = c.id in this@MainActivity.selectedIds
-            // v122：勾选框现在浮在卡片上层（见 item_countdown.xml），
-            // 亮出来时给卡片内容让出右边一条（勾选框 30dp + 外边距 10dp），
+            // v122/v125：勾选框现在浮在卡片最上层（见 item_countdown.xml，抬升 6dp 高过卡片的 4dp），
+            // 亮出来时给卡片内容让出右边一条（勾选框 34dp + 外边距 10dp），
             // 否则它会盖在标题文字上面；退出多选再原样收回去
             val d = resources.displayMetrics.density
             val side = (12 * d).toInt()
             val rightPad = if (checkBox.visibility == View.VISIBLE) {
-                side + (40 * d).toInt()
+                side + (44 * d).toInt()
             } else {
                 side
             }
