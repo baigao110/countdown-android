@@ -48,6 +48,20 @@
             android:layout_marginStart="6dp" />
     </LinearLayout>
 
+
+    <!-- 多选删除用的勾选框（平时隐藏）：长按任意一条之后每行都亮出它，
+         勾上就是选中，可以一次挑好几个再一起收起；不拦触摸，点它等同点这一行 -->
+    <CheckBox
+        android:id="@+id/itemCheck"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="12dp"
+        android:buttonTint="#FF00FFFF"
+        android:clickable="false"
+        android:focusable="false"
+        android:visibility="gone" />
     <!-- 前景：内容（在上层），可横向滑动露出底层按钮 -->
     <LinearLayout
         android:id="@+id/itemFront"
