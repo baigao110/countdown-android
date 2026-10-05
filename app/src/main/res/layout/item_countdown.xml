@@ -53,12 +53,12 @@
          勾上就是选中，可以一次挑好几个再一起收起；不拦触摸，点它等同点这一行 -->
     <CheckBox
         android:id="@+id/itemCheck"
-        android:layout_width="22dp"
-        android:layout_height="22dp"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
         android:layout_gravity="top|end"
-        android:layout_marginTop="12dp"
-        android:layout_marginEnd="12dp"
-        android:buttonTint="#FF00FFFF"
+        android:layout_marginTop="10dp"
+        android:layout_marginEnd="10dp"
+        android:button="@drawable/ic_check_circle_selector"
         android:clickable="false"
         android:focusable="false"
         android:visibility="gone" />
