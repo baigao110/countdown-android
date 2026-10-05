@@ -50,6 +50,42 @@ class MainActivity : Activity() {
     private lateinit var removedPrefs: SharedPreferences
     private val removedBuiltIns = mutableSetOf<Int>()
 
+    /** 内置倒计时的「自定义排序」快照（用户长按拖过之后记住；没拖过就是空，走默认顺序）。 */
+    private lateinit var orderPrefs: SharedPreferences
+
+    /**
+     * 十个内置小倒计时的出厂顺序：每分钟 → 每5分钟 → 每10分钟 → 每半小时 → 每小时 →
+     * 当日 → 每周 → 当月 → 华都云境悦府 → GTA6。
+     *
+     * 这份常量永远不动：用户拖出来的自定义顺序另存一份（见 orderPrefs），
+     * 所以「自定义排序」怎么拖都不会污染默认顺序 —— 想回到出厂顺序，
+     * 在「找回小内置」里点「回到默认排序」即可。
+     */
+    private val defaultBuiltInOrder = listOf(
+        BuiltIn.MINUTE, BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN, BuiltIn.HALF_HOUR, BuiltIn.HOUR,
+        BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6
+    )
+
+    /** 内置项的名字 / 默认备注，按类型索引（顺序单独由 defaultBuiltInOrder 管）。 */
+    private val builtInInfo = mapOf(
+        BuiltIn.MINUTE to Pair("每分钟倒计时", "距离本分钟结束"),
+        BuiltIn.FIVE_MIN to Pair("每5分钟倒计时", "距离本5分钟结束"),
+        BuiltIn.TEN_MIN to Pair("每10分钟倒计时", "距离本10分钟结束"),
+        BuiltIn.HALF_HOUR to Pair("每半小时倒计时", "距离本半小时结束"),
+        BuiltIn.HOUR to Pair("每小时倒计时", "距离本小时结束"),
+        BuiltIn.DAY to Pair("当日倒计时", "距离今日结束"),
+        BuiltIn.WEEK to Pair("每周倒计时", "距离本周结束"),
+        BuiltIn.MONTH to Pair("当月倒计时", "距离本月结束"),
+        BuiltIn.HUADU to Pair("华都云境悦府倒计时", "距离华都云境悦府交付（2026-10-31 00:00）"),
+        BuiltIn.GTA6 to Pair("GTA6倒计时", "距离 GTA6 发售（2026-11-19 08:00）")
+    )
+
+    // 多选删除
+    private var multiSelectOn = false
+    private val selectedIds = mutableSetOf<String>()
+    private lateinit var selBar: View
+    private lateinit var selCountTv: TextView
+
     // 扇形菜单相关
     private lateinit var addBtn: Button
     private lateinit var menuBackdrop: View
@@ -101,24 +137,20 @@ class MainActivity : Activity() {
     private fun loadData() {
         data = CountdownStore.load(this)
         if (ensureBuiltInTimers()) CountdownStore.save(this, data)
+        // 内置小倒计时的顺序：拖过就按拖出来的顺序，没拖过就按出厂顺序（每分钟 → … → GTA6）
+        applyBuiltInOrder()
     }
 
     /** 补齐全部内置倒计时；返回是否新建（新建后才需要落盘）。 */
     private fun ensureBuiltInTimers(): Boolean {
-        // 每个内置项都插到列表头部，因此按「倒序」补齐，
-        // 最终列表顺序才是：每小时 → 每半小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6
-        // 「每半小时」要在「每小时」之前补（同样插到头部，于是排在每小时后面一位）。
-        var added = ensureBuiltIn(BuiltIn.GTA6, "GTA6倒计时", "距离 GTA6 发售（2026-11-19 08:00）")
-        added = ensureBuiltIn(BuiltIn.HUADU, "华都云境悦府倒计时", "距离华都云境悦府交付（2026-10-31 00:00）") || added
-        added = ensureBuiltIn(BuiltIn.MONTH, "当月倒计时", "距离本月结束") || added
-        added = ensureBuiltIn(BuiltIn.WEEK, "每周倒计时", "距离本周结束") || added
-        added = ensureBuiltIn(BuiltIn.DAY, "当日倒计时", "距离今日结束") || added
-        // 三个短周期内置项与每小时同款（插到头部，于是排在「每小时 / 每半小时」后面一位）
-        added = ensureBuiltIn(BuiltIn.MINUTE, "每分钟倒计时", "距离本分钟结束") || added
-        added = ensureBuiltIn(BuiltIn.FIVE_MIN, "每5分钟倒计时", "距离本5分钟结束") || added
-        added = ensureBuiltIn(BuiltIn.TEN_MIN, "每10分钟倒计时", "距离本10分钟结束") || added
-        added = ensureBuiltIn(BuiltIn.HALF_HOUR, "每半小时倒计时", "距离本半小时结束") || added
-        added = ensureBuiltIn(BuiltIn.HOUR, "每小时倒计时", "距离本小时结束") || added
+        // 新补的内置项一律插到列表最前面，所以按出厂顺序「倒着」补：
+        // 最后一个 GTA6 先插、第一个每分钟最后插，补完列表里内置项的顺序正好是
+        // 每分钟 → 每5分钟 → 每10分钟 → 每半小时 → 每小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6
+        var added = false
+        for (t in defaultBuiltInOrder.reversed()) {
+            val info = builtInInfo[t] ?: continue
+            if (ensureBuiltIn(t, info.first, info.second)) added = true
+        }
         return added
     }
 
@@ -185,6 +217,13 @@ class MainActivity : Activity() {
 
         removedPrefs = getSharedPreferences("builtin_removed", MODE_PRIVATE)
         removedBuiltIns.clear()
+        orderPrefs = getSharedPreferences("builtin_order", MODE_PRIVATE)
+
+        // 多选删除那条横幅：选中几项、一起收起、退出多选
+        selBar = findViewById(R.id.selectBar)
+        selCountTv = findViewById(R.id.selCountTv)
+        findViewById<View>(R.id.selOkBtn).setOnClickListener { deleteSelected() }
+        findViewById<View>(R.id.selCancelBtn).setOnClickListener { exitMultiSelect() }
         removedPrefs.getStringSet("types", emptySet())?.forEach { removedBuiltIns.add(it.toInt()) }
 
         scrollView = findViewById(R.id.scroll)
@@ -606,6 +645,11 @@ class MainActivity : Activity() {
                 val insertAt = if (to > from) to - 1 else to
                 data.add(insertAt.coerceIn(0, data.size), removed)
             }
+            // 拖的是内置项：把拖完的内置顺序记成「自定义排序」，
+            // 这样下次打开还是这个顺序，而出厂顺序（defaultBuiltInOrder）一个字没动
+            if (info.c.isBuiltIn()) saveCustomBuiltInOrder()
+            // 拖的只是普通倒计时：内置顺序照旧（applyBuiltInOrder 里比对着，不会白动）
+            applyBuiltInOrder()
             CountdownStore.save(this, data)
             // 关键：触摸事件派发过程中改动视图树（removeAllViews/addView）会让
             // 框架层在遍历子 View 时崩溃。故延到下一帧再重建列表。
@@ -628,6 +672,8 @@ class MainActivity : Activity() {
     }
 
     fun onModeCycle(c: Countdown) {
+        // 只剩一种显示模式时（例如每分钟），切换按钮已经收起来了，点它什么都不做
+        if (!CountdownFormatter.hasModeSwitch(c.builtIn)) return
         // 只在「该条目可用的模式」里循环：当日倒计时跳过已下线的天数模式
         val modes = CountdownFormatter.availableModes(c.builtIn)
         val i = modes.indexOf(c.displayMode)
@@ -708,17 +754,30 @@ class MainActivity : Activity() {
 
     /** 普通倒计时的删除（用户自己建的，无需额外确认）。 */
     private fun removeEntry(c: Countdown) {
-        data.removeAll { it.id == c.id }
+        removeEntryQuiet(c)
         CountdownStore.save(this, data)
         rebuildList()
         syncService()
     }
 
+    /** 只从内存里划掉一条，不落盘、不刷新（批量删完一次搞定，避免逐个重建列表）。 */
+    private fun removeEntryQuiet(c: Countdown) {
+        data.removeAll { it.id == c.id }
+    }
+
     /** 内置倒计时的删除：存快照 + 记下类型不再自动补齐，之后「找回小内置」可原样还原。 */
     private fun removeBuiltInEntry(c: Countdown) {
+        removeBuiltInEntryQuiet(c)
+        CountdownStore.save(this, data)
+        rebuildList()
+        syncService()
+    }
+
+    /** 内置项收起（不落盘不刷新）：给批量删除用。 */
+    private fun removeBuiltInEntryQuiet(c: Countdown) {
         saveBuiltInBackup(c)
         markBuiltInRemoved(c.builtIn)
-        removeEntry(c)
+        removeEntryQuiet(c)
     }
 
     /**
@@ -757,19 +816,14 @@ class MainActivity : Activity() {
 
     // ---------------- 内置倒计时的删除 / 恢复 ----------------
 
-    /** 内置倒计时的默认定义（顺序即列表里的展示顺序）。 */
-    private val builtInDefs = listOf(
-        Triple(BuiltIn.HOUR, "每小时倒计时", "距离本小时结束"),
-        Triple(BuiltIn.HALF_HOUR, "每半小时倒计时", "距离本半小时结束"),
-        Triple(BuiltIn.TEN_MIN, "每10分钟倒计时", "距离本10分钟结束"),
-        Triple(BuiltIn.FIVE_MIN, "每5分钟倒计时", "距离本5分钟结束"),
-        Triple(BuiltIn.MINUTE, "每分钟倒计时", "距离本分钟结束"),
-        Triple(BuiltIn.DAY, "当日倒计时", "距离今日结束"),
-        Triple(BuiltIn.WEEK, "每周倒计时", "距离本周结束"),
-        Triple(BuiltIn.MONTH, "当月倒计时", "距离本月结束"),
-        Triple(BuiltIn.HUADU, "华都云境悦府倒计时", "距离华都云境悦府交付（2026-10-31 00:00）"),
-        Triple(BuiltIn.GTA6, "GTA6倒计时", "距离 GTA6 发售（2026-11-19 08:00）")
-    )
+    /**
+     * 内置倒计时的默认定义（顺序即列表里的展示顺序 = defaultBuiltInOrder）。
+     * 「找回小内置」 dialogues 与恢复对话框的清单都按它排，不另存一份顺序。
+     */
+    private val builtInDefs: List<Triple<Int, String, String>> = defaultBuiltInOrder.map { t ->
+        val info = builtInInfo[t]
+        Triple(t, info?.first ?: "", info?.second ?: "")
+    }
 
     /**
      * 删除内置倒计时时，把它的完整设置存成快照（JSON 字符串，存在 builtin_removed 里）。
@@ -813,6 +867,7 @@ class MainActivity : Activity() {
         // 兜底：某些项可能既不在列表里、也没有被标记删除（例如被改成普通倒计时），
         // 这里统一补齐，保证点「确定」之后十个内置项真的回到列表里
         if (ensureBuiltInTimers()) changed = true
+        applyBuiltInOrder()
         if (changed) CountdownStore.save(this, data)
         rebuildList()
         syncService()
@@ -838,7 +893,13 @@ class MainActivity : Activity() {
     private fun showRestoreBuiltInDialog() {
         val missing = missingBuiltIns()
         if (missing.isEmpty()) {
-            Toast.makeText(this, "十个小内置倒计时都乖乖在列表里啦", Toast.LENGTH_SHORT).show()
+            // 十个都在：还把「回到默认排序」给出来，省得想复位还得先删一个再找回
+            AlertDialog.Builder(this)
+                .setTitle("小内置都在")
+                .setMessage("十个小内置倒计时都乖乖在列表里啦。\n想让它们回到出厂顺序（每分钟 → 每5分钟 → 每10分钟 → 每半小时 → 每小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6）就点「回到默认排序」。")
+                .setPositiveButton("回到默认排序") { _, _ -> restoreDefaultOrder() }
+                .setNegativeButton("先留着", null)
+                .show()
             return
         }
         val checked = BooleanArray(missing.size) { true }
@@ -883,6 +944,8 @@ class MainActivity : Activity() {
             }
             bar.addView(selectAllBtn("全选上") { boxes.forEach { it.isChecked = true } })
             bar.addView(selectAllBtn("全不选啦") { boxes.forEach { it.isChecked = false } })
+            // 自定义排序拖出来的顺序想推倒重来，就点这一颗（拖完的顺序记在 builtin_order 里）
+            bar.addView(selectAllBtn("回到默认排序") { restoreDefaultOrder() })
             host.addView(bar)
 
             for ((i, def) in missing.withIndex()) {
@@ -950,6 +1013,143 @@ class MainActivity : Activity() {
 
     private val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
 
+    // ---------------- 内置倒计时的默认排序 / 自定义排序 ----------------
+
+    /** 用户拖出来的内置顺序（逗号串，空表示没拖过、走出厂顺序）。 */
+    private fun customBuiltInOrder(): List<Int> =
+        orderPrefs.getString("builtin_order", null)
+            ?.split(",")
+            ?.mapNotNull { it.trim().toIntOrNull() }
+            ?: emptyList()
+
+    /** 把「当前列表里内置项的前后顺序」记成自定义排序（拖完内置项时调用）。 */
+    private fun saveCustomBuiltInOrder() {
+        val types = data.mapNotNull { c -> if (c.isBuiltIn()) c.builtIn else null }
+        orderPrefs.edit().putString("builtin_order", types.joinToString(",")).apply()
+    }
+
+    /** 目标顺序：拖出来的（自定义）排前面，出厂顺序把剩下的补齐。 */
+    private fun mergedBuiltInOrder(): List<Int> {
+        val m = ArrayList<Int>()
+        for (t in customBuiltInOrder()) if (t in defaultBuiltInOrder && t !in m) m.add(t)
+        for (t in defaultBuiltInOrder) if (t !in m) m.add(t)
+        return m
+    }
+
+    /**
+     * 把列表里的内置项按「自定义排序（没拖过就是出厂顺序）」排好。
+     *
+     * 只动内置项之间的先后，普通倒计时的位置一个都不挪：先记住内置项原来占的下标，
+     * 把它们整段抠出来，再按同样下标插回去 —— 于是非内置项始终待在原位。
+     * 顺序本来就对时直接返回（不做任何事），避免每次刷新都白白重排列表。
+     */
+    private fun applyBuiltInOrder() {
+        val built = data.filter { it.isBuiltIn() }
+        if (built.size < 2) return
+        val want = ArrayList<Countdown>()
+        for (t in mergedBuiltInOrder()) {
+            val c = built.firstOrNull { it.builtIn == t }
+            if (c != null && c !in want) want.add(c)
+        }
+        for (c in built) if (c !in want) want.add(c)
+        if (want == built) return
+        val slots = ArrayList<Int>()
+        for (i in data.indices) if (data[i].isBuiltIn()) slots.add(i)
+        val out = ArrayList<Countdown>(data)
+        for (i in slots.reversed()) out.removeAt(i)
+        for (k in slots.indices) out.add(slots[k], want[k])
+        data.clear()
+        data.addAll(out)
+    }
+
+    /** 推倒自定义排序、回到出厂顺序（每分钟 → … → GTA6）。 */
+    private fun restoreDefaultOrder() {
+        orderPrefs.edit().remove("builtin_order").apply()
+        applyBuiltInOrder()
+        CountdownStore.save(this, data)
+        rebuildList()
+        Toast.makeText(this, "小内置的顺序回到出厂顺序啦（每分钟开头，GTA6 收尾）", Toast.LENGTH_SHORT).show()
+    }
+
+    // ---------------- 长按多选删除 ----------------
+
+    /** 长按（按住不动）进入多选：这一条先勾上，顶部横幅亮出来，每行都露出勾选框。 */
+    fun enterMultiSelect(c: Countdown) {
+        if (dragInfo != null) return
+        multiSelectOn = true
+        selectedIds.clear()
+        selectedIds.add(c.id)
+        showSelectBar()
+        rebuildList()
+    }
+
+    /** 退出多选（点「取消」/ 勾空了 / 删完）。 */
+    fun exitMultiSelect() {
+        if (!multiSelectOn) return
+        multiSelectOn = false
+        selectedIds.clear()
+        hideSelectBar()
+        rebuildList()
+    }
+
+    /** 多选模式下点一下这一行 = 勾上 / 取消勾上。 */
+    fun toggleSelect(c: Countdown) {
+        if (!selectedIds.add(c.id)) selectedIds.remove(c.id)
+        updateSelectBar()
+        rebuildList()
+        if (selectedIds.isEmpty()) exitMultiSelect()
+    }
+
+    private fun showSelectBar() {
+        selBar.visibility = View.VISIBLE
+        updateSelectBar()
+    }
+
+    private fun hideSelectBar() {
+        selBar.visibility = View.GONE
+    }
+
+    /** 横幅上的「已选 N 个」。 */
+    private fun updateSelectBar() {
+        selCountTv.text = "已经挑了 ${selectedIds.size} 个"
+    }
+
+    /** 把勾着的都收起来（内置项照样存快照，「找回小内置」能原样捞回来）。 */
+    private fun deleteSelected() {
+        val picked = data.filter { it.id in selectedIds }
+        if (picked.isEmpty()) {
+            exitMultiSelect()
+            return
+        }
+        val builtInCount = picked.count { it.isBuiltIn() }
+        val what = if (picked.size == 1) "「${picked[0].title}」" else "挑好的这 ${picked.size} 个"
+        val tip = if (builtInCount > 0)
+            "\n（里面有 $builtInCount 个是内置小倒计时，会一并存成快照，「找回小内置」还能原样捞回来）"
+        else ""
+        AlertDialog.Builder(this)
+            .setTitle("要收起选中的吗")
+            .setMessage("要把 $what 都收起来吗？它们会舍不得你呢～$tip")
+            .setPositiveButton("好呀，收起") { _, _ -> removeSelected() }
+            .setNegativeButton("先留着", null)
+            .show()
+    }
+
+    /** 执行批量删除：内置项走「收起」流程（存快照 + 记不再自动补齐），普通项直接划掉。 */
+    private fun removeSelected() {
+        for (c in data) {
+            if (c.id in selectedIds) {
+                if (c.isBuiltIn()) removeBuiltInEntryQuiet(c) else removeEntryQuiet(c)
+            }
+        }
+        selectedIds.clear()
+        multiSelectOn = false
+        hideSelectBar()
+        CountdownStore.save(this, data)
+        rebuildList()
+        syncService()
+    }
+
+
     // ---------------- 单条倒计时行（含滑动/拖动手势） ----------------
 
     inner class CountdownRow(context: Context) : FrameLayout(context) {
@@ -968,6 +1168,7 @@ class MainActivity : Activity() {
         lateinit var soundLabelBtn: Button // 按钮行上的「提示音名称」
         lateinit var editBtn: Button
         lateinit var deleteBtn: Button
+        lateinit var checkBox: CheckBox // 多选删除用的勾选框（平时藏着）
         var boundId: String = ""
         private var bound: Countdown? = null
         /** 上一次显示的时间文本：只有文本真的变了才播放动画（天/周等模式并非每秒都变）。 */
@@ -980,13 +1181,24 @@ class MainActivity : Activity() {
         private var startTx = 0f
         private var mode = 0 // 0 无 / 1 横向滑动 / 2 纵向滚动 / 3 拖动
         private val LONG_PRESS = 350L
+        /** 长按已到时：接下来按住不动 = 进多选，接着往上下滑 = 拖动排序。 */
+        private var pressArmed = false
         private val SLOP = 12
+
+        /** 长按之后「按住不动」的那一半：进多选删除。 */
+        private val longPressSelect = Runnable {
+            if (mode == 0 && bound != null) {
+                pressArmed = false
+                this@MainActivity.enterMultiSelect(bound!!)
+            }
+        }
 
         private val longPress = Runnable {
             if (mode == 0 && bound != null) {
-                beginDrag(this@CountdownRow, bound!!, downRawY.toInt())
-                // 拖拽成功（已生成幽灵）才进入拖动模式；截图失败则回退，避免卡在 mode=3
-                mode = if (dragInfo != null) 3 else 0
+                // 长按满 350ms 先「挂起」：接着往上下滑 → 拖动排序；
+                // 按住不动（再过 260ms）→ 进多选删除，勾上这一条。
+                pressArmed = true
+                postDelayed(longPressSelect, 260L)
             }
         }
 
@@ -1013,6 +1225,15 @@ class MainActivity : Activity() {
             bound = c
             boundId = c.id
 
+            // 只剩一种显示模式的条目（例如每分钟，标准模式就是秒模式）不摆切换按钮，
+            // 免得留一颗点下去什么也不动的按钮占地方
+            modeBtn.visibility =
+                if (CountdownFormatter.hasModeSwitch(c.builtIn)) View.VISIBLE else View.GONE
+            // 多选删除的勾选框：平时藏着，进了多选才每行都亮出来
+            checkBox = v.findViewById(R.id.itemCheck)
+            checkBox.visibility = if (this@MainActivity.multiSelectOn) View.VISIBLE else View.GONE
+            checkBox.isChecked = c.id in this@MainActivity.selectedIds
+
             showBtn.setOnClickListener { bound?.let { this@MainActivity.onShowToggle(it) } }
             modeBtn.setOnClickListener { bound?.let { this@MainActivity.onModeCycle(it) } }
             animBtn.setOnClickListener { bound?.let { this@MainActivity.onAnimCycle(it) } }
@@ -1024,8 +1245,15 @@ class MainActivity : Activity() {
             editBtn.setOnClickListener { bound?.let { this@MainActivity.onEdit(it, this@CountdownRow) } }
             deleteBtn.setOnClickListener { bound?.let { this@MainActivity.onDelete(it, this@CountdownRow) } }
 
-            // 展开（滑开）状态下：点一下前景主内容区、或点一下操作面板空白处，都能收回
-            front.setOnClickListener { if (isOpen()) closeIfOpen() }
+            // 展开（滑开）状态下：点一下前景主内容区、或点一下操作面板空白处，都能收回。
+            // 多选模式下这两下都让位给「勾上 / 取消勾上这一条」。
+            front.setOnClickListener {
+                if (this@MainActivity.multiSelectOn) {
+                    bound?.let { this@MainActivity.toggleSelect(it) }
+                } else if (isOpen()) {
+                    closeIfOpen()
+                }
+            }
             actions.setOnClickListener { if (isOpen()) closeIfOpen() }
 
             refreshAll()
@@ -1312,6 +1540,7 @@ class MainActivity : Activity() {
                     lastX = e.x
                     velX = 0f
                     mode = 0
+                    pressArmed = false
                     stopRevealAnim() // 重新上手：掐掉未跑完的滑动动画，交回手指控制
                     if (actionsWidth == 0) actionsWidth = actions.measuredWidth
                     removeCallbacks(longPress)
@@ -1323,6 +1552,15 @@ class MainActivity : Activity() {
                     if (mode == 0) {
                         val dx = e.x - downX
                         val dy = e.y - downY
+                        // 长按满 350ms 之后手指接着往上下滑 —— 这时还是「拖动排序」
+                        if (pressArmed && Math.abs(dy) > 24f) {
+                            removeCallbacks(longPressSelect)
+                            pressArmed = false
+                            beginDrag(this@CountdownRow, bound!!, downRawY.toInt())
+                            // 拖拽成功（已生成幽灵）才进入拖动模式；失败则回退，避免卡在 mode=3
+                            mode = if (dragInfo != null) 3 else 0
+                            return true
+                        }
                         if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > SLOP) {
                             mode = 1
                             removeCallbacks(longPress)
@@ -1337,6 +1575,8 @@ class MainActivity : Activity() {
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     removeCallbacks(longPress)
+                    removeCallbacks(longPressSelect)
+                    removeCallbacks(longPressSelect)
                     if (mode == 3) {
                         this@MainActivity.endDrag()
                         mode = 0
