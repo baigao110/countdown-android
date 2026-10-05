@@ -187,17 +187,22 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- v122：勾选框必须排在 itemFront 之后 —— 它 30dp 见方钉在卡片右上角，
+    <!-- v122：勾选框必须排在 itemFront 之后 —— 它 34dp 见方钉在卡片右上角，
          排在前面会被 match_parent + elevation 的前景玻璃卡片整个盖住（v119~v121 三版都只
          透出一层模糊暗影，看着就是「对勾太暗」）。挪到末尾即天然画在最上层。
-         右边那 40dp 沟由 MainActivity.bind() 给卡片内容临时让出来，标题不会被压住。 -->
+         ⚠️ v125 补上真正的根因：Android 画一个容器时先画所有 elevation=0 的子视图，
+         再把 elevation>0 的「整组」后画 —— 而前景玻璃卡片带着 4dp 抬升、勾选框抬升为 0，
+         所以哪怕它写在最后一行，仍然被画在卡片「底下」，只有把卡片左滑挪开才露得全。
+         给它 6dp 抬升（高过卡片那 4dp）才稳坐最上层。
+         右边那 44dp 沟由 MainActivity.bind() 给卡片内容临时让出来，标题不会被压住。 -->
     <CheckBox
         android:id="@+id/itemCheck"
-        android:layout_width="30dp"
-        android:layout_height="30dp"
+        android:layout_width="34dp"
+        android:layout_height="34dp"
         android:layout_gravity="top|end"
         android:layout_marginTop="10dp"
         android:layout_marginEnd="10dp"
+        android:elevation="6dp"
         android:button="@drawable/ic_check_circle_selector"
         android:clickable="false"
         android:focusable="false"
