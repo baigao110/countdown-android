@@ -1,8 +1,8 @@
 {
-  "versionCode": 111,
+  "versionCode": 112,
   "versionName": "1.0.0.38",
   "date": "2026-10-05",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-  "note": "拖拽排序这次连着对勾一起修：对勾之所以看着「又暗又不明显」，是因为勾选框被排在 前景玻璃卡片（match_parent +  elevation）之前，整个盖在卡片底下，只能透出一层模糊影子 —— v122 把它挪到卡片上层，同时给卡片内容让出右边一条，绝不压住标题；没勾的是深色圆底 + 纯白亮青圈，勾上是满不透明亮青实心圆 + 加粗白勾。长按也调快到 300ms，并在长按到点的瞬间告诉外层别再抢手势（ScrollView 会把手还没抬起来的拖动直接 CANCEL 掉）。"
+  "note": "内置排序那颗复位按钮改名叫「主界面默认排序」了：十个内置都在列表里时它会出现在「＋」→「恢复内置」的对话框里（多选栏底下一颗也是），点一下就把长按拖出来的顺序推倒、回到出厂顺序（每分钟 → 每5分钟 → 每10分钟 → 每半小时 → 每小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6），还会弹一句告诉你现在是怎么排的、顺手同步到悬浮窗通知"
 }
