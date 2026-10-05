@@ -4,12 +4,14 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.content.Context
 import android.graphics.PixelFormat
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.SeekBar
@@ -83,6 +85,11 @@ class FloatingView(
     private var moved = false
     private var drawerOpen = false
 
+    /** 悬浮窗里所有「玻璃底」（卡片 / 抽屉面板 / 按钮）的背景 drawable 及各自原始 alpha，调不透明度时按同一比例整体淡化。 */
+    private val glassDrawables = ArrayList<Pair<Drawable, Int>>()
+    /** 上一次应用到玻璃底上的比例，用于跳过无谓重写。 */
+    private var glassRatio = -1f
+
     init {
         params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -104,8 +111,10 @@ class FloatingView(
             params.x = 24 + seed % 140
             params.y = 110 + seed % 220
         }
-        // 初始不透明度
-        params.alpha = (data.opacity.coerceIn(20, 100)) / 100f
+        // 初始不透明度：只淡化玻璃底（卡片 / 抽屉 / 按钮），
+        // 不再整窗设 alpha —— 否则连倒计时数字也会跟着一起被压淡、看不清
+        collectBackgrounds(view)
+        applyGlassAlpha()
 
         closeBtn.setOnClickListener { safe("close") { onClose(data) } }
         hideBtn.setOnClickListener { safe("hide") { onClose(data) } }
@@ -115,16 +124,14 @@ class FloatingView(
         nextBtn.setOnClickListener { safe("nextMode") { shiftMode(1) } }
         editBtn.setOnClickListener { safe("edit") { onEdit(data) } }
 
-        // 透明度调节：拖动时实时预览，松手后落盘
+        // 不透明度调节：拖动时实时把玻璃底调淡 / 调实，倒计时数字始终全亮不受影响
         opacityBar.max = 80
-        opacityBar.progress = 100 - data.opacity.coerceIn(20, 100) // 进度 = 透明度%
+        opacityBar.progress = data.opacity.coerceIn(20, 100) - 20 // 0=最透，80=最实
         opacityBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (!fromUser) return
-                val op = (100 - progress).coerceIn(20, 100)
-                data.opacity = op
-                params.alpha = op / 100f
-                safeUpdateLayout()
+                data.opacity = progress.coerceIn(0, 80) + 20
+                applyGlassAlpha()
             }
             override fun onStartTrackingTouch(bar: SeekBar?) {}
             override fun onStopTrackingTouch(bar: SeekBar?) {
@@ -151,9 +158,43 @@ class FloatingView(
             applyModeText()
             applyTarget() // 内置项对齐目标时间，保证「目标:」显示当前周期
             applyRemark()
-            opacityBar.progress = 100 - data.opacity.coerceIn(20, 100)
+            opacityBar.progress = data.opacity.coerceIn(20, 100) - 20
+            applyGlassAlpha() // 玻璃底按不透明度淡化，文字（含倒计时数字）不受影响
         } catch (e: Throwable) {
             Log.w(TAG, "bindTexts: ${e.message}")
+        }
+    }
+
+    /** 递归收集整棵视图树上的背景 drawable（都 mutate 过，改 alpha 不会串到 App 内其它同款玻璃）。 */
+    private fun collectBackgrounds(v: View) {
+        try {
+            val bg = v.background
+            if (bg != null) {
+                val d = bg.mutate()
+                glassDrawables.add(d to d.alpha)
+            }
+        } catch (_: Throwable) { }
+        if (v is ViewGroup) {
+            for (i in 0 until v.childCount) collectBackgrounds(v.getChildAt(i))
+        }
+    }
+
+    /**
+     * 应用悬浮窗玻璃底的不透明度（data.opacity：20..100，100=最实）。
+     *
+     * 以前是把这个值直接设成**整个窗口**的 alpha，连倒计时数字（fTimeHead / fTimeLast / fTimeTail）
+     * 一起被压淡，调透明之后数字糊得根本看不清；而 View 的 alpha 是乘性的、上限 1.0，
+     * 整窗变淡之后没法把数字“补”回来。所以改成：窗口 alpha 恒 1，**只淡化背景 drawable**，
+     * 文字（含跳秒动画作用的最后一位数字）始终按自己的颜色全亮显示。
+     */
+    private fun applyGlassAlpha() {
+        try {
+            val ratio = data.opacity.coerceIn(20, 100) / 100f
+            if (ratio == glassRatio) return
+            glassRatio = ratio
+            glassDrawables.forEach { p -> p.first.alpha = (p.second * ratio).toInt().coerceIn(0, 255) }
+        } catch (e: Throwable) {
+            Log.w(TAG, "applyGlassAlpha: ${e.message}")
         }
     }
 
@@ -254,7 +295,7 @@ class FloatingView(
             data.opacity = c.opacity
             data.collapsed = c.collapsed
             bindTexts()
-            params.alpha = (data.opacity.coerceIn(20, 100)) / 100f
+            applyGlassAlpha()
             safeUpdateLayout()
             applyCollapsed()
             applyKeepScreenOn()
