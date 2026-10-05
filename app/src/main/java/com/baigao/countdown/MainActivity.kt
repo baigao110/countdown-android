@@ -893,7 +893,16 @@ class MainActivity : Activity() {
     private fun showRestoreBuiltInDialog() {
         val missing = missingBuiltIns()
         if (missing.isEmpty()) {
-            // 十个都在：还把「主界面默认排序」给出来，省得想复位还得先删一个再找回
+            // v124：只有真把内置顺序拖过才摆复位入口。排序没动过时列表本来就是出厂顺序，
+            // 这时候弹一个「十个都在 + 一颗回默认」的对话框，点了多半是白点。
+            if (!builtInOrderChanged()) {
+                Toast.makeText(
+                    this,
+                    "小内置现在排的就是出厂顺序，不用复位",
+                    Toast.LENGTH_SHORT
+                ).show()
+                return
+            }
             AlertDialog.Builder(this)
                 .setTitle("小内置都在")
                 .setMessage("十个小内置倒计时都乖乖在列表里啦。\n想让它们回到出厂顺序（每分钟 → 每5分钟 → 每10分钟 → 每半小时 → 每小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6）就点「主界面默认排序」。")
@@ -944,8 +953,10 @@ class MainActivity : Activity() {
             }
             bar.addView(selectAllBtn("全选上") { boxes.forEach { it.isChecked = true } })
             bar.addView(selectAllBtn("全不选啦") { boxes.forEach { it.isChecked = false } })
-            // 自定义排序拖出来的顺序想推倒重来，就点这一颗（拖完的顺序记在 builtin_order 里）
-            bar.addView(selectAllBtn("主界面默认排序") { restoreDefaultOrder() })
+            // v124：只有真把内置顺序拖过才摆这颗复位按钮，没拖过本来就走的出厂顺序
+            if (builtInOrderChanged()) {
+                bar.addView(selectAllBtn("主界面默认排序") { restoreDefaultOrder() })
+            }
             host.addView(bar)
 
             for ((i, def) in missing.withIndex()) {
@@ -1021,6 +1032,17 @@ class MainActivity : Activity() {
             ?.split(",")
             ?.mapNotNull { it.trim().toIntOrNull() }
             ?: emptyList()
+
+    /**
+     * 内置顺序有没有被用户自己动过（拖过内置项）。
+     *
+     * 拖出来的顺序跟出厂顺序一模一样也算「没动过」—— 那种情况下给一颗
+     * 「回默认排序」的按钮纯属多余，摆着点了也不会有任何变化（v124）。
+     */
+    private fun builtInOrderChanged(): Boolean {
+        val custom = customBuiltInOrder()
+        return custom.isNotEmpty() && custom != defaultBuiltInOrder
+    }
 
     /** 把「当前列表里内置项的前后顺序」记成自定义排序（拖完内置项时调用）。 */
     private fun saveCustomBuiltInOrder() {
