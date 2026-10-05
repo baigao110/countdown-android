@@ -244,6 +244,10 @@ for it, so it is not downgraded.
 | Swipe a card left | Reveals 「编辑 / 删除」 Edit / Delete; swiping right or cancelling the dialog slides it back |
 | Long-press and drag a card | Drag up / down to reorder; saved on release |
 | Long-press then release in place | Enter "multi-select delete": tick items, then finish to remove |
+  The multi-select bar also carries **"Select all" / "Deselect all"**: one tap
+  ticks every countdown at once, the other clears them all and leaves multi-select.
+| "Select all" in the bar | Tick every countdown at once; "Deselect all" clears |
+
 | 「＋」 bottom-right | Fans out: Add countdown / About / Restore built-ins (only shown when something is missing) |
 | About page | Check for update / **说明** Help / Changelog / Enable notifications / Test notification / Allow background activity / **更新提示方式** Update prompt mode / **通知体检** Notification checkup |
 | About · Medicine reminder | Toggle (on / off) · Reminder time (daily) · Next reminder (once) · Medicine calendar · Test reminder · Background self-check |
