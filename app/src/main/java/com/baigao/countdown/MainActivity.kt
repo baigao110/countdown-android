@@ -59,7 +59,7 @@ class MainActivity : Activity() {
      *
      * 这份常量永远不动：用户拖出来的自定义顺序另存一份（见 orderPrefs），
      * 所以「自定义排序」怎么拖都不会污染默认顺序 —— 想回到出厂顺序，
-     * 在「找回小内置」里点「回到默认排序」即可。
+     * 在「找回小内置」里点「主界面默认排序」即可。
      */
     private val defaultBuiltInOrder = listOf(
         BuiltIn.MINUTE, BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN, BuiltIn.HALF_HOUR, BuiltIn.HOUR,
@@ -893,11 +893,11 @@ class MainActivity : Activity() {
     private fun showRestoreBuiltInDialog() {
         val missing = missingBuiltIns()
         if (missing.isEmpty()) {
-            // 十个都在：还把「回到默认排序」给出来，省得想复位还得先删一个再找回
+            // 十个都在：还把「主界面默认排序」给出来，省得想复位还得先删一个再找回
             AlertDialog.Builder(this)
                 .setTitle("小内置都在")
-                .setMessage("十个小内置倒计时都乖乖在列表里啦。\n想让它们回到出厂顺序（每分钟 → 每5分钟 → 每10分钟 → 每半小时 → 每小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6）就点「回到默认排序」。")
-                .setPositiveButton("回到默认排序") { _, _ -> restoreDefaultOrder() }
+                .setMessage("十个小内置倒计时都乖乖在列表里啦。\n想让它们回到出厂顺序（每分钟 → 每5分钟 → 每10分钟 → 每半小时 → 每小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6）就点「主界面默认排序」。")
+                .setPositiveButton("主界面默认排序") { _, _ -> restoreDefaultOrder() }
                 .setNegativeButton("先留着", null)
                 .show()
             return
@@ -945,7 +945,7 @@ class MainActivity : Activity() {
             bar.addView(selectAllBtn("全选上") { boxes.forEach { it.isChecked = true } })
             bar.addView(selectAllBtn("全不选啦") { boxes.forEach { it.isChecked = false } })
             // 自定义排序拖出来的顺序想推倒重来，就点这一颗（拖完的顺序记在 builtin_order 里）
-            bar.addView(selectAllBtn("回到默认排序") { restoreDefaultOrder() })
+            bar.addView(selectAllBtn("主界面默认排序") { restoreDefaultOrder() })
             host.addView(bar)
 
             for ((i, def) in missing.withIndex()) {
