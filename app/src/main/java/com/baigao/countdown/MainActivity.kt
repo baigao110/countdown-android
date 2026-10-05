@@ -1214,12 +1214,16 @@ class MainActivity : Activity() {
         /** 最近一次触摸点（判断「按住不动」还是「手指在挪」用，见 longPressSelect）。 */
         private var lastTouchX = 0f
         private var lastTouchY = 0f
+        /** 长按到账后「进多选」这一半还挂着吗；手指一挪就撤销（那就是想拖排序）。 */
+        private var selectPend = false
         private val SLOP = 12
 
         /** 长按之后「按住不动」的那一半：进多选删除。 */
         private val longPressSelect = Runnable {
             // 手指已经挪开（>8px）就不算「按住不动」：那是想拖排序，不该进多选
             if (Math.abs(lastTouchX - downX) > 8f || Math.abs(lastTouchY - downY) > 8f) return@Runnable
+            // 这一半已经被人撤掉了（手指动过 = 要拖排序）：别再硬着头皮进多选
+            if (!selectPend) return@Runnable
             // ⚠️ attached 这道门必须留着：进多选会整表重建、把这一行摘下来，
             // 摘下来之后这个 260ms 的回调还可能再跑一次，若不挡就会对着旧行反复重建列表
             if (mode == 0 && bound != null && attached && boundId in this@MainActivity.hasIds()) {
@@ -1230,10 +1234,13 @@ class MainActivity : Activity() {
 
         private val longPress = Runnable {
             if (mode == 0 && bound != null) {
-                // 长按满 350ms 先「挂起」：接着往上下滑 → 拖动排序；
-                // 按住不动（再过 260ms）→ 进多选删除，勾上这一条。
+                // 长按满 350ms 先「挂起」，并留 420ms 宽限期：
+                // 这段里手指还在原地 → 进多选删除；手指一挪开 → 往上下滑就是拖动排序。
+                // ⚠️ 以前这个宽限期只有 260ms，手慢一点就先被「进多选」抢走，
+                //    拖动排序根本轮不到（看着就是自定义排序点了没反应）。
                 pressArmed = true
-                postDelayed(longPressSelect, 260L)
+                selectPend = true
+                postDelayed(longPressSelect, 420L)
             }
         }
 
@@ -1594,7 +1601,10 @@ class MainActivity : Activity() {
                         // 原设计里慢慢往上/下滑时，260ms 后的「进多选」回调会抢先触发、把
                         // pressArmed 清掉，于是拖动排序永远走不到 —— 自定义排序看着像「没反应」。
                         // 现在只要手指动了就撤掉进多选这一半，"按住不动才进多选"。
-                        if (Math.abs(dx) > 8f || Math.abs(dy) > 8f) removeCallbacks(longPressSelect)
+                        if (Math.abs(dx) > 8f || Math.abs(dy) > 8f) {
+                            removeCallbacks(longPressSelect)
+                            selectPend = false // 手指在挪 = 只想拖排序，别再进多选
+                        }
                         if (pressArmed && Math.abs(dy) > 24f) {
                             removeCallbacks(longPressSelect)
                             pressArmed = false
@@ -1618,7 +1628,7 @@ class MainActivity : Activity() {
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     removeCallbacks(longPress)
                     removeCallbacks(longPressSelect)
-                    removeCallbacks(longPressSelect)
+                    selectPend = false
                     if (mode == 3) {
                         this@MainActivity.endDrag()
                         mode = 0
@@ -1711,6 +1721,7 @@ class MainActivity : Activity() {
             removeCallbacks(longPress)
             removeCallbacks(longPressSelect)
             pressArmed = false
+            selectPend = false
             super.onDetachedFromWindow()
         }
     }
