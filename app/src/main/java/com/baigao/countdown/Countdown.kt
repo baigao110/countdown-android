@@ -76,7 +76,7 @@ data class Countdown(
     var soundUri: String? = null,              // 自定义提示音 URI；null = 默认提示音
     var isTopMost: Boolean = false,            // 置顶（安卓层叠顺序由 WindowManager 决定，预留）
     var finished: Boolean = false,             // 是否已归零（用于只播放一次提示音）
-    var opacity: Int = 100,                    // 悬浮窗不透明度百分比（20..100，100=完全不透明）
+    var opacity: Int = 100,                    // 悬浮窗玻璃底不透明度百分比（20..100，100=完全不透明）；只淡化玻璃，倒计时数字不受影响
     var collapsed: Boolean = false,            // 是否已收缩为小条（仅显示标题栏）
     var posX: Int = -1,                        // 悬浮窗位置 X（<0 表示未保存，使用默认错开位置）
     var posY: Int = -1,                        // 悬浮窗位置 Y
