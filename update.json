@@ -1,8 +1,8 @@
 {
-  "versionCode": 104,
+  "versionCode": 105,
   "versionName": "1.0.0.38",
   "date": "2026-10-05",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-  "note": "上一轮新加的「分秒模式」从「每分钟倒计时」这里撤掉了 —— 它在一分钟里只能写成 0分30秒 这种，下拉框、主界面、悬浮窗、锁屏通知都不再出现这档；每5分钟 / 每10分钟 照旧还能选。已经设成该模式的老数据自动退回秒模式，显示的样子跟以前一样"
+  "note": "悬浮窗的「玻璃透明度」滑块现在只淡化玻璃底 —— 卡片、抽屉面板、按钮这些玻璃背景可以单独调 淡 / 调实，标题、备注、目标时间和倒计时数字始终全亮清晰，跳秒动画一个没少，拖滑块往左更透、往右更实。"
 }
