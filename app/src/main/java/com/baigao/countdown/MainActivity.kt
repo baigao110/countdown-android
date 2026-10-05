@@ -224,6 +224,8 @@ class MainActivity : Activity() {
         selCountTv = findViewById(R.id.selCountTv)
         findViewById<View>(R.id.selOkBtn).setOnClickListener { deleteSelected() }
         findViewById<View>(R.id.selCancelBtn).setOnClickListener { exitMultiSelect() }
+        findViewById<View>(R.id.selAllBtn).setOnClickListener { selectAllRows() }
+        findViewById<View>(R.id.selNoneBtn).setOnClickListener { clearAllRows() }
         removedPrefs.getStringSet("types", emptySet())?.forEach { removedBuiltIns.add(it.toInt()) }
 
         scrollView = findViewById(R.id.scroll)
@@ -1128,6 +1130,20 @@ class MainActivity : Activity() {
         rebuildList()
     }
 
+    /** v126：横幅上的「全选」——一次把列表里所有倒计时都勾上。 */
+    private fun selectAllRows() {
+        selectedIds.addAll(data.map { it.id })
+        updateSelectBar()
+        rebuildList()
+    }
+
+    /** v126：横幅上的「全不选」——全部取消勾，空手退出多选。 */
+    private fun clearAllRows() {
+        if (selectedIds.isEmpty()) return
+        selectedIds.clear()
+        exitMultiSelect()
+    }
+
     /** 多选模式下点一下这一行 = 勾上 / 取消勾上。 */
     fun toggleSelect(c: Countdown) {
         if (!selectedIds.add(c.id)) selectedIds.remove(c.id)
@@ -1138,6 +1154,10 @@ class MainActivity : Activity() {
 
     private fun showSelectBar() {
         selBar.visibility = View.VISIBLE
+        // v126：只有一条的时候「全选 / 全不选」没什么可切的，收起来免得点了个寂寞
+        val multi = data.size > 1
+        findViewById<View>(R.id.selAllBtn).visibility = if (multi) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.selNoneBtn).visibility = if (multi) View.VISIBLE else View.GONE
         updateSelectBar()
     }
 
