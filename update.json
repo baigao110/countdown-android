@@ -1,8 +1,8 @@
 {
-  "versionCode": 102,
+  "versionCode": 103,
   "versionName": "1.0.0.38",
   "date": "2026-10-04",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-  "note": "悬浮窗里那颗按钮改名成「关闭悬浮窗」啦 -- 点下去就是把悬浮窗整个关掉（和标题栏那颗「关闭」一个作用），原来写的「收起悬浮窗」容易误会成只是缩回小图标。列表卡片上那颗按钮没动，功能照旧."
+  "note": "新加了一档「分秒模式」（只显示 x分x秒）：每分钟 / 每5分钟 / 每10分钟 倒计时都能挑到它；每小时 / 每半小时 原来那档「时分秒模式」换成了「分秒模式」。下拉框、主界面、悬浮窗、锁屏通知四处完全同步."
 }
