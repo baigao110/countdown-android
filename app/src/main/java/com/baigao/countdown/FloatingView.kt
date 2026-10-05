@@ -68,6 +68,7 @@ class FloatingView(
     private val targetTv: TextView = view.findViewById(R.id.fTargetTime)
     private val opacityBar: SeekBar = view.findViewById(R.id.fOpacity)
     private val prevBtn: Button = view.findViewById(R.id.fPrevMode)
+    /** 抽屉里「上一个 / 下一个显示模式」那一整行；只有一种显示模式时整行收掉。 */    private val modeRow: View = view.findViewById(R.id.fModeRow)
     private val nextBtn: Button = view.findViewById(R.id.fNextMode)
     private val editBtn: Button = view.findViewById(R.id.fEdit)
     private val hideBtn: Button = view.findViewById(R.id.fHide)
@@ -155,6 +156,9 @@ class FloatingView(
             timeHead.setTextColor(data.customColorArgb)
             timeLast.setTextColor(data.customColorArgb)
             timeTail.setTextColor(data.customColorArgb)
+            // 只剩一种显示模式（如「每分钟」只有标准模式）时，抽屉里那两颗模式按钮整行收掉
+            modeRow.visibility =
+                if (CountdownFormatter.hasModeSwitch(data.builtIn)) View.VISIBLE else View.GONE
             applyModeText()
             applyTarget() // 内置项对齐目标时间，保证「目标:」显示当前周期
             applyRemark()
@@ -347,6 +351,8 @@ class FloatingView(
     fun getPosition(): Pair<Int, Int> = params.x to params.y
 
     private fun shiftMode(delta: Int) {
+        // 只有一个可切的模式时（按钮也一并收掉了）直接不出声，免得空按一下没反应
+        if (!CountdownFormatter.hasModeSwitch(data.builtIn)) return
         // 与主界面的模式按钮一致：只在可用模式里循环
         val modes = CountdownFormatter.availableModes(data.builtIn)
         val i = modes.indexOf(data.displayMode)
