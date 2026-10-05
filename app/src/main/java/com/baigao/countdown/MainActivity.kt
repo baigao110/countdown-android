@@ -1211,36 +1211,21 @@ class MainActivity : Activity() {
         private val LONG_PRESS = 350L
         /** 长按已到时：接下来按住不动 = 进多选，接着往上下滑 = 拖动排序。 */
         private var pressArmed = false
-        /** 最近一次触摸点（判断「按住不动」还是「手指在挪」用，见 longPressSelect）。 */
+        /** 最近一次触摸点（判断「原地抬手」还是「手指挪开了」用，见 ACTION_UP 分支）。 */
         private var lastTouchX = 0f
         private var lastTouchY = 0f
-        /** 长按到账后「进多选」这一半还挂着吗；手指一挪就撤销（那就是想拖排序）。 */
-        private var selectPend = false
         private val SLOP = 12
-
-        /** 长按之后「按住不动」的那一半：进多选删除。 */
-        private val longPressSelect = Runnable {
-            // 手指已经挪开（>8px）就不算「按住不动」：那是想拖排序，不该进多选
-            if (Math.abs(lastTouchX - downX) > 8f || Math.abs(lastTouchY - downY) > 8f) return@Runnable
-            // 这一半已经被人撤掉了（手指动过 = 要拖排序）：别再硬着头皮进多选
-            if (!selectPend) return@Runnable
-            // ⚠️ attached 这道门必须留着：进多选会整表重建、把这一行摘下来，
-            // 摘下来之后这个 260ms 的回调还可能再跑一次，若不挡就会对着旧行反复重建列表
-            if (mode == 0 && bound != null && attached && boundId in this@MainActivity.hasIds()) {
-                pressArmed = false
-                this@MainActivity.enterMultiSelect(bound!!)
-            }
-        }
 
         private val longPress = Runnable {
             if (mode == 0 && bound != null) {
-                // 长按满 350ms 先「挂起」，并留 420ms 宽限期：
-                // 这段里手指还在原地 → 进多选删除；手指一挪开 → 往上下滑就是拖动排序。
-                // ⚠️ 以前这个宽限期只有 260ms，手慢一点就先被「进多选」抢走，
-                //    拖动排序根本轮不到（看着就是自定义排序点了没反应）。
+                // v121 定型：长按满 350ms 只做「预备」，不再自动跳进多选。
+                // 预备之后两种走向二选一 ——
+                //   手指接着往上下滑 = 拖排序（见 ACTION_MOVE 分支）
+                //   手指原地抬手      = 进多选删除（见 ACTION_UP 分支）
+                // ⚠️ 旧写法是「到账后再挂 420ms 宽限期，期内不动就进多选」，手慢一点必然被
+                //    「进多选」抢走，想拖排序的用户看着就是"自定义排序点了没反应"（v118~v120 连报三次）。
                 pressArmed = true
-                selectPend = true
-                postDelayed(longPressSelect, 420L)
+                performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
             }
         }
 
@@ -1580,6 +1565,8 @@ class MainActivity : Activity() {
                     downRawY = e.rawY
                     startTx = front.translationX
                     lastX = e.x
+                    lastTouchX = e.x
+                    lastTouchY = e.y
                     velX = 0f
                     mode = 0
                     pressArmed = false
@@ -1599,16 +1586,12 @@ class MainActivity : Activity() {
                         // 长按满 350ms 之后手指接着往上下滑 —— 这时还是「拖动排序」
                         // 手指一离开原地（超过 8px）就撤掉进多选这一半：
                         // 之后只认「拖排序」，"按住不动才进多选"。
-                        if (Math.abs(dx) > 8f || Math.abs(dy) > 8f) {
-                            removeCallbacks(longPressSelect)
-                            selectPend = false // 手指在挪 = 只想拖排序，别再进多选
-                        }
                         // ⚠️ 阈值必须 <= SLOP(12)：原来写 24f 时，手指刚滑过 12px 就先被下面
                         //    的「纵向滚动」分支（mode=2）抢走并 removeCallbacks(longPress)，
                         //    pressArmed 永远置不上位，beginDrag 一次也走不到 —— 这就是
-                        //    「自定义排序点了没反应」的真根因。
+                        //    「自定义排序点了没反应」的真根因（v118~v120 连报三次）。
+                        //    另外这一段必须排在下面的横向/纵向滑动分支之前，否则长按根本没机会生效。
                         if (pressArmed && Math.abs(dy) > SLOP) {
-                            removeCallbacks(longPressSelect)
                             pressArmed = false
                             beginDrag(this@CountdownRow, bound!!, downRawY.toInt())
                             // 拖拽成功（已生成幽灵）才进入拖动模式；失败则回退，避免卡在 mode=3
@@ -1629,13 +1612,26 @@ class MainActivity : Activity() {
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     removeCallbacks(longPress)
-                    removeCallbacks(longPressSelect)
-                    selectPend = false
                     if (mode == 3) {
                         this@MainActivity.endDrag()
                         mode = 0
+                        pressArmed = false
                         return true
                     }
+                    // v121：长按预备中、手指全程没挪出 SLOP、这一行还挂着 —— 原地抬手 = 进多选删除。
+                    // attached / hasIds() 两道门必须留着：进多选会整表重建把本行摘下来，
+                    // 摘掉之后这个回调还可能再跑一次，不挡就会对着旧行反复重建列表。
+                    if (e.action == MotionEvent.ACTION_UP && pressArmed && mode == 0
+                        && bound != null && attached && boundId in this@MainActivity.hasIds()) {
+                        val movedFar = Math.abs(lastTouchX - downX) > SLOP ||
+                                Math.abs(lastTouchY - downY) > SLOP
+                        pressArmed = false
+                        if (!movedFar) {
+                            this@MainActivity.enterMultiSelect(bound!!)
+                            return true
+                        }
+                    }
+                    pressArmed = false
                     return false
                 }
             }
@@ -1718,12 +1714,9 @@ class MainActivity : Activity() {
 
         override fun onDetachedFromWindow() {
             attached = false
-            // 两个长按回调都要掐：只掐 longPress 的话，挂在 longPressSelect 上的那颗
-            // 会在条目已经被 rebuildList() 摘掉之后还跑一遍，对着旧行重建列表
+            // 长按回调也要掐：它会在条目已经被 rebuildList() 摘掉之后还跑一遍，对着旧行重建列表
             removeCallbacks(longPress)
-            removeCallbacks(longPressSelect)
             pressArmed = false
-            selectPend = false
             super.onDetachedFromWindow()
         }
     }
