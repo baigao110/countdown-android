@@ -123,6 +123,15 @@ class AddEditActivity : Activity() {
             }
         }
 
+        // 这条倒计时只剩「标准模式」一种显示时（例如「每分钟」：
+        // 它的标准模式就是秒模式，再留一档「秒模式」只是同句话换个名字），
+        // 把编辑页的「标准模式」标题、下拉框和那句说明一起收掉 —— 没有第二档可挑就不占地方。
+        if (!CountdownFormatter.hasModeSwitch(startBuiltIn)) {
+            standardSpinner.visibility = View.GONE
+            findViewById<View>(R.id.standardModeLabel).visibility = View.GONE
+            findViewById<View>(R.id.standardModeHint).visibility = View.GONE
+        }
+
         if (builtInEdit) {
             Toast.makeText(
                 this,
