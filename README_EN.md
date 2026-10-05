@@ -65,7 +65,9 @@ so you only need to glance at it to check how much time is left.
   plays when that digit actually changes
 - **Per-countdown sound**: tap the sound name on a card to open the system ringtone picker
 - **Theme color**: can be set per countdown
-- **Long-press to reorder** by dragging; the order is saved as soon as you let go
+- **Long-press a card, drag up / down = reorder**; the order is saved as soon as you let go
+  Long-press and then **release in place = enter multi-select delete**; a dragged built-in item
+  keeps your custom order separately, without overwriting the factory order
 - **Swipe a card left** to reveal 「编辑 / 删除」 (Edit / Delete); swiping right, or cancelling the
   confirmation dialog, slides it back into place automatically
 
@@ -240,7 +242,8 @@ for it, so it is not downgraded.
 |---|---|
 | Main list | Each card: title, target time, remaining time, button row (显示 → 模式 → 动画 → sound name) |
 | Swipe a card left | Reveals 「编辑 / 删除」 Edit / Delete; swiping right or cancelling the dialog slides it back |
-| Long-press a card | Enter drag-to-reorder |
+| Long-press and drag a card | Drag up / down to reorder; saved on release |
+| Long-press then release in place | Enter "multi-select delete": tick items, then finish to remove |
 | 「＋」 bottom-right | Fans out: Add countdown / About / Restore built-ins (only shown when something is missing) |
 | About page | Check for update / **说明** Help / Changelog / Enable notifications / Test notification / Allow background activity / **更新提示方式** Update prompt mode / **通知体检** Notification checkup |
 | About · Medicine reminder | Toggle (on / off) · Reminder time (daily) · Next reminder (once) · Medicine calendar · Test reminder · Background self-check |
