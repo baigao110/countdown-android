@@ -295,6 +295,7 @@ object CountdownFormatter {
     const val MODE_HMS = 5      // 时分秒模式
     const val MODE_DAY_HMS = 6  // 天时分秒模式：前面那截恒 0 天，短周期内置项用不上
     const val MODE_DAY_HM = 7   // 天时分模式：同「天时分秒模式」
+    const val MODE_MINUTE_SECOND = 8  // 分秒模式：xx分xx秒（隐藏恒 0 的「时」那截）
 
     val MODE_NAMES = arrayOf(
         "标准模式",     // 0  xx周xx天xx时xx分xx秒
@@ -304,7 +305,8 @@ object CountdownFormatter {
         "天数模式",     // 4  xx天
         "时分秒模式",   // 5  xx时xx分xx秒
         "天时分秒模式", // 6  xx天xx时xx分xx秒
-        "天时分模式"    // 7  xx天xx时xx分
+        "天时分模式",   // 7  xx天xx时xx分
+        "分秒模式"     // 8  xx分xx秒
     )
 
     /**
@@ -343,7 +345,7 @@ object CountdownFormatter {
      * - **每周倒计时**（目标 = 下周一 00:00，最多 7 天）：周永远是 0，
      *   所以「标准模式」给 **xx天xx时xx分xx秒**。
      *
-     * 其余倒计时、其余模式**一律原样返回**，行为不变。
+     * 其余倒计时、其余模式**一律原样返回**，行为不变（新增的「分秒模式」8 号同样原样返回）。
      */
     fun effectiveMode(mode: Int, builtIn: Int): Int = when (builtIn) {
         // 短周期内置项：周与天那两截永远是 0，所以「标准模式」不能直接给「时分秒」摆出恒 0 的「时」；
@@ -381,6 +383,10 @@ object CountdownFormatter {
             blocked.add(MODE_HMS)
         } else if (builtIn == BuiltIn.FIVE_MIN || builtIn == BuiltIn.TEN_MIN) {
             // 每 5 / 10 分钟倒计时：时分秒那档的「时」恒 0，砍掉
+            blocked.add(MODE_HMS)
+        } else if (builtIn == BuiltIn.HOUR || builtIn == BuiltIn.HALF_HOUR) {
+            // 每小时 / 每半小时（最多 1 小时）：「时分秒模式」里恒 0 的「时」没意义，
+            // 换成「分秒模式」（xx分xx秒），少一层看不出用的显示
             blocked.add(MODE_HMS)
         }
         if (builtIn == BuiltIn.HOUR || builtIn == BuiltIn.HALF_HOUR ||
@@ -436,6 +442,7 @@ object CountdownFormatter {
             5 -> hms(s)
             6 -> dayHms(s)
             7 -> dayHm(s)
+            8 -> ms(s)
             else -> weekDayHms(s)
         }
     }
@@ -466,6 +473,12 @@ object CountdownFormatter {
         val mm = (rem % 3600) / 60
         val ss = rem % 60
         return String.format("%d天%d时%d分%d秒", dd, hh, mm, ss)
+    }
+
+    private fun ms(s: Long): String {
+        val mm = s / 60
+        val ss = s % 60
+        return String.format("%d分%d秒", mm, ss)
     }
 
     private fun dayHm(s: Long): String {
