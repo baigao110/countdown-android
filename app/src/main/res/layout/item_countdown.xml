@@ -49,19 +49,6 @@
     </LinearLayout>
 
 
-    <!-- 多选删除用的勾选框（平时隐藏）：长按任意一条之后每行都亮出它，
-         勾上就是选中，可以一次挑好几个再一起收起；不拦触摸，点它等同点这一行 -->
-    <CheckBox
-        android:id="@+id/itemCheck"
-        android:layout_width="30dp"
-        android:layout_height="30dp"
-        android:layout_gravity="top|end"
-        android:layout_marginTop="10dp"
-        android:layout_marginEnd="10dp"
-        android:button="@drawable/ic_check_circle_selector"
-        android:clickable="false"
-        android:focusable="false"
-        android:visibility="gone" />
     <!-- 前景：内容（在上层），可横向滑动露出底层按钮 -->
     <LinearLayout
         android:id="@+id/itemFront"
@@ -200,4 +187,19 @@
         </LinearLayout>
     </LinearLayout>
 
+    <!-- v122：勾选框必须排在 itemFront 之后 —— 它 30dp 见方钉在卡片右上角，
+         排在前面会被 match_parent + elevation 的前景玻璃卡片整个盖住（v119~v121 三版都只
+         透出一层模糊暗影，看着就是「对勾太暗」）。挪到末尾即天然画在最上层。
+         右边那 40dp 沟由 MainActivity.bind() 给卡片内容临时让出来，标题不会被压住。 -->
+    <CheckBox
+        android:id="@+id/itemCheck"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="10dp"
+        android:layout_marginEnd="10dp"
+        android:button="@drawable/ic_check_circle_selector"
+        android:clickable="false"
+        android:focusable="false"
+        android:visibility="gone" />
 </FrameLayout>
