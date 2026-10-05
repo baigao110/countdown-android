@@ -55,6 +55,8 @@ class FloatingView(
     private var lastRemark = ""
     /** 上一次展示的目标时间文本：内置项跨整点 / 跨天时目标会滚动，同样去重避免每秒重写视图。 */
     private var lastTarget = ""
+    /** 上一次展示的显示模式名（切模式 / 换内置项后都要跟着变，用于去重避免每秒重写视图）。 */
+    private var lastModeText = ""
     private val modeTv: TextView = view.findViewById(R.id.fMode)
     private val remarkMain: TextView = view.findViewById(R.id.fRemark)
     private val drawerBtn: Button = view.findViewById(R.id.fDrawer)
@@ -146,14 +148,28 @@ class FloatingView(
             timeHead.setTextColor(data.customColorArgb)
             timeLast.setTextColor(data.customColorArgb)
             timeTail.setTextColor(data.customColorArgb)
-            modeTv.text = CountdownFormatter.modeName(data.displayMode, data.builtIn) +
-                " | " + AnimStyle.name(data.animStyle)
+            applyModeText()
             applyTarget() // 内置项对齐目标时间，保证「目标:」显示当前周期
             applyRemark()
             opacityBar.progress = 100 - data.opacity.coerceIn(20, 100)
         } catch (e: Throwable) {
             Log.w(TAG, "bindTexts: ${e.message}")
         }
+    }
+
+    /**
+     * 刷新「模式名 | 动画」这一行（悬浮窗顶部小字）。
+     * 与倒计时数字、备注、目标时间一样，**每秒都要刷** —— 悬浮窗是常驻的，
+     * 只靠 bindTexts() 写一次，切了显示模式 / 换成别的倒计时就会停在旧模式名。
+     */
+    private fun applyModeText() {
+        try {
+            val t = CountdownFormatter.modeName(data.displayMode, data.builtIn) +
+                " | " + AnimStyle.name(data.animStyle)
+            if (t == lastModeText) return
+            lastModeText = t
+            modeTv.text = t
+        } catch (_: Throwable) { }
     }
 
     /**
@@ -209,6 +225,8 @@ class FloatingView(
             applyRemark()
             // 目标时间同理：滚动型内置项跨周期后「目标:」必须跟着变
             applyTarget()
+            // 显示模式名同理：悬浮窗是常驻的，切模式 / 换内置项后这一行也要跟着变
+            applyModeText()
         } catch (e: Throwable) {
             Log.w(TAG, "update: ${e.message}")
         }
