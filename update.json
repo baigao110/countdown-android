@@ -1,8 +1,8 @@
 {
-  "versionCode": 110,
+  "versionCode": 111,
   "versionName": "1.0.0.38",
   "date": "2026-10-05",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-  "note": "「长按拖动排序」判定改直白：长按满后往上下滑 = 拖排序（到账轻轻震一下），手指原地抬手 = 进「多选删除」，两条路不再互相抢、手慢也拖得动；右上角的对勾再亮一档：未勾是淡青底+青白圈，勾上是满不透明亮青实心圆+加粗白勾。"
+  "note": "拖拽排序这次连着对勾一起修：对勾之所以看着「又暗又不明显」，是因为勾选框被排在 前景玻璃卡片（match_parent +  elevation）之前，整个盖在卡片底下，只能透出一层模糊影子 —— v122 把它挪到卡片上层，同时给卡片内容让出右边一条，绝不压住标题；没勾的是深色圆底 + 纯白亮青圈，勾上是满不透明亮青实心圆 + 加粗白勾。长按也调快到 300ms，并在长按到点的瞬间告诉外层别再抢手势（ScrollView 会把手还没抬起来的拖动直接 CANCEL 掉）。"
 }
