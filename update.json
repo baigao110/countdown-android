@@ -1,8 +1,8 @@
 {
-    "versionCode": 109,
-    "versionName": "1.0.0.38",
-    "date": "2026-10-05",
-    "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
-    "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-    "note": "这轮把长按拖动排序最后那道坎刨掉了 -- 以前长按满之后，手指只要往下挪过 12 像素，这下子就先被列表的「纵向滚动」认领走（顺手把长按也掐了），拖排序那条路一次都轮不到，看着仍是「自定义排序点了没反应」。现在长按满之后手指往上下走就直接判成「拖排序」并立刻接管，不跟列表滚动抢；想进多选删除就按住别动，半秒之后它自己亮出来，长按名称照样能把内置项和我自己建的倒计时拖着摆，拖完的顺序单独记着、不顶掉出厂顺序。顺手把右上角那颗对勾也提亮了：勾上的是满不透明的亮青实心圆 + 一道加粗的白勾，没勾的是半透明深底 + 一圈更亮的青边，暗处也一眼看出勾了哪几条。"
+  "versionCode": 110,
+  "versionName": "1.0.0.38",
+  "date": "2026-10-05",
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
+  "note": "「长按拖动排序」判定改直白：长按满后往上下滑 = 拖排序（到账轻轻震一下），手指原地抬手 = 进「多选删除」，两条路不再互相抢、手慢也拖得动；右上角的对勾再亮一档：未勾是淡青底+青白圈，勾上是满不透明亮青实心圆+加粗白勾。"
 }
