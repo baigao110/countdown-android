@@ -490,8 +490,12 @@ class MainActivity : Activity() {
      * - 两者都没有 → 停止服务，避免常驻通知。
      *
      * 悬浮窗服务顺带负责刷新锁屏通知（都在同一个 tick 里），所以这里只要把服务拉起来就行。
+     *
+     * @param force 添加 / 编辑返回时传 true：不等「有没有悬浮窗权限」这一关也直接推一次刷新
+     *               —— 服务里的 rebuildFloaters() 自己会判 canDrawOverlay()，不会白建窗；
+     *               这样新加的可见倒计时在保存返回这一瞬间就出窗，改过的条目当场刷新。
      */
-    private fun syncService() {
+    private fun syncService(force: Boolean = false) {
         val hasVisible = data.any { it.isVisible }
         val lockOn = LockScreenClock.isOn(this)
         if (!hasVisible && !lockOn) {
@@ -506,7 +510,7 @@ class MainActivity : Activity() {
             val i = Intent(this, CountdownService::class.java)
             i.action = CountdownService.ACTION_START
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i)
-        } else if (hasVisible && canOverlay) {
+        } else if (force || (hasVisible && canOverlay)) {
             val ri = Intent(this, CountdownService::class.java)
             ri.action = CountdownService.ACTION_REFRESH
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(ri) else startService(ri)
@@ -528,7 +532,8 @@ class MainActivity : Activity() {
         } else if (requestCode == REQ_EDIT) {
             loadData()
             rebuildList()
-            syncService()
+            // 保存返回就把最新数据推给悬浮窗 / 锁屏：新窗当场建好、当场刷最新数字，不等下一跳
+            syncService(true)
         }
     }
 
@@ -967,7 +972,7 @@ class MainActivity : Activity() {
                     minWidth = 0
                     minimumWidth = 0
                     includeFontPadding = false
-                    buttonTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#FF00FFFF"))
+                    buttonTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#FFA63D"))
                     setOnCheckedChangeListener { _, b -> checked[i] = b }
                 }
                 boxes.add(cb)
