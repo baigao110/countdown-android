@@ -10,8 +10,7 @@
     <!-- 底层：操作按钮（右对齐，仅露出编辑/删除），前景向左滑动后显示。
          默认 invisible：不滑动时整层不绘制，彻底杜绝半透明前景把它透出来、
          和倒计时文字叠在一起（「按钮被倒计时遮挡」的根因）。左滑时代码里置为 visible。
-         （较早版本这里还有个「提示音」按钮，v87 起从滑动操作层撤掉，
-         挑提示音统一走卡片按钮行上的「提示音名称」，入口更显眼也不挤这一层） -->
+         （v131 起连卡片按钮行上那一颗提示音名称按钮也一起撤了，换提示音的入口整个去掉） -->
     <LinearLayout
         android:id="@+id/itemActions"
         android:layout_width="wrap_content"
@@ -168,22 +167,6 @@
                 android:padding="6dp"
                 android:layout_marginStart="6dp" />
 
-            <!-- 当前提示音名称：未设置时显示「未设置提示音」，点击可直接挑选提示音。
-                 铃声标题可能很长，限定最大宽度并尾部省略，避免把同行按钮挤出屏幕。 -->
-            <Button
-                android:id="@+id/itemSoundLabel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="还没设提示音"
-                android:textSize="12sp"
-                android:minWidth="0dp"
-                android:minHeight="0dp"
-                android:maxWidth="130dp"
-                android:singleLine="true"
-                android:ellipsize="end"
-                android:background="@drawable/glass_chip"
-                android:padding="6dp"
-                android:layout_marginStart="6dp" />
         </LinearLayout>
     </LinearLayout>
 
