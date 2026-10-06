@@ -28,9 +28,9 @@ class AddEditActivity : Activity() {
 
     private val colors = intArrayOf(
         0xFF00FFFF.toInt(), 0xFFFF00FF.toInt(), 0xFF00FF00.toInt(),
-        0xFFFFFF00.toInt(), 0xFFFF8000.toInt(), 0xFFFF0000.toInt(), 0xFF0000FF.toInt()
+        0xFFFFFF00.toInt(), 0xFFFF8000.toInt(), 0xFFFF0000.toInt(), 0xFFE8B94A.toInt()
     )
-    private val colorNames = arrayOf("青色", "品红", "绿色", "黄色", "橙色", "红色", "蓝色")
+    private val colorNames = arrayOf("青色", "品红", "绿色", "黄色", "橙色", "红色", "金色")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
