@@ -167,6 +167,20 @@
                 android:padding="6dp"
                 android:layout_marginStart="6dp" />
 
+            <!-- 提示音名称按钮：只给自定义倒计时亮出来（内置周期倒计时没有提示音可选）。 -->
+            <Button
+                android:id="@+id/itemSoundLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="未设置提示音"
+                android:textSize="12sp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:background="@drawable/glass_chip"
+                android:padding="6dp"
+                android:layout_marginStart="6dp"
+                android:visibility="gone" />
+
         </LinearLayout>
     </LinearLayout>
 
