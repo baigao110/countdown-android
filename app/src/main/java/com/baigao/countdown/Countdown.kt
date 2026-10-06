@@ -19,9 +19,10 @@ object BuiltIn {
     const val MINUTE = 8    // 每分钟倒计时：目标为「下一个整分」（本分钟结束的那一刻）
     const val FIVE_MIN = 9  // 每 5 分钟倒计时：目标为下一个 5 分边界（:05 / :10 / …）
     const val TEN_MIN = 10  // 每 10 分钟倒计时：目标为下一个 10 分边界（:10 / :20 / …）
-    // v136：100 年倒计时 —— 目标时刻由用户自己挑（年 / 月 / 日 / 时 / 分 / 秒 六个下拉框），
-    // 挑中哪个日子就把它当目标，跨过之后就地停 0（固定目标，不会自己往下滚）。
-    const val CENTURY = 12  // 100 年倒计时：目标为「用户挑的任意时刻」（年月日时分秒六连框）
+    // v137：100 年倒计时 —— 目标时刻由用户自己挑（年 / 月 / 日 / 时 / 分 / 秒 六个下拉框），
+    // 挑中哪个日子就把它当目标；与「每小时倒计时」同一路数：跨过那一刻不停 0，
+    // 而是把整个日子往后推一整个 100 年周期（下一个世纪的同一个月日时分秒）重新倒计时。
+    const val CENTURY = 12  // 100年倒计时：目标为「用户挑的任意时刻」，跨过自动进下一个百年周期
     // 「周期滚动型」判定放在末尾追加，改小会顶掉旧数据里的类型号（8 / 9 / 10 同理）
 
 
@@ -47,7 +48,7 @@ object BuiltIn {
      * 每分钟 …），而不是像华都云境悦府、GTA6 那样日子早就定死不动。
      */
     fun isRolling(type: Int): Boolean =
-        type != NONE && type != HUADU && type != GTA6 && type != CENTURY
+        type != NONE && type != HUADU && type != GTA6
 
     /** 内置类型的展示名：卡片标题、下拉框、恢复内置对话框共用这一份，别在各处各写一遍。 */
     fun nameOf(type: Int): String = when (type) {
@@ -120,18 +121,21 @@ data class Countdown(
     fun isBuiltIn(): Boolean = builtIn != BuiltIn.NONE
     /**
      * 是否为「周期滚动型」内置倒计时（每分钟 / 每5分钟 / 每10分钟 / 每半小时 /
-     * 每小时 / 当日 / 每周 / 当月）——这一类的目标时刻由系统一格格往下跳，归零时
-     * 只响默认提示音，界面上不提供换音入口。
+     * 每小时 / 当日 / 每周 / 当月 / 100年）——这一类的目标时刻由系统一格格往下跳，
+     * 归零时只响默认提示音，界面上不提供换音入口。
      * 华都云境悦府 / GTA6 这类「固定目标」内置项不算在内：日子是早就定死的，
      * 不跟着日期滚动，它们的提示音照旧可挑（见 MainActivity / AddEditActivity）。
+     * 「100年倒计时」也算滚动型（跨过自动进下一个百年周期），可它的换音入口归那颗
+     * 「启用自定义提示音」开关管，不看这里（见 soundEditable）。
      */
     fun isPeriodicBuiltIn(): Boolean = builtIn in intArrayOf(
         BuiltIn.MINUTE, BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN, BuiltIn.HALF_HOUR,
-        BuiltIn.HOUR, BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH
+        BuiltIn.HOUR, BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.CENTURY
     )
 
     /**
-     * 「100年倒计时」的目标时刻（epoch 毫秒）。没设过时返回 0，
+     * 「100年倒计时」的目标时刻（epoch 毫秒）：用户挑的那「年 / 月 / 日 / 时 / 分 / 秒」，
+     * 跨过那一刻由系统自动往后推一整个 100 年周期重新倒计时。没设过时返回 0，
      * 老数据升级过来不会凭空多出一截倒计时。
      */
     fun targetMillis(): Long = if (builtInTargetMillis > 0) builtInTargetMillis else 0L
@@ -150,7 +154,8 @@ data class Countdown(
 
 
     /**
-     * 内置倒计时的目标时间由系统动态计算：当日 → 次日 00:00:00，当月 → 次月 1 日 00:00:00；
+     * 内置倒计时的目标时间由系统动态计算：当日 → 次日 00:00:00，当月 → 次月 1 日 00:00:00，
+     * 100年倒计时 → 用户挑的那一天（跨过自动推到下一个百年周期重新倒计时）；
      * 固定目标型（华都云境悦府 / GTA6）恒取预设时刻，跨过之后停在 0，不会自动滚动到下一周期。
      * @return 目标时间是否发生变化（跨天 / 跨月时为 true，调用方据此重建界面并复位提示音状态）
      */
@@ -226,11 +231,34 @@ data class Countdown(
                 return true
             }
             BuiltIn.CENTURY -> {
-                // 「100年倒计时」：目标就是用户挑的那「年 / 月 / 日 / 时 / 分 / 秒」，
-                // 日子定死之后不再往下滚 —— 跨过它就地停 0，跟华都云境悦府、GTA6 一个路数。
-                val t = targetMillis()
-                if (t == targetTime) return false
-                targetTime = t
+                // 「100年倒计时」：目标就是用户挑的那「年 / 月 / 日 / 时 / 分 / 秒」。
+                // 与「每小时倒计时」同一路数 —— 跨过那一刻不停 0，而是把整个日子往后推
+                // 一整个 100 年周期（下一个世纪的同一月日时分秒）重新倒计时，一格格往下滚。
+                var t = targetMillis()
+                if (t <= 0) {
+                    // 没设过（老数据兜底）：拿当前整秒当基准，往后推一个 100 年周期
+                    val base = Calendar.getInstance()
+                    base.set(Calendar.SECOND, 0)
+                    base.set(Calendar.MILLISECOND, 0)
+                    t = base.timeInMillis
+                }
+                val now = AlignedClock.now()
+                if (t > now) {
+                    if (t == targetTime) return false
+                    targetTime = t
+                    return true
+                }
+                // 已经跨过去了：按 100 年一格格往后跳，找到第一个落在未来的周期
+                val jump = Calendar.getInstance()
+                jump.timeInMillis = t
+                var guard = 0
+                while (jump.timeInMillis <= now && guard < 2000) {
+                    jump.add(Calendar.YEAR, 100)
+                    guard++
+                }
+                val next = jump.timeInMillis
+                if (next == targetTime) return false
+                targetTime = next
                 return true
             }
             BuiltIn.DAY -> {
@@ -288,9 +316,10 @@ data class Countdown(
     /**
      * 本条目此刻应该显示的备注文本。
      *
-     * 滚动型内置项（每小时 / 当日 / 每周 / 当月）的备注**随目标时间同步变化**，
-     * 跨整点自动变成「距离18点整结束」、跨天变成「距离10月3日0点整结束」，
-     * 而不是一直停在建立时那句静态文案；固定目标型（华都 / GTA6）与自建项沿用原备注。
+     * 滚动型内置项（每小时 / 当日 / 每周 / 当月 / 100年）的备注**随目标时间同步变化**，
+     * 跨整点自动变成「距离18点整结束」、跨天变成「距离10月3日0点整结束」、
+     * 跨一个百年周期自动变成下下个世纪的年月日，而不是一直停在建立时那句静态文案；
+     * 固定目标型（华都 / GTA6）与自建项沿用原备注。
      */
     fun remarkText(use24Hour: Boolean): String {
         if (!isBuiltIn()) return remark
