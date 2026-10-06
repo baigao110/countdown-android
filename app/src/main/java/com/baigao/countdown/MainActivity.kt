@@ -54,16 +54,15 @@ class MainActivity : Activity() {
     private lateinit var orderPrefs: SharedPreferences
 
     /**
-     * 十一个内置小倒计时的出厂顺序：每分钟 → 每5分钟 → 每10分钟 → 每半小时 → 每小时 →
-     * 当日 → 每周 → 当月 → 华都云境悦府 → GTA6 → 100年倒计时。
-     *
+     * 十个内置小倒计时的出厂顺序：每分钟 → 每5分钟 → 每10分钟 → 每半小时 → 每小时 →
+     * 当日 → 每周 → 当月 → 华都云境悦府 → GTA6。
      * 这份常量永远不动：用户拖出来的自定义顺序另存一份（见 orderPrefs），
      * 所以「自定义排序」怎么拖都不会污染默认顺序 —— 想回到出厂顺序，
      * 在「找回小内置」里点「主界面默认排序」即可。
      */
     private val defaultBuiltInOrder = listOf(
         BuiltIn.MINUTE, BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN, BuiltIn.HALF_HOUR, BuiltIn.HOUR,
-        BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.CENTURY
+        BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6
     )
 
     /**
@@ -76,7 +75,6 @@ class MainActivity : Activity() {
         BuiltIn.TEN_MIN to "距离本10分钟结束",
         BuiltIn.HALF_HOUR to "距离本半小时结束",
         BuiltIn.HOUR to "距离本小时结束",
-        BuiltIn.CENTURY to "距离你挑的那个日子结束",
         BuiltIn.DAY to "距离今日结束",
         BuiltIn.WEEK to "距离本周结束",
         BuiltIn.MONTH to "距离本月结束",
@@ -137,7 +135,7 @@ class MainActivity : Activity() {
         }
     }
 
-    /** 读取本地数据，并确保十一个内置项（每10分钟 / 每5分钟 / 每分钟 / 每小时 / 每半小时 / 100年 / 当日 / 每周 / 当月 / 华都云境悦府 / GTA6）始终存在。 */
+    /** 读取本地数据，并确保十个内置项（每10分钟 / 每5分钟 / 每分钟 / 每小时 / 每半小时 / 当日 / 每周 / 当月 / 华都云境悦府 / GTA6）始终存在。 */
     private fun loadData() {
         data = CountdownStore.load(this)
         if (ensureBuiltInTimers()) CountdownStore.save(this, data)
@@ -884,7 +882,7 @@ class MainActivity : Activity() {
                 .apply()
         }
         // 兜底：某些项可能既不在列表里、也没有被标记删除（例如被改成普通倒计时），
-        // 这里统一补齐，保证点「确定」之后十一个内置项真的回到列表里
+        // 这里统一补齐，保证点「确定」之后十个内置项真的回到列表里
         if (ensureBuiltInTimers()) changed = true
         applyBuiltInOrder()
         if (changed) CountdownStore.save(this, data)
@@ -895,7 +893,7 @@ class MainActivity : Activity() {
     /**
      * 当前「不在列表里」的内置倒计时：
      * 既包括用户删掉的（记在 removedBuiltIns 里），也包括列表里查不到该类型的。
-     * 为空表示十一个内置倒计时都在列表里，此时不需要显示「恢复内置」。
+     * 为空表示十个内置倒计时都在列表里，此时不需要显示「恢复内置」。
      */
     private fun missingBuiltIns(): List<Triple<Int, String, String>> =
         builtInDefs.filter { def -> def.first in removedBuiltIns || data.none { it.builtIn == def.first } }
@@ -924,7 +922,7 @@ class MainActivity : Activity() {
             }
             AlertDialog.Builder(this)
                 .setTitle("小内置都在")
-                .setMessage("十一个小内置倒计时都乖乖在列表里啦。\n想让它们回到出厂顺序（每分钟 → 每5分钟 → 每10分钟 → 每半小时 → 每小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6 → 100年倒计时）就点「主界面默认排序」。")
+                .setMessage("十个内置小倒计时都乖乖在列表里啦。\n想让它们回到出厂顺序（每分钟 → 每5分钟 → 每10分钟 → 每半小时 → 每小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6）就点「主界面默认排序」。")
                 .setPositiveButton("主界面默认排序") { _, _ -> restoreDefaultOrder() }
                 .setNegativeButton("先留着", null)
                 .show()
@@ -1339,9 +1337,7 @@ class MainActivity : Activity() {
             modeBtn.setOnClickListener { bound?.let { this@MainActivity.onModeCycle(it) } }
             animBtn.setOnClickListener { bound?.let { this@MainActivity.onAnimCycle(it) } }
             // 提示音名称按钮：只给普通倒计时和「固定目标」内置项亮（周期滚动型内置倒计时
-            // 每分钟 / 每5分钟 / 每10分钟 / 每半小时 / 每小时 / 当日 / 每周 / 当月没有提示音可选）；
-            // 「100年倒计时」虽然是内置项，可它的提示音开关归用户自己定（soundEditable），
-            // 其余滚动型内置项没有提示音可选，照旧整颗收起
+            // 没有提示音可选，soundEditable() 一行就判定完，整颗按它收起）
             soundLabelBtn.visibility = if (c.soundEditable()) View.VISIBLE else View.GONE
             soundLabelBtn.text = SoundNames.name(context, c.soundUri)
             soundLabelBtn.setOnClickListener { bound?.let { this@MainActivity.onSound(it) } }
