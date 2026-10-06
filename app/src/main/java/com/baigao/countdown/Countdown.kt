@@ -86,6 +86,18 @@ data class Countdown(
 ) {
     /** 是否为系统内置倒计时（当日 / 当月 / 华都云境悦府 / GTA6）——内置项不可删除 */
     fun isBuiltIn(): Boolean = builtIn != BuiltIn.NONE
+    /**
+     * 是否为「周期滚动型」内置倒计时（每分钟 / 每5分钟 / 每10分钟 / 每半小时 /
+     * 每小时 / 当日 / 每周 / 当月）——这一类的目标时刻由系统一格格往下跳，归零时
+     * 只响默认提示音，界面上不提供换音入口。
+     * 华都云境悦府 / GTA6 这类「固定目标」内置项不算在内：日子是早就定死的，
+     * 不跟着日期滚动，它们的提示音照旧可挑（见 MainActivity / AddEditActivity）。
+     */
+    fun isPeriodicBuiltIn(): Boolean = builtIn in intArrayOf(
+        BuiltIn.MINUTE, BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN, BuiltIn.HALF_HOUR,
+        BuiltIn.HOUR, BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH
+    )
+
 
     /**
      * 内置倒计时的目标时间由系统动态计算：当日 → 次日 00:00:00，当月 → 次月 1 日 00:00:00；
