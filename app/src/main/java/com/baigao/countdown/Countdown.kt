@@ -19,7 +19,8 @@ object BuiltIn {
     const val MINUTE = 8    // 每分钟倒计时：目标为「下一个整分」（本分钟结束的那一刻）
     const val FIVE_MIN = 9  // 每 5 分钟倒计时：目标为下一个 5 分边界（:05 / :10 / …）
     const val TEN_MIN = 10  // 每 10 分钟倒计时：目标为下一个 10 分边界（:10 / :20 / …）
-
+    // v139：100年以内倒计时（编号只能末尾追加，改小会顶掉旧数据里的类型号）
+    const val CENTURY = 12  // 目标为用户挑的年月日时分秒，跨过那一刻自动滚到下一个百年周期
 
     /**
      * 固定目标时间的内置项（不随日期滚动）：返回 epoch 毫秒；滚动型内置项返回 null。
@@ -40,10 +41,11 @@ object BuiltIn {
 
     /**
      * 该类型是不是「周期滚动型」内置项：目标时刻由系统一格格往下跳（每小时 / 每半小时 /
-     * 每分钟 …），而不是像华都云境悦府、GTA6 那样日子早就定死不动。
+     * 每分钟 …），而不是像华都云境悦府、GTA6、100年以内倒计时那样日子早就定死不动
+     * （100年以内那条跨过之后由 refreshBuiltInTarget 自己往后推一整个百年周期）。
      */
     fun isRolling(type: Int): Boolean =
-        type != NONE && type != HUADU && type != GTA6
+        type != NONE && type != HUADU && type != GTA6 && type != CENTURY
 
     /** 内置类型的展示名：卡片标题、下拉框、恢复内置对话框共用这一份，别在各处各写一遍。 */
     fun nameOf(type: Int): String = when (type) {
@@ -58,6 +60,7 @@ object BuiltIn {
         MINUTE -> "每分钟倒计时"
         FIVE_MIN -> "每5分钟倒计时"
         TEN_MIN -> "每10分钟倒计时"
+        CENTURY -> "100年以内倒计时"
         else -> "内置倒计时"
     }
 }
@@ -105,6 +108,8 @@ data class Countdown(
     var posY: Int = -1,                        // 悬浮窗位置 Y
     var builtIn: Int = BuiltIn.NONE,           // 内置倒计时类型（见 BuiltIn）；旧数据缺省为普通倒计时
     var builtInManual: Boolean = false,        // 内置项被用户自己指定了时刻：不再自动滚动，但仍是内置项
+    var builtInTargetMillis: Long = 0L,        // 「100年以内」内置项的用户选定时刻（秒级对齐）；其余内置项恒为 0
+    var soundEnabled: Boolean = false,         // 「100年以内」内置项是否启用自定义提示音；其余内置项恒为 false
     var animStyle: Int = AnimStyle.NONE        // 跳秒动画样式（见 AnimStyle）；旧数据缺省为无动画
 ) {
     /** 是否为系统内置倒计时（当日 / 当月 / 华都云境悦府 / GTA6）——内置项不可删除 */
@@ -113,8 +118,9 @@ data class Countdown(
      * 是否为「周期滚动型」内置倒计时（每分钟 / 每5分钟 / 每10分钟 / 每半小时 /
      * 每小时 / 当日 / 每周 / 当月）——这一类的目标时刻由系统一格格往下跳，
      * 归零时只响默认提示音，界面上不提供换音入口。
-     * 华都云境悦府 / GTA6 这类「固定目标」内置项（v138 起只剩这两个）：日子是早就定死的，
-     * 不跟着日期滚动，它们的提示音照旧可挑（见 MainActivity / AddEditActivity）。
+     * 华都云境悦府 / GTA6 / 100年以内这类「固定目标」内置项：日子是早就定死的，
+     * 不跟着日期一格格跳（100年以内那条跨过之后由 refreshBuiltInTarget 自动推到下一个百年），
+     * 它们的提示音照旧可挑（见 MainActivity / AddEditActivity）。
      */
     fun isPeriodicBuiltIn(): Boolean = builtIn in intArrayOf(
         BuiltIn.MINUTE, BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN, BuiltIn.HALF_HOUR,
@@ -125,7 +131,7 @@ data class Countdown(
     /**
      * 界面上摆不摆「挑自定义提示音」的那两颗按钮、以及卡片上那颗「提示音名称」：
      * 周期滚动型内置项（每分钟 / 每小时 / 当日 …）一律不给挑 —— 它的目标时刻是系统
-     * 一格格往下跳的，归零照旧响默认提示音；固定目标内置项（华都云境悦府 / GTA6）
+     * 一格格往下跳的，归零照旧响默认提示音；固定目标内置项（华都云境悦府 / GTA6 / 100年以内）
      * 和普通倒计时两边照旧给着。
      */
     fun soundEditable(): Boolean = !isPeriodicBuiltIn()
@@ -134,6 +140,7 @@ data class Countdown(
     /**
      * 内置倒计时的目标时间由系统动态计算：当日 → 次日 00:00:00，当月 → 次月 1 日 00:00:00，
      * 固定目标型（华都云境悦府 / GTA6）恒取预设时刻，跨过之后停在 0，不会自动滚动到下一周期。
+     * 100年以内那条也一样有目标时刻（用户挑的年月日时分秒），只是被跨过之后会自己滚到下一个百年周期。
      * 固定目标型（华都云境悦府 / GTA6）恒取预设时刻，跨过之后停在 0，不会自动滚动到下一周期。
      * @return 目标时间是否发生变化（跨天 / 跨月时为 true，调用方据此重建界面并复位提示音状态）
      */
@@ -224,6 +231,30 @@ data class Countdown(
                 cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
                 cal.add(Calendar.DAY_OF_MONTH, 7)
             }
+            BuiltIn.CENTURY -> {
+                // 100年以内倒计时：目标就是用户挑的那年月日时分秒；一旦被跨过（或者当初挑的
+                // 时刻早过去了），自动往后推一整个 100 年周期接着倒数 —— 与每小时 / 当日
+                // 那几条一个路数：永远不会停在 0 上不动，跨过去就从头再数一遍。
+                var t = builtInTargetMillis
+                if (t <= 0) {
+                    // 老数据没存过选定时刻：退回「明年此刻」，保证这条内置项还能走
+                    val nc = Calendar.getInstance()
+                    nc.set(Calendar.SECOND, 0)
+                    nc.set(Calendar.MILLISECOND, 0)
+                    nc.add(Calendar.YEAR, 1)
+                    t = nc.timeInMillis
+                }
+                val now = System.currentTimeMillis()
+                if (t <= now) {
+                    val nc = Calendar.getInstance().apply { timeInMillis = t }
+                    nc.add(Calendar.YEAR, 100)
+                    while (nc.timeInMillis <= now) nc.add(Calendar.YEAR, 100)
+                    t = nc.timeInMillis
+                }
+                if (t == targetTime) return false
+                targetTime = t
+                return true
+            }
             else -> return false
         }
         // 统一为 00:00:00：既与「今日/本月结束的那一刻」语义一致，
@@ -305,6 +336,11 @@ data class Countdown(
             BuiltIn.DAY -> "距离${month}月${day}日${midnight}结束"
             BuiltIn.WEEK -> "距离${month}月${day}日${midnight}结束"
             BuiltIn.MONTH -> "距离${month}月1日${midnight}结束"
+            BuiltIn.CENTURY -> {
+                // 备注照着用户挑的时刻写：距离2035年10月6日18点整结束
+                val at = TimeFormatPref.clockText(cal.get(Calendar.HOUR_OF_DAY), use24Hour)
+                "距离${cal.get(Calendar.YEAR)}年${month}月${day}日${at}结束"
+            }
             else -> remark
         }
     }
@@ -406,7 +442,7 @@ object CountdownFormatter {
             if (mode == 0 || mode == 4) MODE_MINUTE_SECOND else mode
         BuiltIn.DAY, BuiltIn.HOUR ->
             if (mode == 0 || mode == 4) MODE_HMS else mode   // 标准 / 天数 → 时分秒
-        BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6 ->
+        BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.CENTURY ->
             if (mode == 0) 6 else mode   // 标准 / 天时分秒 → 天时分秒模式
         else -> mode
     }
