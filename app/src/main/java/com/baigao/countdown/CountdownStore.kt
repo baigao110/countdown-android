@@ -44,7 +44,7 @@ object CountdownStore {
             id = o.optString("id", UUID.randomUUID().toString()),
             title = o.optString("title", ""),
             targetTime = target,
-            customColorArgb = o.optInt("customColorArgb", 0xFF00FFFF.toInt()),
+            customColorArgb = o.optInt("customColorArgb", 0xFFA63D.toInt()),
             displayMode = run {
                 val m = CountdownFormatter.normalizeMode(o.optInt("displayMode", 0))
                 // 当月 / 华都云境悦府 / GTA6 三档的「标准模式」自 v97 起改为「天时分秒模式」：
