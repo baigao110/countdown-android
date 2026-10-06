@@ -37,7 +37,7 @@ so you only need to glance at it to check how much time is left.
   the button row is always 显示 → 模式 → 动画 → 提示音 (Display → Mode → Animation → Sound)
 - Floating window: translucent, floats above other apps; drag it around and adjust its opacity, and
   its seconds tick in sync with the list
-- Medicine calendar: solid cyan = dose taken, light red = missed, cyan outline = today
+- Medicine calendar: solid amber = dose taken, light red = missed, amber outline = today
 
 ---
 
@@ -88,8 +88,8 @@ so you only need to glance at it to check how much time is left.
 - The reminder time is changeable any time: open 「关于」 About → 「**提醒时间**」 Reminder time and pick a moment
 - Tap 「**吃药提醒：已开启 / 已关闭**」 in About to turn the whole feature off in one tap; once off it
   stops reminding, but already recorded dates are kept
-- **Medicine calendar**: see which days were taken and which were missed — solid cyan = taken,
-  light red = missed, cyan outline = today; future days cannot be recorded
+- **Medicine calendar**: see which days were taken and which were missed — solid amber = taken,
+  light red = missed, amber outline = today; future days cannot be recorded
   - Use the ‹ › arrows on top to change month; the bottom buttons record / undo today in one tap
   - Tap a past or today's cell to back-fill or undo a record
 - **It keeps reminding after you exit / close the app** (four layers of protection):
