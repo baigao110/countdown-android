@@ -1,8 +1,8 @@
 {
-  "versionCode": 115,
+  "versionCode": 116,
   "versionName": "1.0.0.38",
-  "date": "2026-10-05",
+  "date": "2026-10-06",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-  "note": "多选横幅中间多了「全选」「全不选」两颗：长按进多选后一点就把整排倒计时全勾上，横幅上的「已经挑了 N 个」跟着往上跳，再点「全不选」全部取消勾并自动退出多选。列表里只有一条倒计时时这两颗会自己收起来，不用点了。"
+  "note": "全站去掉青蓝换成暖橙琥珀（#FFA63D），文字转暖白、冷灰蓝小字也一起转暖；编辑页选颜色的青/品红/蓝三颗换成琥珀/珊瑚/棕。添加或改完倒计时，保存返回就把最新数据推给悬浮窗 —— 新窗当场建好刷最新数字，不再等下一跳。"
 }
