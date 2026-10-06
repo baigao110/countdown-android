@@ -203,6 +203,7 @@ class MainActivity : Activity() {
         const val REQ_OVERLAY = 1001
         const val REQ_EDIT = 1003
         const val REQ_NOTIFY = 1004
+        const val REQ_SOUND = 1005  // 卡片提示音按钮：只挑提示音、选完即存
         /** 通知点击：进主界面后弹出更新日志。 */
         const val EXTRA_SHOW_UPDATE = "show_update"
         /** 通知上的「立即更新」：进主界面后直接下载安装。 */
@@ -529,6 +530,11 @@ class MainActivity : Activity() {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)) {
                 syncService()
             }
+        } else if (requestCode == REQ_SOUND) {
+            // 提示音选完即存：数据、列表、悬浮窗 / 锁屏三样一起跟上
+            loadData()
+            rebuildList()
+            syncService(true)
         } else if (requestCode == REQ_EDIT) {
             loadData()
             rebuildList()
@@ -715,6 +721,14 @@ class MainActivity : Activity() {
                 swipeRow = row
             )
         } else openEditor(c)
+    }
+
+    /** 点卡片上的提示音名称：直接开系统铃声选择器（只自定义倒计时才有这一颗）。 */
+    fun onSound(c: Countdown) {
+        val i = Intent(this, AddEditActivity::class.java)
+        i.putExtra("id", c.id)
+        i.putExtra("pickSoundOnly", true)
+        startActivityForResult(i, REQ_SOUND)
     }
 
     /** 真正拉起编辑页（内置项会先弹上面的提示）。 */
@@ -1234,6 +1248,7 @@ class MainActivity : Activity() {
         lateinit var animBtn: Button
         lateinit var editBtn: Button
         lateinit var deleteBtn: Button
+        lateinit var soundLabelBtn: Button // 按钮行上的「提示音名称」（只有自定义倒计时才亮）
         lateinit var checkBox: CheckBox // 多选删除用的勾选框（平时藏着）
         var boundId: String = ""
         private var bound: Countdown? = null
@@ -1289,6 +1304,7 @@ class MainActivity : Activity() {
             showBtn = v.findViewById(R.id.itemShow)
             modeBtn = v.findViewById(R.id.itemMode)
             animBtn = v.findViewById(R.id.itemAnim)
+            soundLabelBtn = v.findViewById(R.id.itemSoundLabel)
             editBtn = v.findViewById(R.id.itemEdit)
             deleteBtn = v.findViewById(R.id.itemDelete)
 
@@ -1318,6 +1334,11 @@ class MainActivity : Activity() {
             showBtn.setOnClickListener { bound?.let { this@MainActivity.onShowToggle(it) } }
             modeBtn.setOnClickListener { bound?.let { this@MainActivity.onModeCycle(it) } }
             animBtn.setOnClickListener { bound?.let { this@MainActivity.onAnimCycle(it) } }
+            // 提示音名称按钮：只给自定义倒计时亮（内置周期倒计时没有提示音可选）；
+            // 点一下直接唤起系统铃声选择器，选完当场存好。
+            soundLabelBtn.visibility = if (c.isBuiltIn()) View.GONE else View.VISIBLE
+            soundLabelBtn.text = SoundNames.name(context, c.soundUri)
+            soundLabelBtn.setOnClickListener { bound?.let { this@MainActivity.onSound(it) } }
             // 把「这一行」一起交给下面两个动作：提示框被取消（或点「先不了」）时，
             // 这一行要自己滑回原位，别一直敞着操作层留在那儿。
             editBtn.setOnClickListener { bound?.let { this@MainActivity.onEdit(it, this@CountdownRow) } }
