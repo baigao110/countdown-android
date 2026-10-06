@@ -216,36 +216,6 @@
                 android:padding="12dp"
                 android:gravity="top" />
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="提示音"
-                android:textColor="#00FFFF"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:layout_marginTop="16dp" />
-
-            <Button
-                android:id="@+id/btnSound"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:layout_marginTop="6dp"
-                android:text="用默认提示音（点一下选一个）"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                android:textColor="#001018"
-                android:background="@drawable/pill_btn" />
-
-            <Button
-                android:id="@+id/btnClearSound"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:layout_marginTop="10dp"
-                android:text="清除自定义提示音"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                android:textColor="#FF8888"
-                android:background="@drawable/pill_btn_gray" />
 
             <LinearLayout
                 android:layout_width="match_parent"
