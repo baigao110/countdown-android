@@ -723,7 +723,7 @@ class MainActivity : Activity() {
         } else openEditor(c)
     }
 
-    /** 点卡片上的提示音名称：直接开系统铃声选择器（只自定义倒计时才有这一颗）。 */
+    /** 点卡片上的提示音名称：直接开系统铃声选择器（只有普通倒计时和「固定目标」内置项才有这一颗）。 */
     fun onSound(c: Countdown) {
         val i = Intent(this, AddEditActivity::class.java)
         i.putExtra("id", c.id)
@@ -1334,9 +1334,9 @@ class MainActivity : Activity() {
             showBtn.setOnClickListener { bound?.let { this@MainActivity.onShowToggle(it) } }
             modeBtn.setOnClickListener { bound?.let { this@MainActivity.onModeCycle(it) } }
             animBtn.setOnClickListener { bound?.let { this@MainActivity.onAnimCycle(it) } }
-            // 提示音名称按钮：只给自定义倒计时亮（内置周期倒计时没有提示音可选）；
-            // 点一下直接唤起系统铃声选择器，选完当场存好。
-            soundLabelBtn.visibility = if (c.isBuiltIn()) View.GONE else View.VISIBLE
+            // 提示音名称按钮：只给普通倒计时和「固定目标」内置项亮（周期滚动型内置倒计时
+            // 每分钟 / 每5分钟 / 每10分钟 / 每半小时 / 每小时 / 当日 / 每周 / 当月没有提示音可选）；
+            soundLabelBtn.visibility = if (c.isPeriodicBuiltIn()) View.GONE else View.VISIBLE
             soundLabelBtn.text = SoundNames.name(context, c.soundUri)
             soundLabelBtn.setOnClickListener { bound?.let { this@MainActivity.onSound(it) } }
             // 把「这一行」一起交给下面两个动作：提示框被取消（或点「先不了」）时，
