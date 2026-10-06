@@ -724,12 +724,6 @@ class MainActivity : Activity() {
         startActivityForResult(i, REQ_EDIT)
     }
 
-    fun onSound(c: Countdown) {
-        val i = Intent(this, AddEditActivity::class.java)
-        i.putExtra("id", c.id)
-        i.putExtra("pickSoundOnly", true)
-        startActivityForResult(i, REQ_EDIT)
-    }
 
     /**
      * 点「删除」：内置项先弹一句说明，普通项弹系统确认框。
@@ -1238,7 +1232,6 @@ class MainActivity : Activity() {
         lateinit var showBtn: Button
         lateinit var modeBtn: Button
         lateinit var animBtn: Button
-        lateinit var soundLabelBtn: Button // 按钮行上的「提示音名称」
         lateinit var editBtn: Button
         lateinit var deleteBtn: Button
         lateinit var checkBox: CheckBox // 多选删除用的勾选框（平时藏着）
@@ -1298,7 +1291,6 @@ class MainActivity : Activity() {
             animBtn = v.findViewById(R.id.itemAnim)
             editBtn = v.findViewById(R.id.itemEdit)
             deleteBtn = v.findViewById(R.id.itemDelete)
-            soundLabelBtn = v.findViewById(R.id.itemSoundLabel)
 
             bound = c
             boundId = c.id
@@ -1326,9 +1318,6 @@ class MainActivity : Activity() {
             showBtn.setOnClickListener { bound?.let { this@MainActivity.onShowToggle(it) } }
             modeBtn.setOnClickListener { bound?.let { this@MainActivity.onModeCycle(it) } }
             animBtn.setOnClickListener { bound?.let { this@MainActivity.onAnimCycle(it) } }
-            // 提示音名称按钮：直接打开系统铃声选择器（左滑操作层已不再放「提示音」按钮，
-            // 换提示音一律走这一颗名称按钮）
-            soundLabelBtn.setOnClickListener { bound?.let { this@MainActivity.onSound(it) } }
             // 把「这一行」一起交给下面两个动作：提示框被取消（或点「先不了」）时，
             // 这一行要自己滑回原位，别一直敞着操作层留在那儿。
             editBtn.setOnClickListener { bound?.let { this@MainActivity.onEdit(it, this@CountdownRow) } }
@@ -1546,8 +1535,6 @@ class MainActivity : Activity() {
             showBtn.text = if (c.isVisible) "收起悬浮窗" else "展开悬浮窗"
             // 动画效果名称显示在「显示 / 显示模式」按钮之后
             animBtn.text = AnimStyle.name(c.animStyle)
-            // 再后面显示本条倒计时设置的提示音名称；没设过就显示「未设置提示音」
-            soundLabelBtn.text = SoundNames.name(context, c.soundUri)
         }
 
         /** 刷新备注行：内置项显示随目标时间同步变化的实时备注，其它项沿用原备注。 */
