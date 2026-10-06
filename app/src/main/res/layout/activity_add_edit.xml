@@ -147,82 +147,6 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp" />
-
-            <LinearLayout
-                android:id="@+id/timeOfDayBlock"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:orientation="vertical"
-                android:visibility="gone">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="目标时刻（年 / 月 / 日 / 时 / 分 / 秒）"
-                android:textColor="#00FFFF"
-                android:textSize="13sp"
-                android:textStyle="bold" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:orientation="horizontal">
-
-            <Spinner
-                android:id="@+id/hourSpinner"
-                style="@style/GlassSpinner"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="6dp" />
-
-            <Spinner
-                android:id="@+id/minuteSpinner"
-                style="@style/GlassSpinner"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="6dp" />
-
-            <Spinner
-                android:id="@+id/secondSpinner"
-                style="@style/GlassSpinner"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1" />
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:orientation="horizontal">
-
-            <Spinner
-                android:id="@+id/yearSpinner"
-                style="@style/GlassSpinner"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="6dp" />
-
-            <Spinner
-                android:id="@+id/monthSpinner"
-                style="@style/GlassSpinner"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="6dp" />
-
-            <Spinner
-                android:id="@+id/daySpinner"
-                style="@style/GlassSpinner"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1" />
-            </LinearLayout>
-            </LinearLayout>
-            </LinearLayout>
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -314,30 +238,6 @@
             <!-- v135：只有倒计时类型挑了「24小时倒计时」时，才在下面亮出这一行开关；
                  勾上「启用自定义提示音」，才接着摆出「提示音」那两颗按钮（跟普通倒计时的
                  那两颗一模一样，点一下同样唤起系统铃声选择器）；不勾就整块都收着。 -->
-            <LinearLayout
-                android:id="@+id/soundToggleBlock"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:visibility="gone">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="启用自定义提示音"
-                android:textColor="#00FFFF"
-                android:textSize="13sp"
-                android:textStyle="bold" />
-
-            <Switch
-                android:id="@+id/soundToggle"
-                style="@style/GlassSwitch"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-            </LinearLayout>
 
             <!-- v132：提示音选择只留给自定义倒计时。整块默认 gone，由 AddEditActivity
                  在「普通倒计时」时才点亮；内置周期倒计时（每分钟 / 每5分钟 / 每10分钟 /
