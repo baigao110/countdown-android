@@ -39,7 +39,7 @@
             android:minWidth="0dp"
             android:minHeight="0dp"
             android:background="@drawable/glass_chip"
-            android:textColor="#9FD8FF" />
+            android:textColor="#FFD2A0" />
 
         <Button
             android:id="@+id/fDrawer"
@@ -52,7 +52,7 @@
             android:minWidth="0dp"
             android:minHeight="0dp"
             android:background="@drawable/glass_chip"
-            android:textColor="#7FDBFF" />
+            android:textColor="#FFC98A" />
 
         <Button
             android:id="@+id/fClose"
@@ -116,7 +116,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
         android:textSize="10sp"
-        android:textColor="#C7D0E8"
+        android:textColor="#E4D2BC"
         android:gravity="center"
         android:maxLines="2"
         android:ellipsize="end"
@@ -128,7 +128,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
         android:textSize="11sp"
-        android:textColor="#A8B3CC"
+        android:textColor="#FFC9A88C"
         android:gravity="center"
         android:maxLines="1" />
 
@@ -148,7 +148,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="10sp"
-            android:textColor="#9AA5C0"
+            android:textColor="#BCA898"
             android:maxLines="1"
             android:ellipsize="end" />
 
@@ -164,7 +164,7 @@
                 android:layout_height="wrap_content"
                 android:text="玻璃透明度"
                 android:textSize="10sp"
-                android:textColor="#9FD8FF" />
+                android:textColor="#FFD2A0" />
 
             <SeekBar
                 android:id="@+id/fOpacity"
@@ -195,7 +195,7 @@
                 android:minWidth="0dp"
                 android:minHeight="0dp"
                 android:background="@drawable/glass_chip"
-                android:textColor="#9FD8FF" />
+                android:textColor="#FFD2A0" />
 
             <Button
                 android:id="@+id/fNextMode"
@@ -209,7 +209,7 @@
                 android:minWidth="0dp"
                 android:minHeight="0dp"
                 android:background="@drawable/glass_chip"
-                android:textColor="#9FD8FF" />
+                android:textColor="#FFD2A0" />
         </LinearLayout>
 
         <LinearLayout
@@ -229,7 +229,7 @@
                 android:minWidth="0dp"
                 android:minHeight="0dp"
                 android:background="@drawable/glass_chip"
-                android:textColor="#66FF99" />
+                android:textColor="#C9FF6B" />
 
             <Button
                 android:id="@+id/fHide"
