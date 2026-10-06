@@ -75,17 +75,17 @@ class AddEditActivity : Activity() {
         // 界面上干脆不摆换音按钮。华都云境悦府、GTA6 这两个「固定目标」内置项不跟着日期跳，
         // 挑提示音照旧给它们留着，跟普通倒计时一路。
         //
-        // 多出来一个讲得通的例外：「24小时倒计时」也是周期滚动型，可它的归零时刻（时 / 分 / 秒）
+        // 多出来一个讲得通的例外：「100年倒计时」也是内置项，可它的目标时刻（年 / 月 / 日 / 时 / 分 / 秒）
         // 和「要不要自定义提示音」都归用户自己定，所以界面上摆不摆那两颗换音按钮，只认 soundEditable()
         // ——也就是用户自己勾了没勾「启用自定义提示音」，开关见下面那一行。
         // 可以挑的内置类型（「倒计时类型」下拉框的条目顺序）：普通倒计时永远排最前，其后是
-        //「24小时倒计时」，再往后是其余滚动型内置项，固定目标的两个内置项垫底。
+        //「100年倒计时」，再往后是其余滚动型内置项，固定目标的两个内置项垫底。
         val pickable = listOf(
-            BuiltIn.NONE, BuiltIn.HOUR_24, BuiltIn.HOUR, BuiltIn.HALF_HOUR, BuiltIn.MINUTE,
+            BuiltIn.NONE, BuiltIn.CENTURY, BuiltIn.HOUR, BuiltIn.HALF_HOUR, BuiltIn.MINUTE,
             BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN, BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH,
             BuiltIn.HUADU, BuiltIn.GTA6
         )
-        // 这条倒计时在编辑 / 准备生成的类型（显示模式清单、归零时刻三连框、提示音开关全按它走）。
+        // 这条倒计时在编辑 / 准备生成的类型（显示模式清单、目标时刻六连框、提示音开关全按它走）。
         // 新建时默认「普通倒计时」；编辑内置项时就是它自己那一档，模式下拉框按它过滤。
         var pickedBuiltIn: Int = c?.builtIn ?: BuiltIn.NONE
 
@@ -131,6 +131,9 @@ class AddEditActivity : Activity() {
         // 会把标题、下拉框和那句说明一起收掉 —— 没有第二档可挑就不占地方。
 
         val builtInSpinner = findViewById<Spinner>(R.id.builtInSpinner)
+        val yearSpinner = findViewById<Spinner>(R.id.yearSpinner)
+        val monthSpinner = findViewById<Spinner>(R.id.monthSpinner)
+        val daySpinner = findViewById<Spinner>(R.id.daySpinner)
         val hourSpinner = findViewById<Spinner>(R.id.hourSpinner)
         val minuteSpinner = findViewById<Spinner>(R.id.minuteSpinner)
         val secondSpinner = findViewById<Spinner>(R.id.secondSpinner)
@@ -149,7 +152,17 @@ class AddEditActivity : Activity() {
         builtInSpinner.adapter = ArrayAdapter(
             this, android.R.layout.simple_spinner_item, pool.map { BuiltIn.nameOf(it) }
         ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-        // 归零时刻三个下拉框（时 / 分 / 秒）：写法与页面上那几颗下拉框一模一样
+        // 目标时刻六个下拉框（年 / 月 / 日 / 时 / 分 / 秒）：写法与页面上那几颗下拉框一模一样
+        val baseYear = Calendar.getInstance().get(Calendar.YEAR)
+        yearSpinner.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_item, List(100) { "${baseYear + it} 年" }
+        ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        monthSpinner.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_item, List(12) { "${it + 1} 月" }
+        ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        daySpinner.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_item, List(31) { "${it + 1} 日" }
+        ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
         hourSpinner.adapter = ArrayAdapter(
             this, android.R.layout.simple_spinner_item, List(24) { "${it} 时" }
         ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
@@ -161,9 +174,13 @@ class AddEditActivity : Activity() {
         ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
 
         // 界面上摆不摆「挑提示音」那一整块：周期滚动型内置项（每分钟 / 每小时 / 当日 …）一律不摆，
-        // 普通倒计时、华都云境悦府、GTA6 照旧摆着；「24小时倒计时」这一档改由用户自己决定 ——
+        // 普通倒计时、华都云境悦府、GTA6 照旧摆着；「100年倒计时」这一档改由用户自己决定 ——
         // 页面顶上多一颗「启用自定义提示音」的开关，勾上才亮出下面那两颗换音按钮。
-        var soundOn = c?.soundEditable() ?: !BuiltIn.isRolling(pickedBuiltIn)
+        var soundOn = if (BuiltIn.askSoundToggle(pickedBuiltIn)) {
+            c?.soundEnabled ?: false
+        } else {
+            c?.soundEditable() ?: !BuiltIn.isRolling(pickedBuiltIn)
+        }
 
         /** 提示音那一整块跟着 soundOn 显隐，顺手把按钮上的提示音名刷了。 */
         fun applySoundVisibility() {
@@ -183,13 +200,13 @@ class AddEditActivity : Activity() {
 
         /** 倒计时类型一换，下面这几样跟着全换一遍。 */
         fun applyTypeDependant() {
-            val is24 = pickedBuiltIn == BuiltIn.HOUR_24
-            // 归零时刻三连框 +「启用自定义提示音」开关：只有「24小时倒计时」才摆出来
-            timeOfDayBlock.visibility = if (is24) View.VISIBLE else View.GONE
-            soundToggle.visibility = if (is24) View.VISIBLE else View.GONE
+            val ask = BuiltIn.askSoundToggle(pickedBuiltIn)
+            // 目标时刻六连框 +「启用自定义提示音」开关：只有「100年倒计时」才摆出来
+            timeOfDayBlock.visibility = if (ask) View.VISIBLE else View.GONE
+            soundToggle.visibility = if (ask) View.VISIBLE else View.GONE
             // 其余类型照旧：滚动型内置项（每分钟 / 每小时 / 当日 …）不摆提示音，
             // 普通倒计时与固定目标内置项（华都云境悦府 / GTA6）两边照旧摆着
-            if (!is24) soundOn = !BuiltIn.isRolling(pickedBuiltIn)
+            if (!ask) soundOn = !BuiltIn.isRolling(pickedBuiltIn)
             soundToggle.isChecked = soundOn
             applySoundVisibility()
             // 模式下拉框的清单按类型重新算（每5分钟没有「时分秒」，每天没有「天数模式」…）
@@ -239,12 +256,23 @@ class AddEditActivity : Activity() {
                 Toast.LENGTH_LONG
             ).show()
         }
-        // 初始值：类型落在它自己那档，归零时刻填进三个下拉框，开关就照存着的状态
+        // 初始值：类型落在它自己那档，目标时刻填进六个下拉框，开关就照存着的状态
         builtInSpinner.setSelection(pool.indexOf(pickedBuiltIn).coerceAtLeast(0))
-        val sod = if (c != null && c.builtIn == BuiltIn.HOUR_24) c.timeOfDaySec() else 0
-        hourSpinner.setSelection(sod / 3600)
-        minuteSpinner.setSelection(sod % 3600 / 60)
-        secondSpinner.setSelection(sod % 60)
+        val bt = if (c != null && c.builtIn == BuiltIn.CENTURY) c.builtInTargetMillis else 0L
+        if (bt > 0) {
+            val bcal = Calendar.getInstance().apply { timeInMillis = bt }
+            val maxYear = (yearSpinner.adapter as ArrayAdapter<*>).count - 1
+            yearSpinner.setSelection((bcal.get(Calendar.YEAR) - baseYear).coerceIn(0, maxYear))
+            monthSpinner.setSelection(bcal.get(Calendar.MONTH))
+            daySpinner.setSelection(bcal.get(Calendar.DAY_OF_MONTH) - 1)
+            hourSpinner.setSelection(bcal.get(Calendar.HOUR_OF_DAY))
+            minuteSpinner.setSelection(bcal.get(Calendar.MINUTE))
+            secondSpinner.setSelection(bcal.get(Calendar.SECOND))
+        } else {
+            yearSpinner.setSelection(0)
+            monthSpinner.setSelection(0)
+            daySpinner.setSelection(0)
+        }
         toggling = true
         applyTypeDependant()
         toggling = false
@@ -255,11 +283,18 @@ class AddEditActivity : Activity() {
             openRingtonePicker()
         }
 
-        /** 三个归零时刻下拉框当前挑的是「当天第几秒」。 */
-        fun timeOfDaySecFromPickers(): Int {
-            return hourSpinner.selectedItemPosition * 3600 +
-                minuteSpinner.selectedItemPosition * 60 +
-                secondSpinner.selectedItemPosition
+        /** 六颗下拉框当前挑的是「目标时刻」的 epoch 毫秒（年 / 月 / 日 / 时 / 分 / 秒拼起来）。 */
+        fun targetMillisFromPickers(): Long {
+            val cal = Calendar.getInstance()
+            cal.clear()
+            cal.set(Calendar.YEAR, baseYear + yearSpinner.selectedItemPosition)
+            cal.set(Calendar.MONTH, monthSpinner.selectedItemPosition)
+            cal.set(Calendar.DAY_OF_MONTH, daySpinner.selectedItemPosition + 1)
+            cal.set(Calendar.HOUR_OF_DAY, hourSpinner.selectedItemPosition)
+            cal.set(Calendar.MINUTE, minuteSpinner.selectedItemPosition)
+            cal.set(Calendar.SECOND, secondSpinner.selectedItemPosition)
+            cal.set(Calendar.MILLISECOND, 0)
+            return cal.timeInMillis
         }
 
         saveBtn.setOnClickListener {
@@ -293,15 +328,25 @@ class AddEditActivity : Activity() {
                     // 倒计时类型本身也能改（普通 ↔ 内置随便换，换完它还是内置 / 还是普通倒计时）
                     existing.builtIn = pickedBuiltIn
                     // 提示音：周期滚动型内置项一律回到默认提示音（清掉可能存过的自定义音）；
-                    //「24小时倒计时」这一档听用户自己那颗「启用自定义提示音」开关
+                    //「100年倒计时」这一档听用户自己那颗「启用自定义提示音」开关
                     existing.soundEnabled = soundOn
                     existing.soundUri = if (soundOn) draftSoundUri else null
-                    // 归零时刻改动立刻生效：内置项的时刻每帧由系统重算，改完这一下就跳到下一次归零
-                    if (existing.builtIn == BuiltIn.HOUR_24) {
-                        existing.builtInTimeOfDaySec = timeOfDaySecFromPickers()
+                    // 目标时刻改动立刻生效：内置项的时刻每帧由系统重算，改完这一下就按新日子走
+                    if (existing.builtIn == BuiltIn.CENTURY) {
+                        existing.builtInTargetMillis = targetMillisFromPickers()
                     }
                 }
             } else {
+                // 同类型内置项、或者同名的那条已经躺在列表里了：这一下不许再生成，
+                // 弹一句「该倒计时已存在，生成失败！」，什么都不存、直接留在这页。
+                val dupBuiltIn = list.any { it.builtIn == pickedBuiltIn }
+                val dupTitle = list.any {
+                    it.title == titleEt.text.toString().trim() && it.title.isNotEmpty()
+                }
+                if (pickedBuiltIn != BuiltIn.NONE && (dupBuiltIn || dupTitle)) {
+                    Toast.makeText(this, "该倒计时已存在，生成失败！", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
                 list.add(
                     Countdown(
                         title = titleEt.text.toString(),
@@ -315,9 +360,9 @@ class AddEditActivity : Activity() {
                         // 内置项的目标时刻由系统自己往下跳，这里填的日期时间只是个起点，
                         // 存下来也不会把它降级成普通倒计时
                         builtIn = pickedBuiltIn,
-                        builtInTimeOfDaySec = if (pickedBuiltIn == BuiltIn.HOUR_24) {
-                            timeOfDaySecFromPickers()
-                        } else -1,
+                        builtInTargetMillis = if (pickedBuiltIn == BuiltIn.CENTURY) {
+                            targetMillisFromPickers()
+                        } else 0L,
                         soundEnabled = soundOn,
                         soundUri = if (soundOn) draftSoundUri else null
                     )
