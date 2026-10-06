@@ -80,7 +80,7 @@ class AddEditActivity : Activity() {
         val pickable = listOf(
             BuiltIn.NONE, BuiltIn.HOUR, BuiltIn.HALF_HOUR, BuiltIn.MINUTE,
             BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN, BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH,
-            BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.CENTURY
+            BuiltIn.HUADU, BuiltIn.GTA6
         )
         // 这条倒计时在编辑 / 准备生成的类型（显示模式清单、目标时刻六连框、提示音开关全按它走）。
         // 新建时默认「普通倒计时」；编辑内置项时就是它自己那一档，模式下拉框按它过滤。
@@ -133,6 +133,8 @@ class AddEditActivity : Activity() {
         // v139：「倒计时类型」挑到「100年以内倒计时」时才亮的两块 —— 上面是
         //「年 / 月 / 日 / 时 / 分 / 秒」六颗下拉框（跟页面上那几颗同一个样子），
         // 下面是那颗「启用自定义提示音」开关，勾上才接着摆出「提示音」那两颗按钮。
+        val dateLabel = findViewById<View>(R.id.dateLabel)
+        val timeLabel = findViewById<View>(R.id.timeLabel)
         val timeOfDayBlock = findViewById<View>(R.id.timeOfDayBlock)
         val soundToggleBlock = findViewById<View>(R.id.soundToggleBlock)
         val soundToggle = findViewById<Switch>(R.id.soundToggle)
@@ -202,9 +204,13 @@ class AddEditActivity : Activity() {
 
         /** 只有「100年以内」那一条才亮六连框和那颗开关，别的一档两块整块收着。 */
         fun applyTimeOfDayVisibility() {
-            val on = pickedBuiltIn == BuiltIn.CENTURY
+            val on = pickedBuiltIn == BuiltIn.NONE
             timeOfDayBlock.visibility = if (on) View.VISIBLE else View.GONE
             soundToggleBlock.visibility = if (on) View.VISIBLE else View.GONE
+            dateLabel.visibility = if (on) View.GONE else View.VISIBLE
+            datePicker.visibility = if (on) View.GONE else View.VISIBLE
+            timeLabel.visibility = if (on) View.GONE else View.VISIBLE
+            timePicker.visibility = if (on) View.GONE else View.VISIBLE
         }
 
         //「倒计时类型」下拉框：普通倒计时 + 列表里还躺着的那些内置项（已经有的就不重复摆，
@@ -339,6 +345,13 @@ class AddEditActivity : Activity() {
                 set(Calendar.MILLISECOND, 0)
             }.timeInMillis
 
+            // v140：类型停在「普通倒计时」、而六颗下拉框挑的是将来的时刻 —— 这条就升成
+            // 内置的「自定义倒计时」（BuiltIn.CENTURY）；挑的还是当下 / 过去就老老实实
+            // 存成普通倒计时，日期时间照旧由下面那只 datePicker 给。
+            val finalBuiltIn = if (
+                pickedBuiltIn == BuiltIn.NONE && targetMillisFromPickers() > System.currentTimeMillis()
+            ) BuiltIn.CENTURY else pickedBuiltIn
+
             if (c != null) {
                 // 关键修复：必须修改“即将保存的 list”里的同一个对象，否则改的是
                 // onCreate 里另一份旧列表的副本，磁盘上不会被更新（改名/改其它字段都无效）。
@@ -356,9 +369,9 @@ class AddEditActivity : Activity() {
                     existing.animStyle = animSpinner.selectedItemPosition
                     existing.remark = remarkEt.text.toString()
                     // 倒计时类型本身也能改（普通 ↔ 内置随便换，换完它还是内置 / 还是普通倒计时）
-                    existing.builtIn = pickedBuiltIn
+                    existing.builtIn = finalBuiltIn
                     //「100年以内」那一条：用户挑的时刻和「启用自定义提示音」那颗开关一并记下来
-                    if (pickedBuiltIn == BuiltIn.CENTURY) {
+                    if (pickedBuiltIn == BuiltIn.NONE && finalBuiltIn == BuiltIn.CENTURY) {
                         existing.builtInTargetMillis = targetMillisFromPickers()
                         existing.soundEnabled = soundOn
                     }
@@ -368,11 +381,11 @@ class AddEditActivity : Activity() {
             } else {
                 // 同类型内置项、或者同名的那条已经躺在列表里了：这一下不许再生成，
                 // 弹一句「该倒计时已存在，生成失败！」，什么都不存、直接留在这页。
-                val dupBuiltIn = list.any { it.builtIn == pickedBuiltIn }
+                val dupBuiltIn = list.any { it.builtIn == finalBuiltIn }
                 val dupTitle = list.any {
                     it.title == titleEt.text.toString().trim() && it.title.isNotEmpty()
                 }
-                if (pickedBuiltIn != BuiltIn.NONE && (dupBuiltIn || dupTitle)) {
+                if (finalBuiltIn != BuiltIn.NONE && (dupBuiltIn || dupTitle)) {
                     Toast.makeText(this, "该倒计时已存在，生成失败！", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
@@ -388,10 +401,10 @@ class AddEditActivity : Activity() {
                         remark = remarkEt.text.toString(),
                         // 内置项的目标时刻由系统自己往下跳，这里填的日期时间只是个起点，
                         // 存下来也不会把它降级成普通倒计时
-                        builtIn = pickedBuiltIn,
+                        builtIn = finalBuiltIn,
                         builtInTargetMillis =
-                        if (pickedBuiltIn == BuiltIn.CENTURY) targetMillisFromPickers() else 0L,
-                        soundEnabled = if (pickedBuiltIn == BuiltIn.CENTURY) soundOn else false,
+                        if (finalBuiltIn == BuiltIn.CENTURY) targetMillisFromPickers() else 0L,
+                        soundEnabled = if (finalBuiltIn == BuiltIn.CENTURY) soundOn else false,
                         soundUri = if (soundOn) draftSoundUri else null
                     )
                 )
