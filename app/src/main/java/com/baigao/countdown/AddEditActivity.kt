@@ -80,7 +80,7 @@ class AddEditActivity : Activity() {
         val pickable = listOf(
             BuiltIn.NONE, BuiltIn.HOUR, BuiltIn.HALF_HOUR, BuiltIn.MINUTE,
             BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN, BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH,
-            BuiltIn.HUADU, BuiltIn.GTA6
+            BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.CENTURY
         )
         // 这条倒计时在编辑 / 准备生成的类型（显示模式清单、目标时刻六连框、提示音开关全按它走）。
         // 新建时默认「普通倒计时」；编辑内置项时就是它自己那一档，模式下拉框按它过滤。
@@ -130,6 +130,83 @@ class AddEditActivity : Activity() {
         val builtInSpinner = findViewById<Spinner>(R.id.builtInSpinner)
         val soundBlock = findViewById<View>(R.id.soundBlock)
 
+        // v139：「倒计时类型」挑到「100年以内倒计时」时才亮的两块 —— 上面是
+        //「年 / 月 / 日 / 时 / 分 / 秒」六颗下拉框（跟页面上那几颗同一个样子），
+        // 下面是那颗「启用自定义提示音」开关，勾上才接着摆出「提示音」那两颗按钮。
+        val timeOfDayBlock = findViewById<View>(R.id.timeOfDayBlock)
+        val soundToggleBlock = findViewById<View>(R.id.soundToggleBlock)
+        val soundToggle = findViewById<Switch>(R.id.soundToggle)
+        val yearSpinner = findViewById<Spinner>(R.id.yearSpinner)
+        val monthSpinner = findViewById<Spinner>(R.id.monthSpinner)
+        val daySpinner = findViewById<Spinner>(R.id.daySpinner)
+        val hourSpinner = findViewById<Spinner>(R.id.hourSpinner)
+        val minuteSpinner = findViewById<Spinner>(R.id.minuteSpinner)
+        val secondSpinner = findViewById<Spinner>(R.id.secondSpinner)
+        // 六颗下拉框各自当前挑中的数字，setupTimeOfDayPickers() 一次填好
+        val picked = IntArray(6)
+        var toggling = false   // 程序自己刷 soundToggle 的时候别让它再回调一遍
+
+        /** 把一颗下拉框的候选换成 from..to，当前值越界就夹到末尾，返回夹完之后的真值。 */
+        fun refill(sp: Spinner, from: Int, to: Int, cur: Int): Int {
+            val v = if (cur >= from && cur <= to) cur else to
+            sp.tag = from
+            sp.adapter = ArrayAdapter(
+                this, android.R.layout.simple_spinner_item,
+                (from..to).map { it.toString() }
+            ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+            sp.setSelection(v - from)
+            return v
+        }
+
+        /** 下拉框此刻指向的真值：它的候选是从 tag 记的那个数起算的。 */
+        fun spinValue(sp: Spinner): Int = sp.selectedItemPosition + (sp.tag as? Int ?: 0)
+
+        /** 天数那颗按选中年月的实际天数重列：2 月里要是列到 31 号，Calendar 会顺延成 3 月 3 号。 */
+        fun refetchDays() {
+            val c = Calendar.getInstance()
+            c.set(Calendar.YEAR, picked[0])
+            c.set(Calendar.MONTH, picked[1])
+            picked[2] = refill(daySpinner, 1, c.getActualMaximum(Calendar.DAY_OF_MONTH), picked[2])
+        }
+
+        /** 六颗下拉框一次摆好候选和初值：年份从今年铺到今年 +100。 */
+        fun setupTimeOfDayPickers() {
+            picked[0] = refill(yearSpinner, picked[0], picked[0] + 100, picked[0])
+            picked[1] = refill(monthSpinner, 0, 11, picked[1])
+            refetchDays()
+            picked[3] = refill(hourSpinner, 0, 23, picked[3])
+            picked[4] = refill(minuteSpinner, 0, 59, picked[4])
+            picked[5] = refill(secondSpinner, 0, 59, picked[5])
+        }
+
+        /** 六颗下拉框当前指向的时刻（epoch 毫秒，秒级对齐）。 */
+        fun targetMillisFromPickers(): Long {
+            val cal = Calendar.getInstance()
+            cal.set(Calendar.YEAR, picked[0])
+            cal.set(Calendar.MONTH, picked[1])
+            cal.set(Calendar.DAY_OF_MONTH, picked[2])
+            cal.set(Calendar.HOUR_OF_DAY, picked[3])
+            cal.set(Calendar.MINUTE, picked[4])
+            cal.set(Calendar.SECOND, picked[5])
+            cal.set(Calendar.MILLISECOND, 0)
+            return cal.timeInMillis
+        }
+
+        /** 一颗下拉框选中之后要干点啥。 */
+        fun spinnerSel(act: () -> Unit) = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                act()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>) {}
+        }
+
+        /** 只有「100年以内」那一条才亮六连框和那颗开关，别的一档两块整块收着。 */
+        fun applyTimeOfDayVisibility() {
+            val on = pickedBuiltIn == BuiltIn.CENTURY
+            timeOfDayBlock.visibility = if (on) View.VISIBLE else View.GONE
+            soundToggleBlock.visibility = if (on) View.VISIBLE else View.GONE
+        }
+
         //「倒计时类型」下拉框：普通倒计时 + 列表里还躺着的那些内置项（已经有的就不重复摆，
         // 免得实打实建出两条一模一样的内置倒计时）；编辑已有内置项时把它自己排在第一个。
         val existingAll = CountdownStore.load(this)
@@ -150,6 +227,7 @@ class AddEditActivity : Activity() {
         /** 提示音那一整块跟着 soundOn 显隐，顺手把按钮上的提示音名刷了。 */
         fun applySoundVisibility() {
             soundBlock.visibility = if (soundOn) View.VISIBLE else View.GONE
+            soundToggle.isChecked = soundOn
             refreshSoundLabel()
         }
 
@@ -167,6 +245,7 @@ class AddEditActivity : Activity() {
         fun applyTypeDependant() {
             soundOn = !BuiltIn.isRolling(pickedBuiltIn)
             applySoundVisibility()
+            applyTimeOfDayVisibility()
             // 模式下拉框的清单按类型重新算（每5分钟没有「时分秒」，每天没有「天数模式」…）
             standardSpinner.adapter = ArrayAdapter(
                 this, android.R.layout.simple_spinner_item,
@@ -179,6 +258,35 @@ class AddEditActivity : Activity() {
             )
             applyModeBlock()
         }
+
+        // 六颗下拉框的联动，加上那颗「启用自定义提示音」开关 —— 都只在「100年以内」这一档用得上
+        yearSpinner.onItemSelectedListener =
+            spinnerSel { picked[0] = spinValue(yearSpinner); refetchDays() }
+        monthSpinner.onItemSelectedListener =
+            spinnerSel { picked[1] = spinValue(monthSpinner); refetchDays() }
+        daySpinner.onItemSelectedListener = spinnerSel { picked[2] = spinValue(daySpinner) }
+        hourSpinner.onItemSelectedListener = spinnerSel { picked[3] = spinValue(hourSpinner) }
+        minuteSpinner.onItemSelectedListener = spinnerSel { picked[4] = spinValue(minuteSpinner) }
+        secondSpinner.onItemSelectedListener = spinnerSel { picked[5] = spinValue(secondSpinner) }
+        soundToggle.setOnCheckedChangeListener { _, on ->
+            if (toggling) return@setOnCheckedChangeListener
+            toggling = true
+            soundOn = on
+            applySoundVisibility()
+            toggling = false
+        }
+        // 初值：编辑老数据时用当时挑的那个时刻（已经被跨过去了就顺延到当下这一刻），新建就是此刻
+        val initFrom = if (
+            c != null && c.builtIn == BuiltIn.CENTURY && c.builtInTargetMillis > System.currentTimeMillis()
+        ) c.builtInTargetMillis else System.currentTimeMillis()
+        val initCal = Calendar.getInstance().apply { timeInMillis = initFrom }
+        picked[0] = initCal.get(Calendar.YEAR)
+        picked[1] = initCal.get(Calendar.MONTH)
+        picked[2] = initCal.get(Calendar.DAY_OF_MONTH)
+        picked[3] = initCal.get(Calendar.HOUR_OF_DAY)
+        picked[4] = initCal.get(Calendar.MINUTE)
+        picked[5] = initCal.get(Calendar.SECOND)
+        setupTimeOfDayPickers()
 
         soundBtn = findViewById<Button>(R.id.btnSound)
         val clearSoundBtn = findViewById<Button>(R.id.btnClearSound)
@@ -249,6 +357,11 @@ class AddEditActivity : Activity() {
                     existing.remark = remarkEt.text.toString()
                     // 倒计时类型本身也能改（普通 ↔ 内置随便换，换完它还是内置 / 还是普通倒计时）
                     existing.builtIn = pickedBuiltIn
+                    //「100年以内」那一条：用户挑的时刻和「启用自定义提示音」那颗开关一并记下来
+                    if (pickedBuiltIn == BuiltIn.CENTURY) {
+                        existing.builtInTargetMillis = targetMillisFromPickers()
+                        existing.soundEnabled = soundOn
+                    }
                     // 提示音：周期滚动型内置项一律回到默认提示音（清掉可能存过的自定义音）
                     existing.soundUri = if (soundOn) draftSoundUri else null
                 }
@@ -276,6 +389,9 @@ class AddEditActivity : Activity() {
                         // 内置项的目标时刻由系统自己往下跳，这里填的日期时间只是个起点，
                         // 存下来也不会把它降级成普通倒计时
                         builtIn = pickedBuiltIn,
+                        builtInTargetMillis =
+                        if (pickedBuiltIn == BuiltIn.CENTURY) targetMillisFromPickers() else 0L,
+                        soundEnabled = if (pickedBuiltIn == BuiltIn.CENTURY) soundOn else false,
                         soundUri = if (soundOn) draftSoundUri else null
                     )
                 )
