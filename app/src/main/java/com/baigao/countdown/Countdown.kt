@@ -19,9 +19,9 @@ object BuiltIn {
     const val MINUTE = 8    // 每分钟倒计时：目标为「下一个整分」（本分钟结束的那一刻）
     const val FIVE_MIN = 9  // 每 5 分钟倒计时：目标为下一个 5 分边界（:05 / :10 / …）
     const val TEN_MIN = 10  // 每 10 分钟倒计时：目标为下一个 10 分边界（:10 / :20 / …）
-    // v135：24 小时倒计时 —— 归零时刻由用户自己挑（时 / 分 / 秒三个下拉框），
-    // 每一次归零后都照着这个时刻往下跳，风格与「每小时倒计时」完全一路数。
-    const val HOUR_24 = 11  // 24 小时倒计时：目标为「下一个指定时刻」（当天 h:m:s，过了就顺延到明天同一刻）
+    // v136：100 年倒计时 —— 目标时刻由用户自己挑（年 / 月 / 日 / 时 / 分 / 秒 六个下拉框），
+    // 挑中哪个日子就把它当目标，跨过之后就地停 0（固定目标，不会自己往下滚）。
+    const val CENTURY = 12  // 100 年倒计时：目标为「用户挑的任意时刻」（年月日时分秒六连框）
     // 「周期滚动型」判定放在末尾追加，改小会顶掉旧数据里的类型号（8 / 9 / 10 同理）
 
 
@@ -46,7 +46,8 @@ object BuiltIn {
      * 该类型是不是「周期滚动型」内置项：目标时刻由系统一格格往下跳（每小时 / 每半小时 /
      * 每分钟 …），而不是像华都云境悦府、GTA6 那样日子早就定死不动。
      */
-    fun isRolling(type: Int): Boolean = type != NONE && type != HUADU && type != GTA6
+    fun isRolling(type: Int): Boolean =
+        type != NONE && type != HUADU && type != GTA6 && type != CENTURY
 
     /** 内置类型的展示名：卡片标题、下拉框、恢复内置对话框共用这一份，别在各处各写一遍。 */
     fun nameOf(type: Int): String = when (type) {
@@ -61,9 +62,11 @@ object BuiltIn {
         MINUTE -> "每分钟倒计时"
         FIVE_MIN -> "每5分钟倒计时"
         TEN_MIN -> "每10分钟倒计时"
-        HOUR_24 -> "24小时倒计时"
+        CENTURY -> "100年倒计时"
         else -> "内置倒计时"
     }
+    /** 这一档是不是「先问用户要不要自定义提示音」的类型（100 年倒计时）：勾上才摆换音那两颗按钮。 */
+    fun askSoundToggle(type: Int): Boolean = type == CENTURY
 }
 
 /**
@@ -109,8 +112,8 @@ data class Countdown(
     var posY: Int = -1,                        // 悬浮窗位置 Y
     var builtIn: Int = BuiltIn.NONE,           // 内置倒计时类型（见 BuiltIn）；旧数据缺省为普通倒计时
     var builtInManual: Boolean = false,        // 内置项被用户自己指定了时刻：不再自动滚动，但仍是内置项
-    var builtInTimeOfDaySec: Int = -1,         // 「24小时倒计时」的归零时刻（当天第几秒 0..86399）；-1 = 没设过，算作 24:00:00（次日零点）
-    var soundEnabled: Boolean = false,         // 用户自己勾没勾「启用自定义提示音」：只有「24小时倒计时」这一档问这个
+    var builtInTargetMillis: Long = 0,         // 「100年倒计时」的目标时刻（epoch 毫秒，本地时区；0 = 没设过）
+    var soundEnabled: Boolean = false,         // 用户自己勾没勾「启用自定义提示音」：只有「100年倒计时」这一档问这个
     var animStyle: Int = AnimStyle.NONE        // 跳秒动画样式（见 AnimStyle）；旧数据缺省为无动画
 ) {
     /** 是否为系统内置倒计时（当日 / 当月 / 华都云境悦府 / GTA6）——内置项不可删除 */
@@ -124,24 +127,23 @@ data class Countdown(
      */
     fun isPeriodicBuiltIn(): Boolean = builtIn in intArrayOf(
         BuiltIn.MINUTE, BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN, BuiltIn.HALF_HOUR,
-        BuiltIn.HOUR, BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HOUR_24
+        BuiltIn.HOUR, BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH
     )
 
     /**
-     * 「24小时倒计时」的归零时刻（当天第几秒）。没设过就按 24:00:00（次日零点）算，
-     * 也就是跟「当日倒计时」落在同一个点，老数据升级过来不会凭空多出一截倒计时。
+     * 「100年倒计时」的目标时刻（epoch 毫秒）。没设过时返回 0，
+     * 老数据升级过来不会凭空多出一截倒计时。
      */
-    fun timeOfDaySec(): Int =
-        if (builtInTimeOfDaySec in 0 until 86400) builtInTimeOfDaySec else 86400
+    fun targetMillis(): Long = if (builtInTargetMillis > 0) builtInTargetMillis else 0L
 
     /**
      * 界面上摆不摆「挑自定义提示音」的那两颗按钮、以及卡片上那颗「提示音名称」：
-     * 「24小时倒计时」虽然也是周期滚动型，可它的归零时刻与提示音开关都归用户自己定，
+     * 「100年倒计时」虽然是内置项，可它的目标时刻与提示音开关都归用户自己定，
      * 所以只看 `soundEnabled` 这一票；其余滚动型内置项（每分钟 / 每小时 / 当日 …）一律不给挑，
      * 固定目标内置项（华都云境悦府 / GTA6）和普通倒计时两边照旧给着。
      */
     fun soundEditable(): Boolean = when {
-        builtIn == BuiltIn.HOUR_24 -> soundEnabled
+        builtIn == BuiltIn.CENTURY -> soundEnabled
         isPeriodicBuiltIn() -> false
         else -> true
     }
@@ -223,18 +225,10 @@ data class Countdown(
                 targetTime = t
                 return true
             }
-            BuiltIn.HOUR_24 -> {
-                // 「24小时倒计时」：目标 = 下一次走到「当天 时:分:秒」这一刻（过了就顺延到明天同一刻）。
-                // 跟每小时那一支同一路数 —— 每小时是按整点一格格往前跳，这里按用户在下拉框里
-                // 挑的那个时 / 分 / 秒跳，到点归零之后照旧接着跳下一个。
-                val sod = timeOfDaySec()
-                cal.set(Calendar.HOUR_OF_DAY, sod / 3600)
-                cal.set(Calendar.MINUTE, sod % 3600 / 60)
-                cal.set(Calendar.SECOND, sod % 60)
-                cal.set(Calendar.MILLISECOND, 0)
-                var t = cal.timeInMillis
-                // 今天这一刻还没到就等今天；已经过了（或正好卡在这一刻）就整份挪到明天同一刻
-                if (t <= AlignedClock.now()) t += 86400000L
+            BuiltIn.CENTURY -> {
+                // 「100年倒计时」：目标就是用户挑的那「年 / 月 / 日 / 时 / 分 / 秒」，
+                // 日子定死之后不再往下滚 —— 跨过它就地停 0，跟华都云境悦府、GTA6 一个路数。
+                val t = targetMillis()
                 if (t == targetTime) return false
                 targetTime = t
                 return true
@@ -332,12 +326,14 @@ data class Countdown(
                 if (mm == 0) "距离${TimeFormatPref.clockText(h, use24Hour)}结束"
                 else "距离${h}点${String.format("%02d", mm)}分结束"
             }
-            BuiltIn.HOUR_24 -> {
-                // 「24小时倒计时」的备注跟着目标时间走，跨过归零时刻自动变成明天同一句
-                val h = cal.get(Calendar.HOUR_OF_DAY)
+            BuiltIn.CENTURY -> {
+                // 「100年倒计时」的备注跟着目标日子走，跨过去就停在 0
+                val hh = cal.get(Calendar.HOUR_OF_DAY)
                 val mm = cal.get(Calendar.MINUTE)
-                if (mm == 0) "距离${TimeFormatPref.clockText(h, use24Hour)}结束"
-                else "距离${h}点${String.format("%02d", mm)}分结束"
+                val ss = cal.get(Calendar.SECOND)
+                val ap = "距离${cal.get(Calendar.YEAR)}年${month}月${day}日"
+                if (ss == 0) ap + "${TimeFormatPref.clockText(hh, use24Hour)}结束"
+                else ap + "${hh}点${String.format("%02d", mm)}分${String.format("%02d", ss)}秒结束"
             }
             BuiltIn.DAY -> "距离${month}月${day}日${midnight}结束"
             BuiltIn.WEEK -> "距离${month}月${day}日${midnight}结束"
@@ -441,7 +437,7 @@ object CountdownFormatter {
         // 前面那截恒 0 的「时」去掉，看着干净；这条要排在 DAY / HOUR 那条前面
         BuiltIn.HALF_HOUR ->
             if (mode == 0 || mode == 4) MODE_MINUTE_SECOND else mode
-        BuiltIn.DAY, BuiltIn.HOUR, BuiltIn.HOUR_24 ->
+        BuiltIn.DAY, BuiltIn.HOUR ->
             if (mode == 0 || mode == 4) MODE_HMS else mode   // 标准 / 天数 → 时分秒
         BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6 ->
             if (mode == 0) 6 else mode   // 标准 / 天时分秒 → 天时分秒模式
@@ -486,7 +482,7 @@ object CountdownFormatter {
             blocked.add(MODE_DAY)
             blocked.add(MODE_DAY_HMS)
             blocked.add(MODE_DAY_HM)
-        } else if (builtIn == BuiltIn.DAY || builtIn == BuiltIn.HOUR_24) {
+        } else if (builtIn == BuiltIn.DAY) {
             blocked.add(MODE_DAY)
             blocked.add(MODE_DAY_HMS)
             blocked.add(MODE_DAY_HM)
