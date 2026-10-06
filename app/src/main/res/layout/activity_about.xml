@@ -21,7 +21,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="‹ 返回"
-            android:textColor="#FFA63D"
+            android:textColor="#00FFFF"
             android:textSize="16sp"
             android:padding="4dp" />
 
@@ -30,7 +30,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="关于"
-            android:textColor="#FFA63D"
+            android:textColor="#00FFFF"
             android:textSize="20sp"
             android:textStyle="bold"
             android:gravity="center"
@@ -83,7 +83,7 @@
             android:layout_marginTop="8dp"
             android:gravity="center"
             android:text="项目主页 · github.com/baigao110/countdown-android"
-            android:textColor="#FFA63D"
+            android:textColor="#00FFFF"
             android:textSize="13sp" />
 
         <LinearLayout
@@ -145,7 +145,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:gravity="center"
-            android:textColor="#B4A18E"
+            android:textColor="#FFA8B3CC"
             android:textSize="14sp"
             android:text="点「检查更新」就能看看有没有新版本哦" />
 
@@ -239,7 +239,7 @@
             android:layout_marginTop="8dp"
             android:gravity="center"
             android:lineSpacingExtra="3dp"
-            android:textColor="#FFE3CC"
+            android:textColor="#FFEAF6FF"
             android:textSize="12sp"
             android:text="UI 界面常亮：打开 App 时屏幕一直亮着、不锁屏。\n悬浮框常亮：悬浮倒计时展开时屏幕保持常亮；关掉或收缩成小条时跟随手机系统的熄屏时间。" />
 
@@ -266,7 +266,7 @@
             android:layout_marginTop="8dp"
             android:gravity="center"
             android:lineSpacingExtra="3dp"
-            android:textColor="#FFE3CC"
+            android:textColor="#FFEAF6FF"
             android:textSize="12sp"
             android:text="" />
 
@@ -304,7 +304,7 @@
             android:layout_marginTop="8dp"
             android:gravity="center"
             android:lineSpacingExtra="3dp"
-            android:textColor="#FFE3CC"
+            android:textColor="#FFEAF6FF"
             android:textSize="12sp"
             android:text="" />
 
@@ -331,7 +331,7 @@
             android:layout_marginTop="8dp"
             android:gravity="center"
             android:lineSpacingExtra="3dp"
-            android:textColor="#FFE3CC"
+            android:textColor="#FFEAF6FF"
             android:textSize="12sp"
             android:text="" />
 
@@ -359,7 +359,7 @@
             android:layout_marginTop="8dp"
             android:gravity="center"
             android:lineSpacingExtra="3dp"
-            android:textColor="#FFE3CC"
+            android:textColor="#FFEAF6FF"
             android:textSize="12sp"
             android:text="" />
 
@@ -387,7 +387,7 @@
             android:layout_marginTop="8dp"
             android:gravity="center"
             android:lineSpacingExtra="3dp"
-            android:textColor="#FFE3CC"
+            android:textColor="#FFEAF6FF"
             android:textSize="12sp"
             android:text="" />
 
@@ -398,7 +398,7 @@
             android:layout_marginTop="12dp"
             android:gravity="center"
             android:lineSpacingExtra="3dp"
-            android:textColor="#B4A18E"
+            android:textColor="#FFA8B3CC"
             android:textSize="12sp"
             android:text="后台检查：还没跑过" />
 
@@ -411,7 +411,7 @@
             android:layout_marginTop="16dp"
             android:gravity="center"
         android:lineSpacingExtra="4dp"
-        android:textColor="#A3907E"
+        android:textColor="#FFA8B3CC"
             android:textSize="12sp"
             android:text="已知小限制：悬浮窗在系统「设置」前台时会被临时藏起来（Android 安全机制，应用没法盖住），回到本应用会自动恢复哦。\n若部分品牌手机在任意界面都不显示，请在系统设置里为本应用开启「显示在其他应用上层」，并在品牌权限管理里开启「后台弹出界面 / 显示弹窗」。" />
 
