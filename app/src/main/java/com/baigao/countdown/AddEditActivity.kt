@@ -116,6 +116,7 @@ class AddEditActivity : Activity() {
             standardSpinner.visibility = View.GONE
             findViewById<View>(R.id.standardModeLabel).visibility = View.GONE
             findViewById<View>(R.id.standardModeHint).visibility = View.GONE
+        }
 
         // 提示音选择只留给自定义倒计时：内置周期倒计时（每分钟 / 每5分钟 / 每10分钟 /
         // 每半小时 / 每小时 / 当日 / 每周 / 当月 …）归零照旧响默认提示音，界面上不再摆
@@ -127,6 +128,14 @@ class AddEditActivity : Activity() {
         clearSoundBtn.setOnClickListener {
             draftSoundUri = null
             refreshSoundLabel()
+        }
+        if (builtInEdit) {
+            Toast.makeText(
+                this,
+                "内置小倒计时也能改：名字、颜色、模式、动画、备注都能改；时刻是系统自己往下跳的，" +
+                    "它一直是内置小倒计时",
+                Toast.LENGTH_LONG
+            ).show()
         }
         if (builtInEdit) {
             // 内置项：整块收掉，它身上可能存过的自定义提示音也一并作废（统一用默认提示音）
@@ -141,16 +150,6 @@ class AddEditActivity : Activity() {
             draftSoundUri = c.soundUri
             refreshSoundLabel()
             openRingtonePicker()
-                }
-        }
-
-        if (builtInEdit) {
-            Toast.makeText(
-                this,
-                "内置小倒计时也能改：名字、颜色、模式、动画、备注都能改；时刻是系统自己往下跳的，" +
-                    "它一直是内置小倒计时",
-                Toast.LENGTH_LONG
-            ).show()
         }
 
         saveBtn.setOnClickListener {
