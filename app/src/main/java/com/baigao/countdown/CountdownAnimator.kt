@@ -240,7 +240,7 @@ object AnimStyle {
             scale(v)
             return
         }
-        val white = 0xFFFFF0.toInt()
+        val white = 0xFFFFFFF0.toInt()
         val yellow = 0xFFFFD23A.toInt()
         val orange = 0xFFFF5A18.toInt()
         val rise = dp(v, 26f)
