@@ -82,6 +82,7 @@
                 android:textColorHint="#666680" />
 
             <TextView
+                android:id="@+id/dateLabel"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="目标日期"
@@ -106,6 +107,7 @@
             </LinearLayout>
 
             <TextView
+                android:id="@+id/timeLabel"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="目标时间"
