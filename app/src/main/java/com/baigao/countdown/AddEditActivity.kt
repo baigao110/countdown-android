@@ -2,6 +2,8 @@ package com.baigao.countdown
 
 import android.app.Activity
 import android.content.Intent
+import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.ArrayAdapter
@@ -19,6 +21,9 @@ class AddEditActivity : Activity() {
     private var editId: String? = null
     private var fromFloating = false
     private var editTarget: Countdown? = null
+    private var pickSoundOnly = false
+    private var draftSoundUri: String? = null   // 待写入的自定义提示音 URI（null = 默认提示音）
+    private var soundBtn: Button? = null
 
     private val colors = intArrayOf(
         0xFF00FFFF.toInt(), 0xFFFF00FF.toInt(), 0xFF00FF00.toInt(),
@@ -26,10 +31,17 @@ class AddEditActivity : Activity() {
     )
     private val colorNames = arrayOf("青色", "品红", "绿色", "黄色", "橙色", "红色", "金色")
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString("draftSoundUri", draftSoundUri)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         editId = intent.getStringExtra("id")
         fromFloating = intent.getBooleanExtra("fromFloating", false)
+        pickSoundOnly = intent.getBooleanExtra("pickSoundOnly", false)
+        draftSoundUri = savedInstanceState?.getString("draftSoundUri")
 
         val c = if (editId != null) CountdownStore.load(this).find { it.id == editId } else null
         editTarget = c
@@ -104,6 +116,32 @@ class AddEditActivity : Activity() {
             standardSpinner.visibility = View.GONE
             findViewById<View>(R.id.standardModeLabel).visibility = View.GONE
             findViewById<View>(R.id.standardModeHint).visibility = View.GONE
+
+        // 提示音选择只留给自定义倒计时：内置周期倒计时（每分钟 / 每5分钟 / 每10分钟 /
+        // 每半小时 / 每小时 / 当日 / 每周 / 当月 …）归零照旧响默认提示音，界面上不再摆
+        // 换提示音的按钮；普通倒计时这一整块照旧可点可改。
+        val soundBlock = findViewById<View>(R.id.soundBlock)
+        soundBtn = findViewById<Button>(R.id.btnSound)
+        val clearSoundBtn = findViewById<Button>(R.id.btnClearSound)
+        soundBtn?.setOnClickListener { openRingtonePicker() }
+        clearSoundBtn.setOnClickListener {
+            draftSoundUri = null
+            refreshSoundLabel()
+        }
+        if (builtInEdit) {
+            // 内置项：整块收掉，它身上可能存过的自定义提示音也一并作废（统一用默认提示音）
+            soundBlock.visibility = View.GONE
+            draftSoundUri = null
+        } else {
+            soundBlock.visibility = View.VISIBLE
+        }
+        refreshSoundLabel()
+        // 从卡片上的「提示音名称」按钮进来的：直接把系统铃声选择器顶上去，选完即存
+        if (pickSoundOnly && c != null) {
+            draftSoundUri = c.soundUri
+            refreshSoundLabel()
+            openRingtonePicker()
+                }
         }
 
         if (builtInEdit) {
@@ -143,6 +181,8 @@ class AddEditActivity : Activity() {
                         CountdownFormatter.modeAt(standardSpinner.selectedItemPosition, startBuiltIn)
                     existing.animStyle = animSpinner.selectedItemPosition
                     existing.remark = remarkEt.text.toString()
+                    // 提示音只有自定义倒计时能挑：内置项一律回到默认提示音（清掉可能存过的自定义音）
+                    existing.soundUri = if (builtInEdit) null else draftSoundUri
                 }
             } else {
                 list.add(
@@ -154,7 +194,8 @@ class AddEditActivity : Activity() {
                             standardSpinner.selectedItemPosition, startBuiltIn
                         ),
                         animStyle = animSpinner.selectedItemPosition,
-                        remark = remarkEt.text.toString()
+                        remark = remarkEt.text.toString(),
+                        soundUri = draftSoundUri
                     )
                 )
             }
@@ -176,4 +217,56 @@ class AddEditActivity : Activity() {
 
 
 
+
+    // ---------- 提示音选择（只给自定义倒计时） ----------
+
+    /** 按钮上的提示音文案：选过就显示铃声名，没选过显示「用默认提示音」。 */
+    private fun refreshSoundLabel() {
+        soundBtn?.text = if (draftSoundUri != null) SoundNames.name(this, draftSoundUri)
+            else "用默认提示音（点一下选一个）"
+    }
+
+    @Suppress("DEPRECATION")
+    private fun openRingtonePicker() {
+        val i = Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
+        i.putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION)
+        i.putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+        i.putExtra(
+            RingtoneManager.EXTRA_RINGTONE_EXISTING_URI,
+            if (draftSoundUri != null) Uri.parse(draftSoundUri)
+            else RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        )
+        startActivityForResult(i, 200)
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 200 && resultCode == Activity.RESULT_OK && data != null) {
+            val uri = data.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            if (uri != null) {
+                draftSoundUri = uri.toString()
+                refreshSoundLabel()
+                // 从卡片提示音按钮进来的：选完直接落盘，不用再进保存页
+                if (pickSoundOnly) {
+                    val list = CountdownStore.load(this)
+                    val _id = editId
+                    val e = if (_id != null) list.find { it.id == _id } else null
+                    if (e != null) {
+                        e.soundUri = draftSoundUri
+                        CountdownStore.save(this, list)
+                        setResult(Activity.RESULT_OK)
+                        if (fromFloating) {
+                            val ri = Intent(this, CountdownService::class.java)
+                            ri.action = CountdownService.ACTION_START
+                            startForegroundService(ri)
+                        }
+                        finish()
+                    } else {
+                        Toast.makeText(this, "这条记录找不到了，提示音没改成", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+    }
 }
