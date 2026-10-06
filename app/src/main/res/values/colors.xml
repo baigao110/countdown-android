@@ -17,14 +17,14 @@
     <color name="glass_stroke_soft">#33FFFFFF</color>
     <color name="glass_highlight">#B3FFFFFF</color>
 
-    <!-- 强调色（暖橙琥珀）与其玻璃渐变 -->
-    <color name="glass_accent">#FFFFA63D</color>
+    <!-- 强调色（青蓝）与其玻璃渐变 -->
+    <color name="glass_accent">#FF00FFFF</color>
     <color name="glass_accent_sheen">#66FFFFFF</color>
-    <color name="glass_accent_deep">#FFC25E00</color>
+    <color name="glass_accent_deep">#FF00C2D9</color>
 
     <!-- 文字 -->
-    <color name="glass_text">#FFF2E4D2</color>
-    <color name="glass_text_sub">#FFC9A88C</color>
-    <color name="glass_text_dim">#FF9E8A72</color>
+    <color name="glass_text">#FFEAF6FF</color>
+    <color name="glass_text_sub">#FFA8B3CC</color>
+    <color name="glass_text_dim">#FF7C86A3</color>
     <color name="glass_text_on_accent">#FF001018</color>
 </resources>
