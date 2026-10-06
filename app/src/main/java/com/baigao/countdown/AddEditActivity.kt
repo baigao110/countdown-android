@@ -68,6 +68,11 @@ class AddEditActivity : Activity() {
         // 日期时间那栏填了也不会生效 —— 内置倒计时的时刻是系统自己往下跳的（每小时 / 每半小时 / 当日 /
         // 每周 / 每月），保存时仍写回系统此刻的目标，它永远是内置倒计时，不会被降级成普通倒计时。
         val builtInEdit = c != null && c.isBuiltIn()
+        // 提示音这扇门只关给「周期滚动型」内置项：每分钟 / 每5分钟 / 每10分钟 / 每半小时 /
+        // 每小时 / 当日 / 每周 / 每月，它们的目标时刻是系统一格格往下跳的，归零照旧响默认提示音，
+        // 界面上干脆不摆换音按钮。华都云境悦府、GTA6 这两个「固定目标」内置项不跟着日期跳，
+        // 挑提示音照旧给它们留着，跟普通倒计时一路。
+        val hideSoundEdit = c != null && c.isPeriodicBuiltIn()
         // 进入本页时的内置类型：模式下拉框按它过滤（当日 / 每小时 / 每半小时倒计时没有天数模式）。
         // 保存时仍用同一个列表还原模式号，两者不会错位。
         val startBuiltIn = c?.builtIn ?: BuiltIn.NONE
@@ -118,9 +123,9 @@ class AddEditActivity : Activity() {
             findViewById<View>(R.id.standardModeHint).visibility = View.GONE
         }
 
-        // 提示音选择只留给自定义倒计时：内置周期倒计时（每分钟 / 每5分钟 / 每10分钟 /
-        // 每半小时 / 每小时 / 当日 / 每周 / 当月 …）归零照旧响默认提示音，界面上不再摆
-        // 换提示音的按钮；普通倒计时这一整块照旧可点可改。
+        // 提示音选择只收给「周期滚动型」内置倒计时（每分钟 / 每5分钟 / 每10分钟 /
+        // 每半小时 / 每小时 / 当日 / 每周 / 当月 …）——它们归零照旧响默认提示音，
+        // 界面上不摆换音按钮；华都云境悦府、GTA6 和普通倒计时这一整块照旧可点可改。
         val soundBlock = findViewById<View>(R.id.soundBlock)
         soundBtn = findViewById<Button>(R.id.btnSound)
         val clearSoundBtn = findViewById<Button>(R.id.btnClearSound)
@@ -137,8 +142,8 @@ class AddEditActivity : Activity() {
                 Toast.LENGTH_LONG
             ).show()
         }
-        if (builtInEdit) {
-            // 内置项：整块收掉，它身上可能存过的自定义提示音也一并作废（统一用默认提示音）
+        if (hideSoundEdit) {
+            // 周期滚动型内置项：整块收掉，它身上可能存过的自定义提示音也一并作废（统一用默认提示音）
             soundBlock.visibility = View.GONE
             draftSoundUri = null
         } else {
@@ -180,8 +185,8 @@ class AddEditActivity : Activity() {
                         CountdownFormatter.modeAt(standardSpinner.selectedItemPosition, startBuiltIn)
                     existing.animStyle = animSpinner.selectedItemPosition
                     existing.remark = remarkEt.text.toString()
-                    // 提示音只有自定义倒计时能挑：内置项一律回到默认提示音（清掉可能存过的自定义音）
-                    existing.soundUri = if (builtInEdit) null else draftSoundUri
+                    // 提示音只有普通倒计时和「固定目标」内置项能挑：周期滚动型内置项一律回到默认提示音（清掉可能存过的自定义音）
+                    existing.soundUri = if (hideSoundEdit) null else draftSoundUri
                 }
             } else {
                 list.add(
