@@ -790,6 +790,20 @@ class MainActivity : Activity() {
      * @param checked 当前选中第几项（-1 = 一项都没选中）
      * @param onPick 挑中第几项（角标）时回调，落库 / 重建列表 / 同步悬浮窗由调用方自己收尾
      */
+    /**
+     * 在 [anchor] 正下方弹一层下拉面板 —— 卡片上的「显示模式 / 动画 / 颜色」三颗按钮共用这一个。
+     *
+     * v157 修的是「下拉框里只剩一个色块、名字全没了」：
+     * 名字那格以前没写 layoutParams，addView 拿到的默认参数宽度是 MATCH_PARENT，
+     * 而横向 LinearLayout 在父容器宽度非精确（wrap_content 测量）时会把 MATCH_PARENT 的子项
+     * 直接分到 0 —— 名字被挤没了，只剩圆点色块。现在名字显式 WRAP_CONTENT，
+     * 面板宽度也按最长的那条名字量出来（不窄于按钮、不超过屏幕），位置还会避开屏幕边缘。
+     *
+     * @param anchor 触发它的那颗按钮（面板贴着它下方、同宽展开）
+     * @param items 可选项：每项 = 圆点颜色 + 文案
+     * @param checked 当前选中第几项（-1 = 一项都没选中）
+     * @param onPick 挑中第几项（角标）时回调，落库 / 重建列表 / 同步悬浮窗由调用方自己收尾
+     */
     private fun showPickPopup(
         anchor: View,
         items: List<Pair<Int, String>>,
@@ -798,6 +812,32 @@ class MainActivity : Activity() {
     ) {
         dismissPickPopup()
         val d = resources.displayMetrics.density
+        val screenW = resources.displayMetrics.widthPixels
+        val screenH = resources.displayMetrics.heightPixels
+        val margin = (8 * d).toInt()
+        val rowPadH = (12 * d).toInt()
+        val rowPadV = (7 * d).toInt()
+        val dotW = (14 * d).toInt()
+        val gap = (8 * d).toInt()
+
+        // 先量一遍最长的名字：面板宽度就按它算，别再窄到把字裁掉
+        var textW = 0
+        items.forEachIndexed { i, kv ->
+            val probe = TextView(this).apply {
+                text = kv.second + if (i == checked) " ✓" else ""
+                textSize = 13f
+                setTextColor(0xFFEAF6FF.toInt())
+            }
+            probe.measure(
+                View.MeasureSpec.makeMeasureSpec(screenW - (40 * d).toInt(), View.MeasureSpec.AT_MOST),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            )
+            textW = maxOf(textW, probe.measuredWidth)
+        }
+        val wantW = (textW + dotW + gap + rowPadH * 2 + (10 * d)).toInt()
+        val maxW = (screenW - margin * 2).coerceAtLeast((96 * d).toInt())
+        val w = minOf(maxOf(wantW, (anchor.width + (8 * d)).toInt()), maxW)
+
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundResource(R.drawable.glass_card_strong)
@@ -805,35 +845,53 @@ class MainActivity : Activity() {
         }
         items.forEachIndexed { i, kv ->
             val dot = View(this).apply {
-                layoutParams = LinearLayout.LayoutParams((14 * d).toInt(), (14 * d).toInt())
+                layoutParams = LinearLayout.LayoutParams(dotW, dotW)
                 background = ColorDrawable(kv.first)
             }
             val label = TextView(this).apply {
                 text = kv.second + if (i == checked) " ✓" else ""
                 textSize = 13f
                 setTextColor(0xFFEAF6FF.toInt())
-                setPadding((10 * d).toInt(), 0, 0, 0)
+                setSingleLine(true)
+                // ⚠️ v157：这一行是「下拉框只剩色块」的根因 —— 不写这行就用默认参数
+                //    （宽度 MATCH_PARENT），名字会被量成 0 宽。
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                )
             }
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding((12 * d).toInt(), (7 * d).toInt(), (12 * d).toInt(), (7 * d).toInt())
+                setPadding(rowPadH, rowPadV, rowPadH, rowPadV)
                 addView(dot)
                 addView(label)
                 setOnClickListener { dismissPickPopup(); onPick(i) }
             }
-            panel.addView(row)
+            panel.addView(
+                row,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
         }
-        // 面板跟按钮一样宽：量不到宽度时退到一个够用的宽度，别塌成一条缝
-        val w = if (anchor.width > 0) anchor.width else (96 * d).toInt()
-        val popup = PopupWindow(panel, w, LinearLayout.LayoutParams.WRAP_CONTENT, true)
-        popup.isOutsideTouchable = true
-        popup.setOnDismissListener { if (pickPopup === popup) pickPopup = null }
+        panel.measure(
+            View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        val panelH = panel.measuredHeight
+
         val loc = IntArray(2)
         anchor.getLocationOnScreen(loc)
-        popup.showAtLocation(
-            anchor.rootView, Gravity.NO_GRAVITY, loc[0], loc[1] + anchor.height + (4 * d).toInt()
-        )
+        val x = loc[0].coerceIn(margin, maxOf(margin, screenW - w - margin))
+        val below = loc[1] + anchor.height + (4 * d).toInt()
+        val above = loc[1] - panelH - (4 * d).toInt()
+        // 下面放不下就翻到按钮上方（上面也放不下就还是往下弹，宁可截一点也别弹到屏幕外）
+        val y = if (below + panelH > screenH - margin && above > margin) above else below
+
+        val popup = PopupWindow(panel, w, panelH, true)
+        popup.isOutsideTouchable = true
+        popup.setOnDismissListener { if (pickPopup === popup) pickPopup = null }
+        popup.showAtLocation(anchor.rootView, Gravity.NO_GRAVITY, x, y)
         pickPopup = popup
     }
 
