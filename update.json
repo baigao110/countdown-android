@@ -1,8 +1,8 @@
 {
-  "versionCode": 142,
+  "versionCode": 143,
   "versionName": "1.0.0.38",
   "date": "2026-10-07",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-  "note": "v154：撤掉 v151 那批一共 29 个内置档 —— 每2/3/4/6/7/8/9 分钟、每2~23 小时，从「倒计时类型」和出厂顺序里都摘了，已生成的那几十条打开时一并清掉，剩下的每5/10分钟、每半小时、每小时等十档照旧，悬浮窗同步照旧"
+  "note": "v155：每5分钟、每10分钟、每小时的标准模式格式改成 xx分xx秒 —— 前两档原来只写 xx 分、每小时原来写 xx时xx分xx秒（1 小时里「时」恒为 0），现在秒一眼看得见，每档可选 标准/分钟/秒 三档，当日倒计时不受影响，悬浮窗同步照旧"
 }
