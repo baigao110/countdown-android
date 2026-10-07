@@ -154,7 +154,7 @@
                 android:padding="6dp"
                 android:layout_marginStart="6dp" />
 
-            <!-- 当前动画效果：显示名称，点击可循环切换 -->
+            <!-- 当前动画效果：显示名称，点开下拉框换一种 -->
             <Button
                 android:id="@+id/itemAnim"
                 android:layout_width="wrap_content"
@@ -163,6 +163,21 @@
                 android:textSize="12sp"
                 android:minWidth="0dp"
                 android:minHeight="0dp"
+                android:background="@drawable/glass_chip"
+                android:padding="6dp"
+                android:layout_marginStart="6dp" />
+
+            <!-- v156：倒计时文字的主题色 —— 点开下拉框直接挑，不用再进编辑页 -->
+            <Button
+                android:id="@+id/itemColor"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="颜色"
+                android:textSize="12sp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:maxLines="1"
+                android:ellipsize="end"
                 android:background="@drawable/glass_chip"
                 android:padding="6dp"
                 android:layout_marginStart="6dp" />
