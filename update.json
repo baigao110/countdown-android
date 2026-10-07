@@ -1,8 +1,8 @@
 {
-  "versionCode": 144,
+  "versionCode": 145,
   "versionName": "1.0.0.38",
   "date": "2026-10-07",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-  "note": "v156：卡片上的显示模式 / 动画 / 颜色三颗按钮改成点开下拉框挑 —— 显示模式只列这条倒计时真正能用的档位、动画八种挑一种，另外新加了一颗颜色按钮，七色直接换倒计时文字主题色，点中即生效、列表与悬浮窗同帧跟着变，悬浮窗同步照旧"
+  "note": "v157：修下拉框只剩色块没名字 —— 显示模式 / 动画 / 颜色三颗按钮的下拉框里，动画八种、颜色七色以前都只剩一个色块看不见文字，这次给文字显式宽度、面板按最长那条名字量宽，名字完整显示，弹窗还会自动避开屏幕边缘、下方放不下就翻到上方，悬浮窗同步照旧"
 }
