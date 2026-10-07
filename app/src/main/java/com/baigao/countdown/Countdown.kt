@@ -229,13 +229,24 @@ data class Countdown(
                 cal.add(Calendar.DAY_OF_MONTH, 7)
             }
             BuiltIn.CENTURY -> {
-                // 100 年内倒计时：以用户挑的那个时刻为一个大周期的起点，归零（跨过）之后
-                // 自动跳到「下一个 100 年后的同一刻」接着往下走秒 —— 与每小时 / 当月一样自己往下滚。
+                // 100 年内倒计时：目标就是用户在六连框里挑的那一刻（一个 100 年大周期的起点）。
+                // ⚠️ 挑的时刻**已经过去**时不能再自动跳到一百年的下一个同刻 —— 那样跳一下就跑出
+                // 100 年了，界面上显示的目标也就不再是用户挑的那个时刻（「挑过去的不滚」）：
+                // 一律停在挑的那一刻、剩余归零，与华都云境悦府 / GTA6 这种固定目标内置项一个脾气。
+                // 只有它还在未来、且是我们亲眼看着它走到 0 的（刚跨过、5 秒以内），才顺手滚到
+                // 下一个一百年的同一刻接着往下走秒（「挑未来的才滚」）。
                 val base = if (builtInTargetMillis > 0) builtInTargetMillis else targetTime
                 if (base <= 0) return false
+                val now = cal.timeInMillis
+                if (base > now || now - base > 5000) {
+                    if (targetTime == base) return false
+                    targetTime = base
+                    return true
+                }
+                // 刚刚跨过那一秒：滚到下一个一百年的同一刻
                 var t = base
                 var guard = 0
-                while (t <= cal.timeInMillis && guard < 2000) {
+                while (t <= now && guard < 2000) {
                     cal.timeInMillis = t
                     cal.add(Calendar.YEAR, 100)
                     t = cal.timeInMillis
