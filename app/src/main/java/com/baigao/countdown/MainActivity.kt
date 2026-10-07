@@ -845,17 +845,47 @@ class MainActivity : Activity() {
 
     /**
      * 删除内置倒计时时，把它的完整设置存成快照（JSON 字符串，存在 builtin_removed 里）。
+     *
+     * ⚠️ v147：100年内倒计时从 v146 起能存在好几条（个数不限制），再共用一个
+     * 「backup_{类型}」的坑位，后删的那条就会把先删的那份快照顶掉 —— 想找回前一条时发现
+     * 压根没存过。所以这种多出来的类型按「backup_{类型}_{id}」一条一条存；
+     * 只可能有单条的内置类型照旧，顺手把老 key 也写一份，老设备上的快照照样认。
+     */
+    private fun backupKey(type: Int, id: String): String =
+        if (type == BuiltIn.CENTURY) "backup_${type}_${id}" else "backup_${type}"
+
+    /**
+     * 删除内置倒计时时，把它的完整设置存成快照（JSON 字符串，存在 builtin_removed 里）。
      * 只存「设置」，不存目标时间——目标时间由系统按当日 / 当月 / 固定日期重算。
      */
     private fun saveBuiltInBackup(c: Countdown) {
+        val json = CountdownStore.toJson(c).toString()
         removedPrefs.edit()
-            .putString("backup_${c.builtIn}", CountdownStore.toJson(c).toString())
+            .putString(backupKey(c.builtIn, c.id), json)
             .apply()
+        // 普通内置项永远只有一条，老 key 照写一份：
+        // 老版本（以及备份读取时的回落）认的就是「backup_{类型}」这一份
+        if (c.builtIn != BuiltIn.CENTURY) {
+            removedPrefs.edit().putString("backup_${c.builtIn}", json).apply()
+        }
     }
 
     /** 读出某个内置倒计时被删除时的设置快照；老版本删除的没有快照，返回 null。 */
-    private fun loadBuiltInBackup(type: Int): Countdown? {
-        val json = removedPrefs.getString("backup_$type", null) ?: return null
+    private fun loadBuiltInBackup(type: Int): Countdown? = loadBuiltInBackup(type, "")
+
+    /**
+     * 读出某条内置倒计时被删除时的设置快照。
+     *
+     * @param id 指定条目 id 就按「backup_{类型}_{id}」取（100年内倒计时能存多条，每条各存一份）；
+     *           0 表示只认老式的「backup_{类型}」那一份。老版本删的没有分 key，回落一下也能读出来。
+     */
+    private fun loadBuiltInBackup(type: Int, id: String): Countdown? {
+        val json = if (id.isNotEmpty()) {
+            removedPrefs.getString("backup_${type}_$id", null)
+                ?: removedPrefs.getString("backup_$type", null)
+        } else {
+            removedPrefs.getString("backup_$type", null)
+        } ?: return null
         return try {
             CountdownStore.parse(JSONObject(json))
         } catch (e: Exception) {
@@ -882,6 +912,20 @@ class MainActivity : Activity() {
                 .putStringSet("types", removedBuiltIns.map { it.toString() }.toSet())
                 .apply()
         }
+        // ⚠️ v147：100年内倒计时能存好几条，光把「12 号类型」从已删除里划掉还不够 ——
+        // 下面 ensureBuiltIn() 那句「这个类型已经在列表里了就别补」会把它们全挡在门外
+        // （列表里还躺着另一条同类型 => 勾了「找回小内置」却一条都没回来）。
+        // 所以这里改成按 id 一条条照快照还原：时长（builtInSpanMillis）、名称、备注、
+        // 目标时刻连同主题 / 模式 / 动画一起回来，重启之后照旧按时长一轮一轮往下转。
+        if (types.contains(BuiltIn.CENTURY)) {
+            for (bak in centuryBackups()) {
+                if (data.any { it.id == bak.id }) continue // 已经在列表里了，别重复造一条
+                bak.finished = false          // 重新计时，允许再响一次铃
+                bak.builtInManual = false     // 回到系统周期，不沿用过期的旧时刻
+                data.add(0, bak)
+                changed = true
+            }
+        }
         // 兜底：某些项可能既不在列表里、也没有被标记删除（例如被改成普通倒计时），
         // 这里统一补齐，保证点「确定」之后十个内置项真的回到列表里
         if (ensureBuiltInTimers()) changed = true
@@ -892,12 +936,41 @@ class MainActivity : Activity() {
     }
 
     /**
+     * 捞出所有被删掉的「100年内倒计时」的快照（v147：可能不止一条，按 id 分开存着）。
+     *
+     * 只认「backup_{类型}_{id}」这种新 key —— 老 key 底下那一份年代太久、也不一定对应
+     * 现在想找回的这一条，交给 loadBuiltInBackup() 的老形式去兜底就好。
+     */
+    private fun centuryBackups(): List<Countdown> {
+        val out = ArrayList<Countdown>()
+        val seen = HashSet<String>() // ⚠️ Countdown.id 是 UUID 字符串，不是数字，别写成 HashSet<Long>
+        for (key in removedPrefs.all.keys) {
+            if (!key.startsWith("backup_${BuiltIn.CENTURY}_")) continue
+            val json = removedPrefs.getString(key, null) ?: continue
+            try {
+                val c = CountdownStore.parse(JSONObject(json))
+                if (c.id.isNotEmpty() && seen.add(c.id)) out.add(c)
+            } catch (e: Exception) {
+                // 存烂了的那一份直接跳过，别让整页恢复跟着炸
+            }
+        }
+        return out
+    }
+
+    /**
      * 当前「不在列表里」的内置倒计时：
      * 既包括用户删掉的（记在 removedBuiltIns 里），也包括列表里查不到该类型的。
      * 为空表示十一个内置倒计时都在列表里，此时不需要显示「恢复内置」。
      */
     private fun missingBuiltIns(): List<Triple<Int, String, String>> =
-        builtInDefs.filter { def -> def.first in removedBuiltIns || data.none { it.builtIn == def.first } }
+        builtInDefs.filter { def ->
+            val t = def.first
+            t in removedBuiltIns
+                || data.none { it.builtIn == t }
+                // ⚠️ v147：100年内倒计时能存多条，删掉的那条未必是列表里唯一的一条 ——
+                // 光看「这个类型还在不在」够不着，得按 id 看那条快照有没有躺在列表里
+                || (t == BuiltIn.CENTURY && centuryBackups().any { bak -> data.none { it.id == bak.id } })
+        }
 
     /**
      * 弹出「恢复内置倒计时」对话框（点加号菜单里的「恢复内置」）。
@@ -942,7 +1015,10 @@ class MainActivity : Activity() {
                 if (types.isEmpty()) {
                     Toast.makeText(this, "还没勾选任何小内置倒计时呢", Toast.LENGTH_SHORT).show()
                 } else {
-                    val restored = types.count { loadBuiltInBackup(it) != null }
+                    val restored = types.count { t ->
+                        if (t == BuiltIn.CENTURY) centuryBackups().isNotEmpty()
+                        else loadBuiltInBackup(t) != null
+                    }
                     restoreBuiltIn(*types.toIntArray())
                     val msg = if (restored > 0)
                         "已经把 ${types.size} 个小内置倒计时找回来啦（其中 $restored 个还原了原来的设置）"
