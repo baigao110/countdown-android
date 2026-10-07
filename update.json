@@ -1,8 +1,8 @@
 {
-  "versionCode": 143,
+  "versionCode": 144,
   "versionName": "1.0.0.38",
   "date": "2026-10-07",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-  "note": "v155：每5分钟、每10分钟、每小时的标准模式格式改成 xx分xx秒 —— 前两档原来只写 xx 分、每小时原来写 xx时xx分xx秒（1 小时里「时」恒为 0），现在秒一眼看得见，每档可选 标准/分钟/秒 三档，当日倒计时不受影响，悬浮窗同步照旧"
+  "note": "v156：卡片上的显示模式 / 动画 / 颜色三颗按钮改成点开下拉框挑 —— 显示模式只列这条倒计时真正能用的档位、动画八种挑一种，另外新加了一颗颜色按钮，七色直接换倒计时文字主题色，点中即生效、列表与悬浮窗同帧跟着变，悬浮窗同步照旧"
 }
