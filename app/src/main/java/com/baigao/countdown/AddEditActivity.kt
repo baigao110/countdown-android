@@ -78,11 +78,37 @@ class AddEditActivity : Activity() {
         // 挑提示音照旧给它们留着，跟普通倒计时一路。
         //
         // 可以挑的内置类型（「倒计时类型」下拉框的条目顺序）：普通倒计时永远排最前，
-        // 其后是其余滚动型内置项（每小时 / 每半小时 / 每分钟 …），固定目标的两个内置项（华都云境悦府、GTA6）垫底。
+        // 其后是其余滚动型内置项（每小时 / 每半小时 / 每分钟 / v151 新加的每2~9分钟、每2~23小时 …），
+        // 固定目标的两个内置项（华都云境悦府、GTA6）垫底。
         val pickable = listOf(
-            BuiltIn.NONE, BuiltIn.HOUR, BuiltIn.HALF_HOUR, BuiltIn.MINUTE,
-            BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN, BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH,
-            BuiltIn.HUADU, BuiltIn.GTA6
+            BuiltIn.NONE, BuiltIn.MINUTE,
+            BuiltIn.MIN_2, BuiltIn.MIN_3, BuiltIn.MIN_4,
+            BuiltIn.FIVE_MIN,
+            BuiltIn.MIN_6, BuiltIn.MIN_7, BuiltIn.MIN_8, BuiltIn.MIN_9,
+            BuiltIn.TEN_MIN, BuiltIn.HALF_HOUR, BuiltIn.HOUR,
+            BuiltIn.HOUR_2,
+            BuiltIn.HOUR_3,
+            BuiltIn.HOUR_4,
+            BuiltIn.HOUR_5,
+            BuiltIn.HOUR_6,
+            BuiltIn.HOUR_7,
+            BuiltIn.HOUR_8,
+            BuiltIn.HOUR_9,
+            BuiltIn.HOUR_10,
+            BuiltIn.HOUR_11,
+            BuiltIn.HOUR_12,
+            BuiltIn.HOUR_13,
+            BuiltIn.HOUR_14,
+            BuiltIn.HOUR_15,
+            BuiltIn.HOUR_16,
+            BuiltIn.HOUR_17,
+            BuiltIn.HOUR_18,
+            BuiltIn.HOUR_19,
+            BuiltIn.HOUR_20,
+            BuiltIn.HOUR_21,
+            BuiltIn.HOUR_22,
+            BuiltIn.HOUR_23,
+            BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6
         )
         // 这条倒计时在编辑 / 准备生成的类型（显示模式清单、提示音开关全按它走）。
         // 新建时默认「普通倒计时」；编辑内置项时就是它自己那一档，模式下拉框按它过滤。
