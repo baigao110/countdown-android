@@ -911,7 +911,7 @@ class MainActivity : Activity() {
         val missing = missingBuiltIns()
         if (missing.isEmpty()) {
             // v124：只有真把内置顺序拖过才摆复位入口。排序没动过时列表本来就是出厂顺序，
-            // 这时候弹一个「十一个都在 + 一颗回默认」的对话框，点了多半是白点。
+            // 这时候弹一个「十个都在 + 一颗回默认」的对话框，点了多半是白点。
             if (!builtInOrderChanged()) {
                 Toast.makeText(
                     this,
