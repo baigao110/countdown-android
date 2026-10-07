@@ -54,14 +54,44 @@ class MainActivity : Activity() {
     private lateinit var orderPrefs: SharedPreferences
 
     /**
-     * 十个内置小倒计时的出厂顺序：每分钟 → 每5分钟 → 每10分钟 → 每半小时 → 每小时 →
-     * 当日 → 每周 → 当月 → 华都云境悦府 → GTA6（越靠前走得越少）。
+     * 内置小倒计时的出厂顺序（越靠前走得越少）：每分钟、每2/3/4/5/6/7/8/9/10 分钟、
+     * 每半小时、每小时、每2~23 小时、当日 → 每周 → 当月 → 华都云境悦府 → GTA6。
+     * ⚠️ v151 起这一串有 39 项，数量与顺序都不写死在文案里（见下面几处文案），
+     *    免得再添一档时又漏改一处在别的地方。
      * 这份常量永远不动：用户拖出来的自定义顺序另存一份（见 orderPrefs），
      * 所以「自定义排序」怎么拖都不会污染默认顺序 —— 想回到出厂顺序，
      * 在「找回小内置」里点「主界面默认排序」即可。
      */
     private val defaultBuiltInOrder = listOf(
-        BuiltIn.MINUTE, BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN, BuiltIn.HALF_HOUR, BuiltIn.HOUR,
+        BuiltIn.MINUTE,
+        // v151：每 2 / 3 / 4 分钟插在「每分钟」与「每5分钟」中间，6 / 7 / 8 / 9 分钟插在「每5分钟」后面
+        BuiltIn.MIN_2, BuiltIn.MIN_3, BuiltIn.MIN_4,
+        BuiltIn.FIVE_MIN,
+        BuiltIn.MIN_6, BuiltIn.MIN_7, BuiltIn.MIN_8, BuiltIn.MIN_9,
+        BuiltIn.TEN_MIN, BuiltIn.HALF_HOUR, BuiltIn.HOUR,
+        // v151：每 2~23 小时整批排在「每小时」之后、当日之前（越靠前走得越少）
+        BuiltIn.HOUR_2,
+        BuiltIn.HOUR_3,
+        BuiltIn.HOUR_4,
+        BuiltIn.HOUR_5,
+        BuiltIn.HOUR_6,
+        BuiltIn.HOUR_7,
+        BuiltIn.HOUR_8,
+        BuiltIn.HOUR_9,
+        BuiltIn.HOUR_10,
+        BuiltIn.HOUR_11,
+        BuiltIn.HOUR_12,
+        BuiltIn.HOUR_13,
+        BuiltIn.HOUR_14,
+        BuiltIn.HOUR_15,
+        BuiltIn.HOUR_16,
+        BuiltIn.HOUR_17,
+        BuiltIn.HOUR_18,
+        BuiltIn.HOUR_19,
+        BuiltIn.HOUR_20,
+        BuiltIn.HOUR_21,
+        BuiltIn.HOUR_22,
+        BuiltIn.HOUR_23,
         BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6
     )
 
@@ -79,7 +109,36 @@ class MainActivity : Activity() {
         BuiltIn.WEEK to "距离本周结束",
         BuiltIn.MONTH to "距离本月结束",
         BuiltIn.HUADU to "距离华都云境悦府交付（2026-10-31 00:00）",
-        BuiltIn.GTA6 to "距离 GTA6 发售（2026-11-19 08:00）"
+        BuiltIn.GTA6 to "距离 GTA6 发售（2026-11-19 08:00）",
+        BuiltIn.MIN_2 to "距离本2分钟结束",
+        BuiltIn.MIN_3 to "距离本3分钟结束",
+        BuiltIn.MIN_4 to "距离本4分钟结束",
+        BuiltIn.MIN_6 to "距离本6分钟结束",
+        BuiltIn.MIN_7 to "距离本7分钟结束",
+        BuiltIn.MIN_8 to "距离本8分钟结束",
+        BuiltIn.MIN_9 to "距离本9分钟结束",
+        BuiltIn.HOUR_2 to "距离本2小时结束",
+        BuiltIn.HOUR_3 to "距离本3小时结束",
+        BuiltIn.HOUR_4 to "距离本4小时结束",
+        BuiltIn.HOUR_5 to "距离本5小时结束",
+        BuiltIn.HOUR_6 to "距离本6小时结束",
+        BuiltIn.HOUR_7 to "距离本7小时结束",
+        BuiltIn.HOUR_8 to "距离本8小时结束",
+        BuiltIn.HOUR_9 to "距离本9小时结束",
+        BuiltIn.HOUR_10 to "距离本10小时结束",
+        BuiltIn.HOUR_11 to "距离本11小时结束",
+        BuiltIn.HOUR_12 to "距离本12小时结束",
+        BuiltIn.HOUR_13 to "距离本13小时结束",
+        BuiltIn.HOUR_14 to "距离本14小时结束",
+        BuiltIn.HOUR_15 to "距离本15小时结束",
+        BuiltIn.HOUR_16 to "距离本16小时结束",
+        BuiltIn.HOUR_17 to "距离本17小时结束",
+        BuiltIn.HOUR_18 to "距离本18小时结束",
+        BuiltIn.HOUR_19 to "距离本19小时结束",
+        BuiltIn.HOUR_20 to "距离本20小时结束",
+        BuiltIn.HOUR_21 to "距离本21小时结束",
+        BuiltIn.HOUR_22 to "距离本22小时结束",
+        BuiltIn.HOUR_23 to "距离本23小时结束"
     ).associate { it.first to Pair(BuiltIn.nameOf(it.first), it.second) }
 
     // 多选删除
@@ -135,14 +194,14 @@ class MainActivity : Activity() {
         }
     }
 
-    /** 读取本地数据，并确保十个内置项（每10分钟 / 每5分钟 / 每分钟 / 每小时 / 每半小时 / 当日 / 每周 / 当月 / 华都云境悦府 / GTA6）始终存在。 */
+    /** 读取本地数据，并确保出厂顺序里那些内置项（每分钟 / 每2~9分钟 / 每5分钟 / 每10分钟 / 每半小时 / 每小时 / 每2~23小时 / 当日 / 每周 / 当月 / 华都云境悦府 / GTA6）始终存在。 */
     private fun loadData() {
         data = CountdownStore.load(this)
         // ⚠️ v150：「100年内倒计时」整个内置项下线，老数据里躺着的那几条连同它们的
         // 备份快照一起清干净（列表里不该再留着已经选不中的那一档）
         dropRetiredCentury()
         if (ensureBuiltInTimers()) CountdownStore.save(this, data)
-        // 内置小倒计时的顺序：拖过就按拖出来的顺序，没拖过就按出厂顺序（每分钟 → … → GTA6）
+        // 内置小倒计时的顺序：拖过就按拖出来的顺序，没拖过就按出厂顺序（见 defaultBuiltInOrder）
         applyBuiltInOrder()
     }
 
@@ -180,7 +239,7 @@ class MainActivity : Activity() {
     private fun ensureBuiltInTimers(): Boolean {
         // 新补的内置项一律插到列表最前面，所以按出厂顺序「倒着」补：
         // 最后一个 GTA6 先插、第一个每分钟最后插，补完列表里内置项的顺序正好是
-        // 每分钟 → 每5分钟 → 每10分钟 → 每半小时 → 每小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6
+        // 出厂顺序（见 defaultBuiltInOrder）：每分钟 → 每2~9分钟 → 每5/10分钟 → 每半小时 → 每小时 → 每2~23小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6
         var added = false
         for (t in defaultBuiltInOrder.reversed()) {
             val info = builtInInfo[t] ?: continue
@@ -968,7 +1027,7 @@ class MainActivity : Activity() {
             }
         }
         // 兜底：某些项可能既不在列表里、也没有被标记删除（例如被改成普通倒计时），
-        // 这里统一补齐，保证点「确定」之后十个内置项真的回到列表里
+        // 这里统一补齐，保证点「确定」之后出厂顺序里那些内置项真的回到列表里
         if (ensureBuiltInTimers()) changed = true
         applyBuiltInOrder()
         if (changed) CountdownStore.save(this, data)
@@ -1011,7 +1070,7 @@ class MainActivity : Activity() {
     /**
      * 当前「不在列表里」的内置倒计时：
      * 既包括用户删掉的（记在 removedBuiltIns 里），也包括列表里查不到该类型的。
-     * 为空表示十个内置倒计时都在列表里，此时不需要显示「恢复内置」。
+     * 为空表示出厂顺序里的内置倒计时都在列表里，此时不需要显示「恢复内置」。
      */
     private fun missingBuiltIns(): List<Triple<Int, String, String>> =
         builtInDefs.filter { def ->
@@ -1037,7 +1096,7 @@ class MainActivity : Activity() {
         val centuries = missingCenturyBackups()
         if (missing.isEmpty() && centuries.isEmpty()) {
             // v124：只有真把内置顺序拖过才摆复位入口。排序没动过时列表本来就是出厂顺序，
-            // 这时候弹一个「十个都在 + 一颗回默认」的对话框，点了多半是白点。
+            // 这时候弹一个「都在 + 一颗回默认」的对话框，点了多半是白点。
             if (!builtInOrderChanged()) {
                 Toast.makeText(
                     this,
@@ -1048,7 +1107,7 @@ class MainActivity : Activity() {
             }
             AlertDialog.Builder(this)
                 .setTitle("小内置都在")
-                .setMessage("十个内置小倒计时都乖乖在列表里啦。\n想让它们回到出厂顺序（每分钟 → 每5分钟 → 每10分钟 → 每半小时 → 每小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6）就点「主界面默认排序」。")
+                .setMessage("内置小倒计时都乖乖在列表里啦。\n想让它们回到出厂顺序（每分钟 → 每2~9分钟 → 每5/10分钟 → 每半小时 → 每小时 → 每2~23小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6）就点「主界面默认排序」。")
                 .setPositiveButton("主界面默认排序") { _, _ -> restoreDefaultOrder() }
                 .setNegativeButton("先留着", null)
                 .show()
@@ -1112,7 +1171,7 @@ class MainActivity : Activity() {
 
             if (missing.isEmpty()) {
                 host.addView(TextView(this).apply {
-                    text = "十个内置小倒计时都乖乖在列表里啦"
+                    text = "内置小倒计时都乖乖在列表里啦"
                     setTextColor(Color.parseColor("#FFC6D5EF"))
                     textSize = 13f
                     setLineSpacing(0f, 1.25f)
@@ -1333,7 +1392,7 @@ class MainActivity : Activity() {
         data.addAll(out)
     }
 
-    /** 推倒自定义排序、回到出厂顺序（每分钟 → … → GTA6）。 */
+    /** 推倒自定义排序、回到出厂顺序（见 defaultBuiltInOrder）。 */
     private fun restoreDefaultOrder() {
         orderPrefs.edit().remove("builtin_order").apply()
         applyBuiltInOrder()
