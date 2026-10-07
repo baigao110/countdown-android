@@ -69,8 +69,6 @@ object CountdownStore {
             posY = o.optInt("posY", -1),
             builtIn = builtIn,
             builtInManual = o.optBoolean("builtInManual", false),
-            builtInTargetMillis = o.optLong("builtInTargetMillis", 0L),
-            soundEnabled = o.optBoolean("soundEnabled", false),
         )
     }
 
@@ -94,8 +92,6 @@ object CountdownStore {
         o.put("builtIn", c.builtIn)
         o.put("animStyle", c.animStyle)
         o.put("builtInManual", c.builtInManual)
-        o.put("builtInTargetMillis", c.builtInTargetMillis)
-        o.put("soundEnabled", c.soundEnabled)
         return o
     }
 
