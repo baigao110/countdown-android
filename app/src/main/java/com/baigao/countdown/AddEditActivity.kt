@@ -132,6 +132,11 @@ class AddEditActivity : Activity() {
 
         val builtInSpinner = findViewById<Spinner>(R.id.builtInSpinner)
         val soundBlock = findViewById<View>(R.id.soundBlock)
+        // v158：提示音那扇门外面还套着两层壳 —— soundToggleBlock（整块），
+        // 里面第一行是 soundToggleRow（「启用自定义提示音」那一行）。两层的 visibility 都得管：
+        // 父层还是 gone 的话，光把里头的 Switch 摆成 VISIBLE 也等于没摆（v146 就是漏在这）。
+        val soundToggleBlock = findViewById<View>(R.id.soundToggleBlock)
+        val soundToggleRow = findViewById<View>(R.id.soundToggleRow)
 
         // ---------- 「100年内倒计时」这一档的两样东西 ----------
         // 六颗下拉框（年 / 月 / 日 / 时 / 分 / 秒）：与页面上其它下拉框同一套 GlassSpinner 样式，
@@ -165,15 +170,18 @@ class AddEditActivity : Activity() {
         ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
 
         // 界面上摆不摆「挑提示音」那一整块：周期滚动型内置项（每分钟 / 每小时 / 当日 …）一律不摆，
-        // 界面上摆不摆「挑提示音」那一整块：周期滚动型内置项（每分钟 / 每小时 / 当日 …）
-        // 一律不摆，普通倒计时、华都云境悦府、GTA6 照旧摆着；就这一行 soundEditable() 说话。
+        // 普通倒计时、华都云境悦府、GTA6 这些能挑的照旧摆着；就这一行 soundEditable() 说话。
         var soundOn = c?.soundEditable() ?: !BuiltIn.isRolling(pickedBuiltIn)
-        // 「100年内倒计时」那颗「启用自定义提示音」开关：勾上才摆出换音那两颗按钮
+        // 「100年内倒计时」那颗「启用自定义提示音」开关：勾上才摆出换音那两颗按钮。
+        // 其余几档（普通 / 华都云境悦府 / GTA6）用不着这道开关 —— 它们本来就能挑，
+        // 那两颗按钮直接摆出来就行（v146 起这一整块被忘在 gone 里，v158 修回来）。
         var soundToggleOn: Boolean = c?.soundEnabled ?: false
 
-        /** 提示音那一整块跟着 soundOn（类型不是周期滚动内置项）和那颗开关显隐，顺手把按钮上的提示音名刷了。 */
+        /** 提示音那两颗按钮跟着 soundOn（类型不是周期滚动内置项）显隐，「100年内倒计时」还要先勾上那颗开关；顺手把按钮上的提示音名刷了。 */
         fun applySoundVisibility() {
-            soundBlock.visibility = if (soundOn && soundToggleOn) View.VISIBLE else View.GONE
+            val needToggle = pickedBuiltIn == BuiltIn.CENTURY
+            soundBlock.visibility = if (soundOn && (!needToggle || soundToggleOn)) View.VISIBLE
+                else View.GONE
             refreshSoundLabel()
         }
 
@@ -190,9 +198,16 @@ class AddEditActivity : Activity() {
         /** 倒计时类型一换，下面这几样跟着全换一遍。 */
         fun applyTypeDependant() {
             soundOn = !BuiltIn.isRolling(pickedBuiltIn)
-            // 那颗「启用自定义提示音」开关只在「100年内倒计时」这一档摆出来
-            soundToggle.visibility = if (pickedBuiltIn == BuiltIn.CENTURY) View.VISIBLE else View.GONE
-            if (pickedBuiltIn != BuiltIn.CENTURY) soundToggleOn = false
+            // ⚠️ v146 只把那颗 Switch 摆出来，忘了它外面还套着一层 gone 的 soundToggleBlock、
+            // 以及装着它的那一行 soundToggleRow —— 开关一直被父层挡着，看不见也点不到。
+            // v158 把这两层壳一起管起来：整块（开关那一行 + 下面那两颗按钮）只在「100年内倒计时」
+            // 亮出来；其余能挑提示音的几档（普通 / 华都云境悦府 / GTA6）那两颗按钮直接摆，
+            // 不用先勾开关；周期滚动型内置项整块收着。
+            val needToggle = pickedBuiltIn == BuiltIn.CENTURY
+            soundToggleBlock.visibility = if (soundOn) View.VISIBLE else View.GONE
+            soundToggleRow.visibility = if (soundOn && needToggle) View.VISIBLE else View.GONE
+            soundToggle.visibility = if (needToggle) View.VISIBLE else View.GONE
+            if (!soundOn || !needToggle) soundToggleOn = false
             applySoundVisibility()
             // 模式下拉框的清单按类型重新算（每5分钟没有「时分秒」，每天没有「天数模式」…）
             standardSpinner.adapter = ArrayAdapter(
@@ -479,7 +494,8 @@ class AddEditActivity : Activity() {
                         existing.builtInSpanMillis = centurySpan
                         existing.soundEnabled = soundToggleOn
                     }
-                    // 提示音：周期滚动型内置项一律回到默认提示音（清掉可能存过的自定义音）
+                    // 提示音：周期滚动型内置项一律回到默认提示音（清掉可能存过的自定义音）；
+                    // 普通 / 华都云境悦府 / GTA6 这几档 soundOn 恒为 true，挑的那个就是挑的那个
                     existing.soundUri = if (soundOn) draftSoundUri else null
                 }
             } else {
