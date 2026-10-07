@@ -54,15 +54,15 @@ class MainActivity : Activity() {
     private lateinit var orderPrefs: SharedPreferences
 
     /**
-     * 十一个内置小倒计时的出厂顺序：每分钟 → 每5分钟 → 每10分钟 → 每半小时 → 每小时 →
-     * 当日 → 每周 → 当月 → 华都云境悦府 → GTA6 → 100年内倒计时（越靠前走得越少）。
+     * 十个内置小倒计时的出厂顺序：每分钟 → 每5分钟 → 每10分钟 → 每半小时 → 每小时 →
+     * 当日 → 每周 → 当月 → 华都云境悦府 → GTA6（越靠前走得越少）。
      * 这份常量永远不动：用户拖出来的自定义顺序另存一份（见 orderPrefs），
      * 所以「自定义排序」怎么拖都不会污染默认顺序 —— 想回到出厂顺序，
      * 在「找回小内置」里点「主界面默认排序」即可。
      */
     private val defaultBuiltInOrder = listOf(
         BuiltIn.MINUTE, BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN, BuiltIn.HALF_HOUR, BuiltIn.HOUR,
-        BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.CENTURY
+        BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6
     )
 
     /**
@@ -79,8 +79,7 @@ class MainActivity : Activity() {
         BuiltIn.WEEK to "距离本周结束",
         BuiltIn.MONTH to "距离本月结束",
         BuiltIn.HUADU to "距离华都云境悦府交付（2026-10-31 00:00）",
-        BuiltIn.GTA6 to "距离 GTA6 发售（2026-11-19 08:00）",
-        BuiltIn.CENTURY to "距离你挑的那个日子结束"
+        BuiltIn.GTA6 to "距离 GTA6 发售（2026-11-19 08:00）"
     ).associate { it.first to Pair(BuiltIn.nameOf(it.first), it.second) }
 
     // 多选删除
@@ -136,19 +135,52 @@ class MainActivity : Activity() {
         }
     }
 
-    /** 读取本地数据，并确保十一个内置项（每10分钟 / 每5分钟 / 每分钟 / 每小时 / 每半小时 / 当日 / 每周 / 当月 / 华都云境悦府 / GTA6 / 100年内倒计时）始终存在。 */
+    /** 读取本地数据，并确保十个内置项（每10分钟 / 每5分钟 / 每分钟 / 每小时 / 每半小时 / 当日 / 每周 / 当月 / 华都云境悦府 / GTA6）始终存在。 */
     private fun loadData() {
         data = CountdownStore.load(this)
+        // ⚠️ v150：「100年内倒计时」整个内置项下线，老数据里躺着的那几条连同它们的
+        // 备份快照一起清干净（列表里不该再留着已经选不中的那一档）
+        dropRetiredCentury()
         if (ensureBuiltInTimers()) CountdownStore.save(this, data)
         // 内置小倒计时的顺序：拖过就按拖出来的顺序，没拖过就按出厂顺序（每分钟 → … → GTA6）
         applyBuiltInOrder()
     }
 
+    /**
+     * v150：「100年内倒计时」整个内置项下线 —— 出厂顺序和「倒计时类型」里都摘了它，
+     * 列表里原先躺着的那几条（用户以前挑日子生成的）也一并删掉，顺手把删掉时存的
+     * 备份快照「backup_12_*」连同老 key「backup_12」清干净，免得「复」字框里还挂着
+     * 一个再也选不中的类型。内置类型常量 12 照旧留着不回收（见 BuiltIn），
+     * 万一哪天再挂回来，老数据认得出来。
+     */
+    private fun dropRetiredCentury() {
+        val stale = data.filter { it.builtIn == BuiltIn.CENTURY }
+        val wiped = stale.isNotEmpty() || centuryBackups().isNotEmpty()
+            || removedBuiltIns.remove(BuiltIn.CENTURY)
+        if (wiped) {
+            removedPrefs.edit()
+                .putStringSet("types", removedBuiltIns.map { it.toString() }.toSet())
+                .apply()
+            for (key in removedPrefs.all.keys) {
+                if (key.startsWith("backup_${BuiltIn.CENTURY}_") || key == "backup_${BuiltIn.CENTURY}") {
+                    removedPrefs.edit().remove(key).apply()
+                }
+            }
+        }
+        if (stale.isNotEmpty()) {
+            val staleIds = stale.map { it.id }.toHashSet()
+            data.removeAll { c -> c.id in staleIds }
+            CountdownStore.save(this, data)
+            rebuildList()
+            syncService()
+        }
+    }
+
     /** 补齐全部内置倒计时；返回是否新建（新建后才需要落盘）。 */
     private fun ensureBuiltInTimers(): Boolean {
         // 新补的内置项一律插到列表最前面，所以按出厂顺序「倒着」补：
-        // 最后一个 100年内倒计时 先插、第一个每分钟最后插，补完列表里内置项的顺序正好是
-        // 每分钟 → 每5分钟 → 每10分钟 → 每半小时 → 每小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6 → 100年内倒计时
+        // 最后一个 GTA6 先插、第一个每分钟最后插，补完列表里内置项的顺序正好是
+        // 每分钟 → 每5分钟 → 每10分钟 → 每半小时 → 每小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6
         var added = false
         for (t in defaultBuiltInOrder.reversed()) {
             val info = builtInInfo[t] ?: continue
@@ -949,6 +981,8 @@ class MainActivity : Activity() {
      *
      * 只认「backup_{类型}_{id}」这种新 key —— 老 key 底下那一份年代太久、也不一定对应
      * 现在想找回的这一条，交给 loadBuiltInBackup() 的老形式去兜底就好。
+     * ⚠️ v150：这一档整个下线了（见 dropRetiredCentury()），「复」字框里不再给逐条
+     * 找回的位置；老快照启动即清，这里平时是空的。
      */
     private fun centuryBackups(): List<Countdown> {
         val out = ArrayList<Countdown>()
@@ -967,9 +1001,9 @@ class MainActivity : Activity() {
     }
 
     /**
-     * v149：捞出「已经删掉、还没回到列表里」的「100年内倒计时」快照（逐条，几条就是几条）。
-     * 「复」字对话框下半截那份清单用的就是它 —— 那是用户一条条自己生成的倒计时，
-     * 跟十一个内置项不是一回事，得能一条一条单独挑出来找回。
+     * v149：捞出「已经删掉、还没回到列表里」的「100年内倒计时」快照（逐条，几条就是几条），
+     * 「复」字对话框下半截那份清单用的就是它。⚠️ v150 这一档整个下线了，那份清单
+     * 随之一块撤掉，于是这里恒为空 —— 留着的只是给老代码一个说得通的退路。
      */
     private fun missingCenturyBackups(): List<Countdown> =
         centuryBackups().filter { bak -> data.none { it.id == bak.id } }
@@ -977,7 +1011,7 @@ class MainActivity : Activity() {
     /**
      * 当前「不在列表里」的内置倒计时：
      * 既包括用户删掉的（记在 removedBuiltIns 里），也包括列表里查不到该类型的。
-     * 为空表示十一个内置倒计时都在列表里，此时不需要显示「恢复内置」。
+     * 为空表示十个内置倒计时都在列表里，此时不需要显示「恢复内置」。
      */
     private fun missingBuiltIns(): List<Triple<Int, String, String>> =
         builtInDefs.filter { def ->
@@ -1014,7 +1048,7 @@ class MainActivity : Activity() {
             }
             AlertDialog.Builder(this)
                 .setTitle("小内置都在")
-                .setMessage("十一个内置小倒计时都乖乖在列表里啦。\n想让它们回到出厂顺序（每分钟 → 每5分钟 → 每10分钟 → 每半小时 → 每小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6 → 100年内倒计时）就点「主界面默认排序」。")
+                .setMessage("十个内置小倒计时都乖乖在列表里啦。\n想让它们回到出厂顺序（每分钟 → 每5分钟 → 每10分钟 → 每半小时 → 每小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6）就点「主界面默认排序」。")
                 .setPositiveButton("主界面默认排序") { _, _ -> restoreDefaultOrder() }
                 .setNegativeButton("先留着", null)
                 .show()
@@ -1078,7 +1112,7 @@ class MainActivity : Activity() {
 
             if (missing.isEmpty()) {
                 host.addView(TextView(this).apply {
-                    text = "十一个内置小倒计时都乖乖在列表里啦"
+                    text = "十个内置小倒计时都乖乖在列表里啦"
                     setTextColor(Color.parseColor("#FFC6D5EF"))
                     textSize = 13f
                     setLineSpacing(0f, 1.25f)
