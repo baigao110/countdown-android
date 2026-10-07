@@ -219,6 +219,16 @@ class AddEditActivity : Activity() {
             sp.setSelection(v.coerceIn(0, (sp.count - 1).coerceAtLeast(0)))
         }
 
+        /** 年份下拉框（今年..今 + 100）没盖住 y 时把它抻开到能选到 y（编辑一条老 / 跨过的「100年内倒计时」时用）。 */
+        fun ensureYearRange(y: Int) {
+            val from = minOf(Calendar.getInstance().get(Calendar.YEAR), y)
+            val to = maxOf(Calendar.getInstance().get(Calendar.YEAR) + 100, y)
+            yearSpinner.adapter = ArrayAdapter(
+                this, android.R.layout.simple_spinner_item,
+                (from..to).map { "${it}年" }.toTypedArray()
+            ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        }
+
         /** 六连框填值 / 天数跟着年月校正一遍；initial = true 时按当前时刻给出初值。 */
         fun setupTimeOfDayPickers(initial: Boolean) {
             val now = Calendar.getInstance()
@@ -229,7 +239,10 @@ class AddEditActivity : Activity() {
                     this, android.R.layout.simple_spinner_item,
                     (y..y + 100).map { "${it}年" }.toTypedArray()
                 ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-                fillInt(monthSpinner, 11, "月")
+                // ⚠️ 月份下拉框给的是 1..12（不是 0..11）：早先写成 0..11，挑「1月」时
+                // 抠出来的 0 会被当成 0 月，存下去就成了上一年的 12 月，自动生成的名字也写成
+                // 「2027年0月5日」这种，看着就是「目标时间与挑的不一样」。
+                fillInt(monthSpinner, 12, "月")
                 fillInt(daySpinner, 30, "日")
                 fillInt(hourSpinner, 23, "时")
                 fillInt(minuteSpinner, 59, "分")
@@ -244,11 +257,11 @@ class AddEditActivity : Activity() {
             // 日那颗跟着年月走：4 / 6 / 9 / 11 月 30 天，2 月平年 28 天、闰年 29 天，
             // 别让用户挑出一个并不存在的日子（Calendar 会因为溢出自动进到下一个月去）
             val y = intOf(yearSpinner)
-            val m = intOf(monthSpinner)
+            val m = intOf(monthSpinner) - 1   // 下拉框给的是 1..12，Calendar 的月份是 0..11
             val dim = when (m) {
-                1, 3, 5, 7, 8, 10, 12 -> 31
-                4, 6, 9, 11 -> 30
-                2 -> if ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0) 29 else 28
+                0, 2, 4, 6, 7, 9, 11 -> 31
+                3, 5, 8, 10 -> 30
+                1 -> if ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0) 29 else 28
                 else -> 31
             }
             if (daySpinner.count != dim) {
@@ -348,7 +361,13 @@ class AddEditActivity : Activity() {
         builtInSpinner.setSelection(pool.indexOf(pickedBuiltIn).coerceAtLeast(0))
         // 编辑一条「100年内倒计时」时，六连框再跳回它自己存的那个时刻
         if (c != null && c.builtIn == BuiltIn.CENTURY) {
-            val cal = Calendar.getInstance().apply { timeInMillis = c.currentBuiltInTarget() }
+            // ⚠️ 这里必须拿「用户当初挑的那个时刻」(builtInTargetMillis) 来回填六连框，不能拿
+            // 「系统此刻算出来的目标」(currentBuiltInTarget)：那个值一旦跨过就自己滚到了一百年后，
+            // 拿它回填等于把用户挑的那天悄悄换掉，用户点保存就把一个自己根本没挑的年份写进去了。
+            // 挑的那一年不在「今年..今 + 100」这一档里时，先抻开年份下拉框，免得 selInt 把它顶到边上。
+            val baseMillis = if (c.builtInTargetMillis > 0) c.builtInTargetMillis else c.currentBuiltInTarget()
+            ensureYearRange(Calendar.getInstance().apply { timeInMillis = baseMillis }.get(Calendar.YEAR))
+            val cal = Calendar.getInstance().apply { timeInMillis = baseMillis }
             selInt(yearSpinner, cal.get(Calendar.YEAR))
             selInt(monthSpinner, cal.get(Calendar.MONTH))
             selInt(daySpinner, cal.get(Calendar.DAY_OF_MONTH) - 1)
@@ -398,8 +417,16 @@ class AddEditActivity : Activity() {
                     // 内置项：目标时刻由系统自己往下跳（每小时 / 每半小时 / 当日 / 每周 / 当月），
                     // 用户在这里改的日期时间不会存盘，免得下一帧就被系统算出来的目标覆盖掉、看着像「白改」。
                     // 无论怎么改，它都还是内置倒计时（ BuiltIn 保持原样，绝不降级成普通倒计时）。
-                    val sysTarget = if (existing.builtIn != BuiltIn.NONE) existing.currentBuiltInTarget() else target
-                    existing.targetTime = if (existing.builtIn != BuiltIn.NONE) sysTarget else target
+                    // 「100年内倒计时」的目标时刻就是六连框里刚挑的那一刻（它自己就是一个 100 年
+                    // 大周期的起点）：绝不能拿「系统此刻算出来的目标」去覆盖 —— 那是上一帧刷新留下的
+                    // 旧值，用户明明改了六连框，存下去却是动之前那个时刻，看着像「改了没保存」。
+                    val centuryBase = if (finalBuiltIn == BuiltIn.CENTURY) targetMillisFromPickers() else 0L
+                    val sysTarget = when {
+                        centuryBase != 0L -> centuryBase
+                        existing.builtIn != BuiltIn.NONE -> existing.currentBuiltInTarget()
+                        else -> target
+                    }
+                    existing.targetTime = sysTarget
                     existing.customColorArgb = colors[colorSpinner.selectedItemPosition]
                     existing.displayMode =
                         CountdownFormatter.modeAt(standardSpinner.selectedItemPosition, pickedBuiltIn)
@@ -409,7 +436,7 @@ class AddEditActivity : Activity() {
                     existing.builtIn = finalBuiltIn
                     // 「100年内倒计时」：用户挑的那个时刻（一个 100 年大周期的起点）和提示音开关一起记下来
                     if (finalBuiltIn == BuiltIn.CENTURY) {
-                        existing.builtInTargetMillis = targetMillisFromPickers()
+                        existing.builtInTargetMillis = if (centuryBase != 0L) centuryBase else targetMillisFromPickers()
                         existing.soundEnabled = soundToggleOn
                     }
                     // 提示音：周期滚动型内置项一律回到默认提示音（清掉可能存过的自定义音）
