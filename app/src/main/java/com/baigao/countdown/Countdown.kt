@@ -37,12 +37,11 @@ object BuiltIn {
     const val MINUTE = 8    // 每分钟倒计时：目标为「下一个整分」（本分钟结束的那一刻）
     const val FIVE_MIN = 9  // 每 5 分钟倒计时：目标为下一个 5 分边界（:05 / :10 / …）
     const val TEN_MIN = 10  // 每 10 分钟倒计时：目标为下一个 10 分边界（:10 / :20 / …）
-    const val CENTURY = 12 // 100年内倒计时：目标就是用户在六连框里挑的那一刻，
-    // 归零（跨过）之后自动跳到「下一个 100 年后的同一刻」接着往下走秒 —— 跨过自动重新倒计时
-    // （编号 12 是这一档的老位置：v142 把它整个下掉过一轮，那之后数据里已经没有这类条目，如今重新启用）
-    // ⚠️ v150：这一档作为「内置项」彻底下线（出厂顺序 / 类型下拉框都摘了），
-    //    MainActivity.dropRetiredCentury() 启动时把老数据和快照一起清掉；
-    //    编号留着不回收，哪天再挂回来老数据还认得出来。
+    // ⚠️ v159：「100年内倒计时」整个档位连同它的代码一起删了（展示名、数据字段、
+    // 跨过重新起一轮那套逻辑全撤）。这里只留一个空号常量占位 —— 编号不回收、
+    // 也不再有任何代码认它；老数据（builtIn = 12 那几条）启动时由
+    // MainActivity.dropRetiredCentury() 清掉。
+    const val CENTURY = 12
     // ---- v151：新加的一大批周期滚动型内置项（编号只能末尾追加，绝不回收） ----
     // 每 2 / 3 / 4 / 6 / 7 / 8 / 9 分钟：目标为「下一个 N 分边界」（从 00:00 起算的 N 分钟倍数），
     //   与「每5分钟 / 每10分钟 / 每半小时 / 每小时」一个路数（每2分钟 → 下一个 :02 / :04 …）
@@ -100,7 +99,7 @@ object BuiltIn {
      * 每分钟 …），而不是像华都云境悦府、GTA6 那样日子早就定死不动。
      */
     fun isRolling(type: Int): Boolean =
-        type != NONE && type != HUADU && type != GTA6 && type != CENTURY
+        type != NONE && type != HUADU && type != GTA6
 
     /**
      * 周期滚动型内置项的那「一格」有多长（分钟）：非周期滚动型恒返回 0。
@@ -164,7 +163,6 @@ object BuiltIn {
         HOUR_21 -> "每21小时倒计时"
         HOUR_22 -> "每22小时倒计时"
         HOUR_23 -> "每23小时倒计时"
-        CENTURY -> "100年内倒计时"
         else -> "内置倒计时"
     }
 }
@@ -212,9 +210,6 @@ data class Countdown(
     var posY: Int = -1,                        // 悬浮窗位置 Y
     var builtIn: Int = BuiltIn.NONE,           // 内置倒计时类型（见 BuiltIn）；旧数据缺省为普通倒计时
     var builtInManual: Boolean = false,        // 内置项被用户自己指定了时刻：不再自动滚动，但仍是内置项
-    var builtInTargetMillis: Long = 0L,        // 「100年内倒计时」用户挑的那个时刻（一个 100 年大周期的起点，0 = 没挑过）
-    var builtInSpanMillis: Long = 0L,          // 「100年内倒计时」生成那会儿「挑的时刻 − 那一刻」的时长；跨过后照它重新起一轮
-    var soundEnabled: Boolean = false,         // 「100年内倒计时」那颗「启用自定义提示音」开关的当前状态
     var animStyle: Int = AnimStyle.NONE        // 跳秒动画样式（见 AnimStyle）；旧数据缺省为无动画
 ) {
     /** 是否为系统内置倒计时（当日 / 当月 / 华都云境悦府 / GTA6）——内置项不可删除 */
@@ -364,35 +359,6 @@ data class Countdown(
                 cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
                 cal.add(Calendar.DAY_OF_MONTH, 7)
             }
-            BuiltIn.CENTURY -> {
-                // ⚠️ v146 起：跨过之后**不再**跳到「下一个 100 年后的同一刻」，改成照着
-                // 「生成那会儿（挑的时刻 − 那一刻的当前时间）」这段时长重新倒计时（span）：
-                // 生成时差 20 小时 → 归零后是 20 小时倒计时；差 7 小时 → 7 小时；一轮一轮滚下去。
-                // 这段时长在保存那一刻就记进 builtInSpanMillis（AddEditActivity），跨过才用得上。
-                // 目标时间平日里仍然是「用户挑的那一刻」，只有归零那一刻才起新一轮 ——
-                // 所以生成后 / 改完后界面上看到的目标都还是用户挑的那个时刻（v145 立的规矩）。
-                val base = if (builtInTargetMillis > 0) builtInTargetMillis else targetTime
-                if (base <= 0) return false
-                val now = cal.timeInMillis
-                // 这一轮还在走（目标还在未来）：什么都不动，让它老老实实往 0 走
-                if (targetTime > now) return false
-                val span = builtInSpanMillis
-                if (span <= 0) {
-                    // 挑的时刻已经过去、或旧数据没存过跨度：停在挑的那一刻、剩余归零，
-                    // 与华都云境悦府 / GTA6 这种固定目标内置项一个脾气（v145 的「挑过去的不滚」）。
-                    if (targetTime == base) return false
-                    targetTime = base
-                    return true
-                }
-                // 刚好跨过：从现在起按生成那会儿的时长重新起一轮，备注跟着刷一次「本轮还剩 …」
-                val next = now + span
-                if (next == targetTime) return false
-                targetTime = next
-                if (remark.isBlank() || remark.startsWith("本轮还剩")) {
-                    remark = "本轮还剩 ${spanText(span)}"
-                }
-                return true
-            }
             else -> return false
         }
         // 统一为 00:00:00：既与「今日/本月结束的那一刻」语义一致，
@@ -495,25 +461,6 @@ data class Countdown(
     }
 }
 
-/**
- * 把一段毫秒写成人话（「100年内倒计时」的名字、备注都照它自动生成）：
- * 20 小时 ->「20小时」、7 小时 ->「7小时」、1 天 2 小时 ->「1天2小时」、1小时30分 ->「1小时30分」。
- * 只在整分 / 整秒之上有余量时才把小一级的单位带上，免得名字上挂着一堆 0。
- */
-fun spanText(ms: Long): String {
-    var v = ms / 1000L
-    if (v <= 0) return "0秒"
-    val s = v % 60L; v /= 60L
-    val m = v % 60L; v /= 60L
-    val h = v % 24L; v /= 24L
-    val d = v
-    return when {
-        d > 0 -> if (h > 0) "${d}天${h}小时" else "${d}天"
-        h > 0 -> if (m > 0) "${h}小时${m}分" else "${h}小时"
-        m > 0 -> if (s > 0) "${m}分${s}秒" else "${m}分"
-        else -> "${s}秒"
-    }
-}
 
 /**
  * 距离下一个「整秒」时刻还剩多少毫秒（结果恒在 16..1015ms）。
@@ -615,7 +562,7 @@ object CountdownFormatter {
             // 与每 5 / 10 分钟、每半小时、每 2~9 分钟一个写法；
             // 当日倒计时（最多 24 小时）「时」有数，仍归上面那一档走「时分秒」。
             if (mode == 0 || mode == 4) MODE_MINUTE_SECOND else mode
-        BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.CENTURY ->
+        BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6 ->
             if (mode == 0) 6 else mode   // 标准 / 天时分秒 → 天时分秒模式
         else -> {
             // v151 起每 2~9 分钟（最多 9 分钟）「时」那截恒 0，v151 那会儿标准模式给「分钟模式」；
@@ -650,7 +597,7 @@ object CountdownFormatter {
      *   于是 每 5 / 10 分钟、每半小时、每小时三档的可选档位完全一样：标准 / 分钟 / 秒。
      * - **当日倒计时**（最多 24 小时）：砍「天数模式」加上「天时分秒 / 天时分模式」，
      *   「小时模式」可以留（它能实实在在显示 x 时）。
-     * - 其余倒计时（每周 / 每月 / 华都云境悦府 / GTA6 / 100年内 / 普通）八档全开。
+     * - 其余倒计时（每周 / 每月 / 华都云境悦府 / GTA6 / 普通）八档全开。
      */
     fun availableModes(builtIn: Int): List<Int> {
         val blocked = HashSet<Int>()
