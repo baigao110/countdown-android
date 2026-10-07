@@ -88,8 +88,9 @@ object BuiltIn {
      * 周期滚动型内置项的那「一格」有多长（分钟）：非周期滚动型恒返回 0。
      * 每分钟 1 分、每5分钟 5 分、每10分钟 10 分、每半小时 30 分、每小时 60 分；
      * v151 新加的每 2~9 分钟就是 2~9 分、每 2~23 小时就是 120~1380 分。
-     * 目标时刻一律是「向上取整到从 00:00 起算的 N 分钟边界」——
-     * 「每2分钟」就是 :02 / :04 / …，「每3小时」就是 00:00 / 03:00 / …，
+     * 目标时刻一律是「向上取整到从 00:00 起算的边界」——
+     * 「每2分钟」就是 :02 / :04 / …，「每2小时」就是 02:00 / 04:00 / …，
+     * 「每23小时」就是当日 23:00 → 次日 22:00 → …（v153 修：小时档以前被错压成下一个整点）。
      * 与「每5分钟」「每半小时」那一脉的规矩一模一样。
      */
     fun stepMinutes(type: Int): Int = when (type) {
@@ -249,10 +250,23 @@ data class Countdown(
         ) {
             cal.set(Calendar.SECOND, 0)
             cal.set(Calendar.MILLISECOND, 0)
-            val m = cal.get(Calendar.MINUTE)
-            var nm = (m / v151Step + 1) * v151Step
-            if (nm >= 60) { nm = 0; cal.add(Calendar.HOUR_OF_DAY, 1) }
-            cal.set(Calendar.MINUTE, nm)
+            if (v151Step % 60 == 0) {
+                // 每 2~23 小时这一批（v153 修）：目标 = 从当天 00:00 起算的下一个 N 小时边界
+                // 每2小时就是 02:00 / 04:00 / 06:00 …，每23小时就是当日 23:00 → 次日 22:00 → …
+                // 以前这里拿「分钟数 0~59」去除以步长，商恒为 0，于是 2~23 小时全被压成
+                // 「下一个整点」，跟每小时一模一样，等于没按每 N 小时滚。
+                val passed = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
+                val next = (passed / v151Step + 1) * v151Step  // 当天 00:00 起算的绝对分钟
+                cal.set(Calendar.HOUR_OF_DAY, 0)
+                cal.set(Calendar.MINUTE, 0)
+                cal.add(Calendar.MINUTE, next)  // 进位跨天交给 Calendar 自己算
+            } else {
+                // 每 2~9 分钟这一批：目标 = 从当天 00:00 起算的下一个 N 分钟边界
+                val m = cal.get(Calendar.MINUTE)
+                var nm = (m / v151Step + 1) * v151Step
+                if (nm >= 60) { nm = 0; cal.add(Calendar.HOUR_OF_DAY, 1) }
+                cal.set(Calendar.MINUTE, nm)
+            }
             val t = cal.timeInMillis
             if (t == targetTime) return false
             targetTime = t
