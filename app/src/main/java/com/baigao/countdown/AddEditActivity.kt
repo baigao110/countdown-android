@@ -78,11 +78,11 @@ class AddEditActivity : Activity() {
         // 挑提示音照旧给它们留着，跟普通倒计时一路。
         //
         // 可以挑的内置类型（「倒计时类型」下拉框的条目顺序）：普通倒计时永远排最前，
-        // 其后是其余滚动型内置项（每小时 / 每半小时 / 每分钟 …），固定目标的两个内置项和「100年内倒计时」垫底。
+        // 其后是其余滚动型内置项（每小时 / 每半小时 / 每分钟 …），固定目标的两个内置项（华都云境悦府、GTA6）垫底。
         val pickable = listOf(
             BuiltIn.NONE, BuiltIn.HOUR, BuiltIn.HALF_HOUR, BuiltIn.MINUTE,
             BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN, BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH,
-            BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.CENTURY
+            BuiltIn.HUADU, BuiltIn.GTA6
         )
         // 这条倒计时在编辑 / 准备生成的类型（显示模式清单、提示音开关全按它走）。
         // 新建时默认「普通倒计时」；编辑内置项时就是它自己那一档，模式下拉框按它过滤。
@@ -153,10 +153,10 @@ class AddEditActivity : Activity() {
         val pool = mutableListOf<Int>()
         if (c != null) pool.add(c.builtIn)
         for (t in pickable) {
-            // ⚠️ v148：「100年内倒计时」v146 起可以存好几条（删除后还能在「找回小内置」里捞回来），
-            // 所以它不管列表里躺着几条都一样要摆出来 —— 早先跟着「已经有一条就不摆」的老规矩走，
-            // 于是刚生成完一条就再也选不到这一档，非得把那条删了才见得着。除它以外仍是「已有就不重复摆」。
-            val always = t == BuiltIn.NONE || t == BuiltIn.CENTURY
+            // ⚠️ v150：「100年内倒计时」整个内置项下线，上面 pickable 里再也摆不进它这一档；
+            // 记号留着给后来人：v148 那会儿它因为能存好几条恒进池，「已有就不重复摆」对它失效，
+            // 于是刚生成完一条就选不到、非得删了那条才见得着。其余内置项仍是「已有就不重复摆」。
+            val always = t == BuiltIn.NONE
             if (t !in pool && (always || existingAll.none { it.builtIn == t })) pool.add(t)
         }
         builtInSpinner.adapter = ArrayAdapter(
