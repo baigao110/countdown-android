@@ -27,11 +27,9 @@ class AddEditActivity : Activity() {
     private var draftSoundUri: String? = null   // 待写入的自定义提示音 URI（null = 默认提示音）
     private var soundBtn: Button? = null
 
-    private val colors = intArrayOf(
-        0xFF00FFFF.toInt(), 0xFFFF00FF.toInt(), 0xFF00FF00.toInt(),
-        0xFFFFFF00.toInt(), 0xFFFF8000.toInt(), 0xFFFF0000.toInt(), 0xFFE8B94A.toInt()
-    )
-    private val colorNames = arrayOf("青色", "品红", "绿色", "黄色", "橙色", "红色", "金色")
+    // v156：色板挪到 Countdown.kt 的 ThemeColors，跟卡片上那颗「颜色」按钮共用同一份
+    private val colors = ThemeColors.ARGS
+    private val colorNames = ThemeColors.NAMES
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
