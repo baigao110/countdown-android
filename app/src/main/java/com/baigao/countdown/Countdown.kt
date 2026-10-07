@@ -25,6 +25,40 @@ object BuiltIn {
     // ⚠️ v150：这一档作为「内置项」彻底下线（出厂顺序 / 类型下拉框都摘了），
     //    MainActivity.dropRetiredCentury() 启动时把老数据和快照一起清掉；
     //    编号留着不回收，哪天再挂回来老数据还认得出来。
+    // ---- v151：新加的一大批周期滚动型内置项（编号只能末尾追加，绝不回收） ----
+    // 每 2 / 3 / 4 / 6 / 7 / 8 / 9 分钟：目标为「下一个 N 分边界」（从 00:00 起算的 N 分钟倍数），
+    //   与「每5分钟 / 每10分钟 / 每半小时 / 每小时」一个路数（每2分钟 → 下一个 :02 / :04 …）
+    // 每 2 / 3 / … / 23 小时：目标为「下一个 N 小时边界」（从 00:00 起算的 N 小时倍数，恒为整点），
+    //   等价于把「每小时」那一档的步长从 1 小时换到 N 小时；逐条与每小时倒计时同款（跨过自动重新倒数）
+    const val MIN_2 = 13   // 每2分钟倒计时：目标为下一个 2 分边界（:02 / :04…）
+    const val MIN_3 = 14   // 每3分钟倒计时：目标为下一个 3 分边界（:03 / :06…）
+    const val MIN_4 = 15   // 每4分钟倒计时：目标为下一个 4 分边界（:04 / :08…）
+    const val MIN_6 = 16   // 每6分钟倒计时：目标为下一个 6 分边界（:06 / :012…）
+    const val MIN_7 = 17   // 每7分钟倒计时：目标为下一个 7 分边界（:07 / :014…）
+    const val MIN_8 = 18   // 每8分钟倒计时：目标为下一个 8 分边界（:08 / :016…）
+    const val MIN_9 = 19   // 每9分钟倒计时：目标为下一个 9 分边界（:09 / :018…）
+    const val HOUR_2 = 20   // 每2小时倒计时：目标为下一个 2 小时边界（整点）
+    const val HOUR_3 = 21   // 每3小时倒计时：目标为下一个 3 小时边界（整点）
+    const val HOUR_4 = 22   // 每4小时倒计时：目标为下一个 4 小时边界（整点）
+    const val HOUR_5 = 23   // 每5小时倒计时：目标为下一个 5 小时边界（整点）
+    const val HOUR_6 = 24   // 每6小时倒计时：目标为下一个 6 小时边界（整点）
+    const val HOUR_7 = 25   // 每7小时倒计时：目标为下一个 7 小时边界（整点）
+    const val HOUR_8 = 26   // 每8小时倒计时：目标为下一个 8 小时边界（整点）
+    const val HOUR_9 = 27   // 每9小时倒计时：目标为下一个 9 小时边界（整点）
+    const val HOUR_10 = 28   // 每10小时倒计时：目标为下一个 10 小时边界（整点）
+    const val HOUR_11 = 29   // 每11小时倒计时：目标为下一个 11 小时边界（整点）
+    const val HOUR_12 = 30   // 每12小时倒计时：目标为下一个 12 小时边界（整点）
+    const val HOUR_13 = 31   // 每13小时倒计时：目标为下一个 13 小时边界（整点）
+    const val HOUR_14 = 32   // 每14小时倒计时：目标为下一个 14 小时边界（整点）
+    const val HOUR_15 = 33   // 每15小时倒计时：目标为下一个 15 小时边界（整点）
+    const val HOUR_16 = 34   // 每16小时倒计时：目标为下一个 16 小时边界（整点）
+    const val HOUR_17 = 35   // 每17小时倒计时：目标为下一个 17 小时边界（整点）
+    const val HOUR_18 = 36   // 每18小时倒计时：目标为下一个 18 小时边界（整点）
+    const val HOUR_19 = 37   // 每19小时倒计时：目标为下一个 19 小时边界（整点）
+    const val HOUR_20 = 38   // 每20小时倒计时：目标为下一个 20 小时边界（整点）
+    const val HOUR_21 = 39   // 每21小时倒计时：目标为下一个 21 小时边界（整点）
+    const val HOUR_22 = 40   // 每22小时倒计时：目标为下一个 22 小时边界（整点）
+    const val HOUR_23 = 41   // 每23小时倒计时：目标为下一个 23 小时边界（整点）
 
     /**
      * 固定目标时间的内置项（不随日期滚动）：返回 epoch 毫秒；滚动型内置项返回 null。
@@ -50,6 +84,25 @@ object BuiltIn {
     fun isRolling(type: Int): Boolean =
         type != NONE && type != HUADU && type != GTA6 && type != CENTURY
 
+    /**
+     * 周期滚动型内置项的那「一格」有多长（分钟）：非周期滚动型恒返回 0。
+     * 每分钟 1 分、每5分钟 5 分、每10分钟 10 分、每半小时 30 分、每小时 60 分；
+     * v151 新加的每 2~9 分钟就是 2~9 分、每 2~23 小时就是 120~1380 分。
+     * 目标时刻一律是「向上取整到从 00:00 起算的 N 分钟边界」——
+     * 「每2分钟」就是 :02 / :04 / …，「每3小时」就是 00:00 / 03:00 / …，
+     * 与「每5分钟」「每半小时」那一脉的规矩一模一样。
+     */
+    fun stepMinutes(type: Int): Int = when (type) {
+        MINUTE -> 1
+        FIVE_MIN -> 5
+        TEN_MIN -> 10
+        HALF_HOUR -> 30
+        HOUR -> 60
+        in MIN_2..MIN_9 -> type - MIN_2 + 2            // 每2分钟 2 分 … 每9分钟 9 分
+        in HOUR_2..HOUR_23 -> (type - HOUR_2 + 2) * 60 // 每2小时 120 分 … 每23小时 1380 分
+        else -> 0
+    }
+
     /** 内置类型的展示名：卡片标题、下拉框、恢复内置对话框共用这一份，别在各处各写一遍。 */
     fun nameOf(type: Int): String = when (type) {
         NONE -> "普通倒计时"
@@ -63,6 +116,35 @@ object BuiltIn {
         MINUTE -> "每分钟倒计时"
         FIVE_MIN -> "每5分钟倒计时"
         TEN_MIN -> "每10分钟倒计时"
+        MIN_2 -> "每2分钟倒计时"
+        MIN_3 -> "每3分钟倒计时"
+        MIN_4 -> "每4分钟倒计时"
+        MIN_6 -> "每6分钟倒计时"
+        MIN_7 -> "每7分钟倒计时"
+        MIN_8 -> "每8分钟倒计时"
+        MIN_9 -> "每9分钟倒计时"
+        HOUR_2 -> "每2小时倒计时"
+        HOUR_3 -> "每3小时倒计时"
+        HOUR_4 -> "每4小时倒计时"
+        HOUR_5 -> "每5小时倒计时"
+        HOUR_6 -> "每6小时倒计时"
+        HOUR_7 -> "每7小时倒计时"
+        HOUR_8 -> "每8小时倒计时"
+        HOUR_9 -> "每9小时倒计时"
+        HOUR_10 -> "每10小时倒计时"
+        HOUR_11 -> "每11小时倒计时"
+        HOUR_12 -> "每12小时倒计时"
+        HOUR_13 -> "每13小时倒计时"
+        HOUR_14 -> "每14小时倒计时"
+        HOUR_15 -> "每15小时倒计时"
+        HOUR_16 -> "每16小时倒计时"
+        HOUR_17 -> "每17小时倒计时"
+        HOUR_18 -> "每18小时倒计时"
+        HOUR_19 -> "每19小时倒计时"
+        HOUR_20 -> "每20小时倒计时"
+        HOUR_21 -> "每21小时倒计时"
+        HOUR_22 -> "每22小时倒计时"
+        HOUR_23 -> "每23小时倒计时"
         CENTURY -> "100年内倒计时"
         else -> "内置倒计时"
     }
@@ -128,7 +210,7 @@ data class Countdown(
     fun isPeriodicBuiltIn(): Boolean = builtIn in intArrayOf(
         BuiltIn.MINUTE, BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN, BuiltIn.HALF_HOUR,
         BuiltIn.HOUR, BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH
-    )
+    ) || builtIn in BuiltIn.MIN_2..BuiltIn.HOUR_23  // v151：每2~9分钟 / 每2~23小时，一律同款不给换音
 
 
     /**
@@ -158,6 +240,24 @@ data class Countdown(
             return true
         }
         val cal = Calendar.getInstance()
+        // v151：每 2~9 分钟 / 每 2~23 小时这两批新内置项，一律照「按 N 分钟边界向上取整」办，
+        // 与每5分钟 / 每10分钟 / 每半小时 / 每小时之前那几档是一个路数（1 / 5 / 10 / 30 / 60 分
+        // 这五档在下面 when 里各自写死了一套，这里一动它们，免得老逻辑回归）。
+        val v151Step = BuiltIn.stepMinutes(builtIn)
+        if (v151Step > 0 && v151Step != 1 && v151Step != 5 &&
+            v151Step != 10 && v151Step != 30 && v151Step != 60
+        ) {
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+            val m = cal.get(Calendar.MINUTE)
+            var nm = (m / v151Step + 1) * v151Step
+            if (nm >= 60) { nm = 0; cal.add(Calendar.HOUR_OF_DAY, 1) }
+            cal.set(Calendar.MINUTE, nm)
+            val t = cal.timeInMillis
+            if (t == targetTime) return false
+            targetTime = t
+            return true
+        }
         when (builtIn) {
             BuiltIn.HOUR -> {
                 // 本小时结束的那一刻：把分/秒/毫秒归零后 +1 小时 = 下一个整点 00:00。
@@ -331,6 +431,16 @@ data class Countdown(
                 if (mm == 0) "距离${TimeFormatPref.clockText(h, use24Hour)}结束"
                 else "距离${h}点${String.format("%02d", mm)}分结束"
             }
+            // v151：每 2~9 分钟这一批（不足 1 小时，边界落在整分上）备注同「每5分钟」那句；
+            // 每 2~23 小时这一批（边界恒为整点）备注同「每小时」那句
+            in BuiltIn.MIN_2..BuiltIn.MIN_9 -> {
+                val h = cal.get(Calendar.HOUR_OF_DAY)
+                val mm = cal.get(Calendar.MINUTE)
+                if (mm == 0) "距离${TimeFormatPref.clockText(h, use24Hour)}结束"
+                else "距离${h}点${String.format("%02d", mm)}分结束"
+            }
+            in BuiltIn.HOUR_2..BuiltIn.HOUR_23 ->
+                "距离${TimeFormatPref.clockText(cal.get(Calendar.HOUR_OF_DAY), use24Hour)}结束"
             BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN -> {
                 // 「距离18点05分结束」（5 分档）、「距离18点20分结束」（10 分档）；
                 // 正好落在整点时退成跟每小时同一句「距离18点整结束」
@@ -465,7 +575,16 @@ object CountdownFormatter {
             if (mode == 0 || mode == 4) MODE_HMS else mode   // 标准 / 天数 → 时分秒
         BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.CENTURY ->
             if (mode == 0) 6 else mode   // 标准 / 天时分秒 → 天时分秒模式
-        else -> mode
+        else -> {
+            // v151：每 2~9 分钟（最多 9 分钟）「时」那截恒 0，标准模式给「分钟模式」；
+            // 每 2~23 小时（最多 23 小时）「时」有数，标准模式给「时分秒模式」—— 与每小时那档一致。
+            val st = BuiltIn.stepMinutes(builtIn)
+            when {
+                st <= 0 -> mode
+                st < 60 -> if (mode == 0 || mode == 4) MODE_MINUTE else mode
+                else -> if (mode == 0 || mode == 4) MODE_HMS else mode
+            }
+        }
     }
 
     /**
@@ -507,6 +626,19 @@ object CountdownFormatter {
             blocked.add(MODE_DAY_HMS)
             blocked.add(MODE_DAY_HM)
         } else if (builtIn == BuiltIn.DAY) {
+            blocked.add(MODE_DAY)
+            blocked.add(MODE_DAY_HMS)
+            blocked.add(MODE_DAY_HM)
+        }
+        // v151 新加的这两批：不足 1 小时的（每 2~9 分钟）把「小时模式 / 时分秒模式」一并砍掉
+        // （时那截恒 0）；每 2~23 小时最长 23 小时，「时」有数要留着，砍的只是「天」那三档。
+        // 每5分钟 / 每10分钟 / 每半小时 / 每小时 / 每分钟这五档上面各自砍过一遍，这里再砍一遍也不碍事。
+        val v151Step = BuiltIn.stepMinutes(builtIn)
+        if (v151Step > 0) {
+            if (v151Step < 60) {
+                blocked.add(MODE_HOUR)
+                blocked.add(MODE_HMS)
+            }
             blocked.add(MODE_DAY)
             blocked.add(MODE_DAY_HMS)
             blocked.add(MODE_DAY_HM)
