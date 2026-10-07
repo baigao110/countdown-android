@@ -301,11 +301,31 @@ class AddEditActivity : Activity() {
         fun titleAuto(): String = "${intOf(yearSpinner)}年${intOf(monthSpinner)}月${intOf(daySpinner) + 1}日 " + String.format("%02d:%02d:%02d", intOf(hourSpinner), intOf(minuteSpinner), intOf(secondSpinner))
 
         /** 名字自动生成：标题还是空的、还是这一型的默认名、还是上一次自动生成的那串，就照挑好的时间写；手打过的名字不动。 */
+        // 本次编辑里自动写进名字的那一串（用户自己改过名之后就不再覆盖）
+        var lastCenturyName: String = ""
+
+        // ⚠️ v146 起「100年内倒计时」的名字 / 备注按「生成那会儿隔了多久」自动生成：
+        // 离目标 20 小时 -> 名字「20小时」、备注「本轮还剩 20小时」；差 7 小时 ->「7小时」。
+        // 跨过之后每一轮起算时，备注由 Countdown 那边照新目标再刷一次「本轮还剩 …」；
+        // 名字是生成那一刻定下来的，一轮一轮转下去名字不动（否则列表里名字老跳，认不出是哪条）。
+        fun centurySpanMillis(): Long = targetMillisFromPickers() - System.currentTimeMillis()
+
         fun autoTitleFromTime() {
             if (timeOfDayBlock.visibility != View.VISIBLE) return
+            if (pickedBuiltIn != BuiltIn.CENTURY) return
+            val span = centurySpanMillis()
+            val name = spanText(span)
             val t = titleEt.text.toString().trim()
-            val same = t == BuiltIn.nameOf(pickedBuiltIn) || TIME_AUTO.matches(t)
-            if (t.isBlank() || same) titleEt.setText(titleAuto())
+            // 只有「还是自动生成的那串」才覆盖：空着、是类型名、旧版写进去的时间戳、
+            // 或上一次自己按时长写进去的那串（用户手打的名字一律留着）
+            val nameAuto = t.isBlank() || t == BuiltIn.nameOf(BuiltIn.CENTURY) || TIME_AUTO.matches(t) || t == lastCenturyName
+            if (nameAuto) {
+                titleEt.setText(name)
+                lastCenturyName = name
+            }
+            val r = remarkEt.text.toString().trim()
+            val remarkAuto = r.isBlank() || TIME_AUTO.matches(r) || r.startsWith("本轮还剩")
+            if (remarkAuto) remarkEt.setText("本轮还剩 ${spanText(span)}")
         }
 
         // 六颗下拉框任意一颗一变：天数跟着校正，名字也照挑好的时间自动写好
@@ -401,9 +421,10 @@ class AddEditActivity : Activity() {
                 set(Calendar.SECOND, 0)
                 set(Calendar.MILLISECOND, 0)
             }.timeInMillis
-            // 名字 / 备注照挑好的时间自动写成「2026年10月7日 12:00:00」这种
-            if (pickedBuiltIn == BuiltIn.CENTURY && titleEt.text.toString().trim().isBlank()) titleEt.setText(titleAuto())
-            if (pickedBuiltIn == BuiltIn.CENTURY && remarkEt.text.toString().trim().isBlank()) remarkEt.setText(titleAuto())
+            // 名字 / 备注按「生成那会儿隔了多久」自动生成（20 小时 -> 「20小时」/「本轮还剩 20小时」）；
+            // 跨过之后每一轮起算时，备注由 Countdown 那边照新目标再刷一次「本轮还剩 …」
+            val centurySpan = if (pickedBuiltIn == BuiltIn.CENTURY) centurySpanMillis() else 0L
+            if (pickedBuiltIn == BuiltIn.CENTURY) autoTitleFromTime()
 
             // 存哪一档就是哪一档：停在「普通倒计时」就是普通倒计时，挑了某个内置档就按那个内置类型存。
             val finalBuiltIn = pickedBuiltIn
@@ -437,6 +458,8 @@ class AddEditActivity : Activity() {
                     // 「100年内倒计时」：用户挑的那个时刻（一个 100 年大周期的起点）和提示音开关一起记下来
                     if (finalBuiltIn == BuiltIn.CENTURY) {
                         existing.builtInTargetMillis = if (centuryBase != 0L) centuryBase else targetMillisFromPickers()
+                        // 跨过后要照着这段时长重新起一轮，所以生成那一刻的「目标 − 现在」必须记下来
+                        existing.builtInSpanMillis = centurySpan
                         existing.soundEnabled = soundToggleOn
                     }
                     // 提示音：周期滚动型内置项一律回到默认提示音（清掉可能存过的自定义音）
@@ -445,12 +468,26 @@ class AddEditActivity : Activity() {
             } else {
                 // 同类型内置项、或者同名的那条已经躺在列表里了：这一下不许再生成，
                 // 弹一句「该倒计时已存在，生成失败！」，什么都不存、直接留在这页。
-                val dupBuiltIn = list.any { it.builtIn == finalBuiltIn }
+                // ⚠️ v146：「100年内倒计时」可以存多条（个数不限制），但同时长只能有一条 ——
+                // 名字是按时长自动生成的，两条同时长会撞成一个名字、分不清谁是谁，所以挡一下；
+                // 其余内置类型仍旧一条（原来就是这个规矩，别动）。
+                val dupBuiltIn = if (finalBuiltIn == BuiltIn.CENTURY) {
+                    list.any {
+                        it.builtIn == BuiltIn.CENTURY && spanText(it.builtInSpanMillis) == spanText(centurySpan)
+                    }
+                } else {
+                    list.any { it.builtIn == finalBuiltIn }
+                }
                 val dupTitle = list.any {
                     it.title == titleEt.text.toString().trim() && it.title.isNotEmpty()
                 }
                 if (finalBuiltIn != BuiltIn.NONE && (dupBuiltIn || dupTitle)) {
-                    Toast.makeText(this, "该倒计时已存在，生成失败！", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this,
+                        if (dupBuiltIn && finalBuiltIn == BuiltIn.CENTURY) "已存在相同时长的100年内倒计时，生成失败！"
+                        else "该倒计时已存在，生成失败！",
+                        Toast.LENGTH_SHORT
+                    ).show()
                     return@setOnClickListener
                 }
                 list.add(
@@ -468,6 +505,7 @@ class AddEditActivity : Activity() {
                         builtIn = finalBuiltIn,
                         // 「100年内倒计时」：挑的那个时刻是一个 100 年大周期的起点，归零后自动滚到下一个百年
                         builtInTargetMillis = if (finalBuiltIn == BuiltIn.CENTURY) targetMillisFromPickers() else 0L,
+                        builtInSpanMillis = centurySpan,
                         soundEnabled = if (finalBuiltIn == BuiltIn.CENTURY) soundToggleOn else false,
                         soundUri = if (soundOn) draftSoundUri else null
                     )
