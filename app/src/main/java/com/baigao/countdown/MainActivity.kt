@@ -11,6 +11,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -28,6 +29,7 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.PopupWindow
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -45,6 +47,9 @@ class MainActivity : Activity() {
     private var data = mutableListOf<Countdown>()
     private var overlayDialog: AlertDialog? = null
     private var dragInfo: DragInfo? = null
+
+    /** v156：卡片上「显示模式 / 动画 / 颜色」三颗按钮弹出的下拉面板（同一时刻只开一层）。 */
+    private var pickPopup: PopupWindow? = null
 
     /** 已被用户删除的内置倒计时类型（存 SharedPreferences，避免下次启动又被自动补齐）。 */
     private lateinit var removedPrefs: SharedPreferences
@@ -633,6 +638,8 @@ class MainActivity : Activity() {
 
     /** 用数据重建整个列表（数据变化/进入编辑返回后调用；每秒刷新仅更新时间文本，不重建）。 */
     fun rebuildList() {
+        // 面板是贴着某一行弹出来的，行一摘掉就得跟着收，否则它会飘在做别的卡片上面
+        dismissPickPopup()
         listContainer.removeAllViews()
         for (c in data) {
             val row = CountdownRow(this)
@@ -763,6 +770,73 @@ class MainActivity : Activity() {
         dragInfo = null
     }
 
+    // ---------------- v156：三颗按钮的下拉面板 ----------------
+
+    /**
+     * 收掉当前开着的那一层下拉面板。
+     * 列表一重建，面板底下撑着它的那一行就被摘掉了，面板再挂着会飘在别的卡片上，
+     * 所以 rebuildList() 里以及每秒刷新之前都先收一下。
+     */
+    private fun dismissPickPopup() {
+        runCatching { pickPopup?.dismiss() }
+        pickPopup = null
+    }
+
+    /**
+     * 在 [anchor] 正下方弹一层下拉面板 —— 卡片上的「显示模式 / 动画 / 颜色」三颗按钮共用这一个。
+     *
+     * @param anchor 触发它的那颗按钮（面板贴着它下方、同宽展开）
+     * @param items 可选项：每项 = 圆点颜色 + 文案
+     * @param checked 当前选中第几项（-1 = 一项都没选中）
+     * @param onPick 挑中第几项（角标）时回调，落库 / 重建列表 / 同步悬浮窗由调用方自己收尾
+     */
+    private fun showPickPopup(
+        anchor: View,
+        items: List<Pair<Int, String>>,
+        checked: Int,
+        onPick: (Int) -> Unit
+    ) {
+        dismissPickPopup()
+        val d = resources.displayMetrics.density
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundResource(R.drawable.glass_card_strong)
+            elevation = 8f
+        }
+        items.forEachIndexed { i, kv ->
+            val dot = View(this).apply {
+                layoutParams = LinearLayout.LayoutParams((14 * d).toInt(), (14 * d).toInt())
+                background = ColorDrawable(kv.first)
+            }
+            val label = TextView(this).apply {
+                text = kv.second + if (i == checked) " ✓" else ""
+                textSize = 13f
+                setTextColor(0xFFEAF6FF.toInt())
+                setPadding((10 * d).toInt(), 0, 0, 0)
+            }
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding((12 * d).toInt(), (7 * d).toInt(), (12 * d).toInt(), (7 * d).toInt())
+                addView(dot)
+                addView(label)
+                setOnClickListener { dismissPickPopup(); onPick(i) }
+            }
+            panel.addView(row)
+        }
+        // 面板跟按钮一样宽：量不到宽度时退到一个够用的宽度，别塌成一条缝
+        val w = if (anchor.width > 0) anchor.width else (96 * d).toInt()
+        val popup = PopupWindow(panel, w, LinearLayout.LayoutParams.WRAP_CONTENT, true)
+        popup.isOutsideTouchable = true
+        popup.setOnDismissListener { if (pickPopup === popup) pickPopup = null }
+        val loc = IntArray(2)
+        anchor.getLocationOnScreen(loc)
+        popup.showAtLocation(
+            anchor.rootView, Gravity.NO_GRAVITY, loc[0], loc[1] + anchor.height + (4 * d).toInt()
+        )
+        pickPopup = popup
+    }
+
     // ---------------- 各按钮动作（供列表项回调） ----------------
 
     fun onShowToggle(c: Countdown) {
@@ -772,25 +846,46 @@ class MainActivity : Activity() {
         syncService()
     }
 
-    fun onModeCycle(c: Countdown) {
-        // 只剩一种显示模式时（例如每分钟），切换按钮已经收起来了，点它什么都不做
+    /** 列表上点「显示模式」：弹出下拉框，在该条目可用的模式里直接挑一个（v156 起不再循环点）。 */
+    fun onModePick(c: Countdown, anchor: View) {
+        // 只剩一种显示模式时（例如每分钟），这颗按钮本身已经收起来了
         if (!CountdownFormatter.hasModeSwitch(c.builtIn)) return
-        // 只在「该条目可用的模式」里循环：当日倒计时跳过已下线的天数模式
+        // 只在「该条目可用的模式」里列：当日倒计时跳过已下线的天数模式
         val modes = CountdownFormatter.availableModes(c.builtIn)
-        val i = modes.indexOf(c.displayMode)
-        c.displayMode = modes[((i + 1) % modes.size + modes.size) % modes.size]
-        CountdownStore.save(this, data)
-        rebuildList()
-        syncService()
+        if (modes.size < 2) return
+        val items = modes.map { m -> 0xFF00FFFF.toInt() to CountdownFormatter.modeName(m, c.builtIn) }
+        showPickPopup(anchor, items, modes.indexOf(c.displayMode)) { i ->
+            val t = modes[i]
+            if (t == c.displayMode) return@showPickPopup
+            c.displayMode = t
+            CountdownStore.save(this, data)
+            rebuildList()
+            syncService()
+        }
     }
 
-    /** 列表上点「动画」按钮：循环切换该倒计时的跳秒动画效果。 */
-    fun onAnimCycle(c: Countdown) {
-        val n = AnimStyle.NAMES.size
-        c.animStyle = ((c.animStyle + 1) % n + n) % n
-        CountdownStore.save(this, data)
-        rebuildList()
-        syncService()
+    /** 列表上点「动画」按钮：弹出下拉框，直接挑一种跳秒动画（v156 起不再循环点）。 */
+    fun onAnimPick(c: Countdown, anchor: View) {
+        val items = AnimStyle.NAMES.map { 0xFF00FFFF.toInt() to it }
+        showPickPopup(anchor, items, c.animStyle) { i ->
+            if (i == c.animStyle) return@showPickPopup
+            c.animStyle = i
+            CountdownStore.save(this, data)
+            rebuildList()
+            syncService()
+        }
+    }
+
+    /** 列表上点「颜色」按钮：弹出下拉框，直接挑倒计时文字的主题色（列表与悬浮窗同帧生效）。 */
+    fun onColorPick(c: Countdown, anchor: View) {
+        val items = ThemeColors.NAMES.mapIndexed { i, n -> ThemeColors.ARGS[i] to n }
+        showPickPopup(anchor, items, ThemeColors.ARGS.indexOfFirst { it == c.customColorArgb }) { i ->
+            if (c.customColorArgb == ThemeColors.ARGS[i]) return@showPickPopup
+            c.customColorArgb = ThemeColors.ARGS[i]
+            CountdownStore.save(this, data)
+            rebuildList()
+            syncService()
+        }
     }
 
     /**
@@ -1533,6 +1628,7 @@ class MainActivity : Activity() {
         lateinit var showBtn: Button
         lateinit var modeBtn: Button
         lateinit var animBtn: Button
+        lateinit var colorBtn: Button
         lateinit var editBtn: Button
         lateinit var deleteBtn: Button
         lateinit var soundLabelBtn: Button // 按钮行上的「提示音名称」（只有自定义倒计时才亮）
@@ -1591,6 +1687,7 @@ class MainActivity : Activity() {
             showBtn = v.findViewById(R.id.itemShow)
             modeBtn = v.findViewById(R.id.itemMode)
             animBtn = v.findViewById(R.id.itemAnim)
+            colorBtn = v.findViewById(R.id.itemColor)
             soundLabelBtn = v.findViewById(R.id.itemSoundLabel)
             editBtn = v.findViewById(R.id.itemEdit)
             deleteBtn = v.findViewById(R.id.itemDelete)
@@ -1619,8 +1716,10 @@ class MainActivity : Activity() {
             front.setPadding(side, side, rightPad, side)
 
             showBtn.setOnClickListener { bound?.let { this@MainActivity.onShowToggle(it) } }
-            modeBtn.setOnClickListener { bound?.let { this@MainActivity.onModeCycle(it) } }
-            animBtn.setOnClickListener { bound?.let { this@MainActivity.onAnimCycle(it) } }
+            // v156：「显示模式 / 动画 / 颜色」三颗都改成点开下拉框挑（传自己当锚点，面板贴着它展开）
+            modeBtn.setOnClickListener { bound?.let { this@MainActivity.onModePick(it, modeBtn) } }
+            animBtn.setOnClickListener { bound?.let { this@MainActivity.onAnimPick(it, animBtn) } }
+            colorBtn.setOnClickListener { bound?.let { this@MainActivity.onColorPick(it, colorBtn) } }
             // 提示音名称按钮：只给普通倒计时和「固定目标」内置项亮（周期滚动型内置倒计时
             // 没有提示音可选，soundEditable() 一行就判定完，整颗按它收起）
             soundLabelBtn.visibility = if (c.soundEditable()) View.VISIBLE else View.GONE
@@ -1843,6 +1942,8 @@ class MainActivity : Activity() {
             showBtn.text = if (c.isVisible) "收起悬浮窗" else "展开悬浮窗"
             // 动画效果名称显示在「显示 / 显示模式」按钮之后
             animBtn.text = AnimStyle.name(c.animStyle)
+            // 「颜色」按钮上挂着当前色名（青色 / 品红 …），挑完当场就能看见换了色
+            colorBtn.text = ThemeColors.nameOf(c.customColorArgb)
         }
 
         /** 刷新备注行：内置项显示随目标时间同步变化的实时备注，其它项沿用原备注。 */
