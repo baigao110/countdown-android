@@ -59,6 +59,8 @@ class AddEditActivity : Activity() {
         val titleEt = findViewById<EditText>(R.id.etTitle)
         val datePicker = findViewById<DatePicker>(R.id.datePicker)
         val timePicker = findViewById<TimePicker>(R.id.timePicker)
+        val dateLabel = findViewById<TextView>(R.id.dateLabel)
+        val timeLabel = findViewById<TextView>(R.id.timeLabel)
         val colorSpinner = findViewById<Spinner>(R.id.colorSpinner)
         val standardSpinner = findViewById<Spinner>(R.id.standardSpinner)
         val animSpinner = findViewById<Spinner>(R.id.animSpinner)
@@ -76,11 +78,11 @@ class AddEditActivity : Activity() {
         // 挑提示音照旧给它们留着，跟普通倒计时一路。
         //
         // 可以挑的内置类型（「倒计时类型」下拉框的条目顺序）：普通倒计时永远排最前，
-        // 其后是其余滚动型内置项（每小时 / 每半小时 / 每分钟 …），固定目标的两个内置项垫底。
+        // 其后是其余滚动型内置项（每小时 / 每半小时 / 每分钟 …），固定目标的两个内置项和「100年内倒计时」垫底。
         val pickable = listOf(
             BuiltIn.NONE, BuiltIn.HOUR, BuiltIn.HALF_HOUR, BuiltIn.MINUTE,
             BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN, BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH,
-            BuiltIn.HUADU, BuiltIn.GTA6
+            BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.CENTURY
         )
         // 这条倒计时在编辑 / 准备生成的类型（显示模式清单、提示音开关全按它走）。
         // 新建时默认「普通倒计时」；编辑内置项时就是它自己那一档，模式下拉框按它过滤。
@@ -130,6 +132,19 @@ class AddEditActivity : Activity() {
         val builtInSpinner = findViewById<Spinner>(R.id.builtInSpinner)
         val soundBlock = findViewById<View>(R.id.soundBlock)
 
+        // ---------- 「100年内倒计时」这一档的两样东西 ----------
+        // 六颗下拉框（年 / 月 / 日 / 时 / 分 / 秒）：与页面上其它下拉框同一套 GlassSpinner 样式，
+        // 排成一行六等分，随便挑 100 年以内任意一个日子 + 时 + 分 + 秒就是这条倒计时的目标时刻。
+        val timeOfDayBlock = findViewById<View>(R.id.timeOfDayBlock)
+        val yearSpinner = findViewById<Spinner>(R.id.yearSpinner)
+        val monthSpinner = findViewById<Spinner>(R.id.monthSpinner)
+        val daySpinner = findViewById<Spinner>(R.id.daySpinner)
+        val hourSpinner = findViewById<Spinner>(R.id.hourSpinner)
+        val minuteSpinner = findViewById<Spinner>(R.id.minuteSpinner)
+        val secondSpinner = findViewById<Spinner>(R.id.secondSpinner)
+        // 「启用自定义提示音」开关：勾上才接着摆出下面「提示音」那两颗按钮
+        val soundToggle = findViewById<Switch>(R.id.soundToggle)
+
 
 
         //「倒计时类型」下拉框：普通倒计时 + 列表里还躺着的那些内置项（已经有的就不重复摆，
@@ -148,10 +163,12 @@ class AddEditActivity : Activity() {
         // 界面上摆不摆「挑提示音」那一整块：周期滚动型内置项（每分钟 / 每小时 / 当日 …）
         // 一律不摆，普通倒计时、华都云境悦府、GTA6 照旧摆着；就这一行 soundEditable() 说话。
         var soundOn = c?.soundEditable() ?: !BuiltIn.isRolling(pickedBuiltIn)
+        // 「100年内倒计时」那颗「启用自定义提示音」开关：勾上才摆出换音那两颗按钮
+        var soundToggleOn: Boolean = c?.soundEnabled ?: false
 
-        /** 提示音那一整块跟着 soundOn 显隐，顺手把按钮上的提示音名刷了。 */
+        /** 提示音那一整块跟着 soundOn（类型不是周期滚动内置项）和那颗开关显隐，顺手把按钮上的提示音名刷了。 */
         fun applySoundVisibility() {
-            soundBlock.visibility = if (soundOn) View.VISIBLE else View.GONE
+            soundBlock.visibility = if (soundOn && soundToggleOn) View.VISIBLE else View.GONE
             refreshSoundLabel()
         }
 
@@ -168,6 +185,9 @@ class AddEditActivity : Activity() {
         /** 倒计时类型一换，下面这几样跟着全换一遍。 */
         fun applyTypeDependant() {
             soundOn = !BuiltIn.isRolling(pickedBuiltIn)
+            // 那颗「启用自定义提示音」开关只在「100年内倒计时」这一档摆出来
+            soundToggle.visibility = if (pickedBuiltIn == BuiltIn.CENTURY) View.VISIBLE else View.GONE
+            if (pickedBuiltIn != BuiltIn.CENTURY) soundToggleOn = false
             applySoundVisibility()
             // 模式下拉框的清单按类型重新算（每5分钟没有「时分秒」，每天没有「天数模式」…）
             standardSpinner.adapter = ArrayAdapter(
@@ -182,6 +202,109 @@ class AddEditActivity : Activity() {
             applyModeBlock()
         }
 
+        /** 把一颗整值下拉框填成 0..max（末尾带单位，如「10月」），填完那颗下拉框的选中位不动。 */
+        fun fillInt(sp: Spinner, max: Int, suffix: String) {
+            sp.adapter = ArrayAdapter(
+                this, android.R.layout.simple_spinner_item,
+                (0..max).map { "$it$suffix" }.toTypedArray()
+            ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        }
+
+        /** 下拉框当前选中的整值：把「2026年」这种文本里的数字抠出来。 */
+        fun intOf(sp: Spinner): Int = sp.selectedItem.toString().replace(Regex("\\D"), "").toInt()
+
+        /** 把一颗下拉框挪到第 v 格（越界就贴边）。 */
+        fun selInt(sp: Spinner, v: Int) {
+            sp.setSelection(v.coerceIn(0, (sp.count - 1).coerceAtLeast(0)))
+        }
+
+        /** 六连框填值 / 天数跟着年月校正一遍；initial = true 时按当前时刻给出初值。 */
+        fun setupTimeOfDayPickers(initial: Boolean) {
+            val now = Calendar.getInstance()
+            if (initial) {
+                val y = now.get(Calendar.YEAR)
+                // 年：今年到 100 年后（「100年内倒计时」挑的是 100 年以内的那天）
+                yearSpinner.adapter = ArrayAdapter(
+                    this, android.R.layout.simple_spinner_item,
+                    (y..y + 100).map { "${it}年" }.toTypedArray()
+                ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+                fillInt(monthSpinner, 11, "月")
+                fillInt(daySpinner, 30, "日")
+                fillInt(hourSpinner, 23, "时")
+                fillInt(minuteSpinner, 59, "分")
+                fillInt(secondSpinner, 59, "秒")
+                selInt(yearSpinner, 0)
+                selInt(monthSpinner, now.get(Calendar.MONTH))
+                selInt(daySpinner, now.get(Calendar.DAY_OF_MONTH) - 1)
+                selInt(hourSpinner, now.get(Calendar.HOUR_OF_DAY))
+                selInt(minuteSpinner, now.get(Calendar.MINUTE))
+                selInt(secondSpinner, now.get(Calendar.SECOND))
+            }
+            // 日那颗跟着年月走：4 / 6 / 9 / 11 月 30 天，2 月平年 28 天、闰年 29 天，
+            // 别让用户挑出一个并不存在的日子（Calendar 会因为溢出自动进到下一个月去）
+            val y = intOf(yearSpinner)
+            val m = intOf(monthSpinner)
+            val dim = when (m) {
+                1, 3, 5, 7, 8, 10, 12 -> 31
+                4, 6, 9, 11 -> 30
+                2 -> if ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0) 29 else 28
+                else -> 31
+            }
+            if (daySpinner.count != dim) {
+                val keep = intOf(daySpinner)
+                fillInt(daySpinner, dim - 1, "日")
+                selInt(daySpinner, keep.coerceAtLeast(0))
+            }
+        }
+
+        /** 六连框当下凑出来的目标时刻（epoch 毫秒）。 */
+        fun targetMillisFromPickers(): Long = Calendar.getInstance().apply {
+            set(Calendar.YEAR, intOf(yearSpinner))
+            set(Calendar.MONTH, intOf(monthSpinner) - 1)
+            set(Calendar.DAY_OF_MONTH, intOf(daySpinner) + 1)
+            set(Calendar.HOUR_OF_DAY, intOf(hourSpinner))
+            set(Calendar.MINUTE, intOf(minuteSpinner))
+            set(Calendar.SECOND, intOf(secondSpinner))
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        /** 六连框亮起来时，顶部那套「目标日期 / 目标时间」让位给它们 —— 两套时刻同时摆着会打架。 */
+        fun applyTimeOfDayVisibility() {
+            val on = pickedBuiltIn == BuiltIn.CENTURY
+            timeOfDayBlock.visibility = if (on) View.VISIBLE else View.GONE
+            dateLabel.visibility = if (on) View.GONE else View.VISIBLE
+            datePicker.visibility = if (on) View.GONE else View.VISIBLE
+            timeLabel.visibility = if (on) View.GONE else View.VISIBLE
+            timePicker.visibility = if (on) View.GONE else View.VISIBLE
+        }
+
+        /** 自动生成的那串名字：照六连框挑好的时间写成的「2026年10月7日 12:00:00」。 */
+        val TIME_AUTO = Regex("\\d{4}年\\d{1,2}月\\d{1,2}日 \\d{2}:\\d{2}:\\d{2}")
+        val titleAuto = "${intOf(yearSpinner)}年${intOf(monthSpinner)}月${intOf(daySpinner) + 1}日 " + String.format("%02d:%02d:%02d", intOf(hourSpinner), intOf(minuteSpinner), intOf(secondSpinner))
+
+        /** 名字自动生成：标题还是空的、还是这一型的默认名、还是上一次自动生成的那串，就照挑好的时间写；手打过的名字不动。 */
+        fun autoTitleFromTime() {
+            if (timeOfDayBlock.visibility != View.VISIBLE) return
+            val t = titleEt.text.toString().trim()
+            val same = t == BuiltIn.nameOf(pickedBuiltIn) || TIME_AUTO.matches(t)
+            if (t.isBlank() || same) titleEt.setText(titleAuto)
+        }
+
+        // 六颗下拉框任意一颗一变：天数跟着校正，名字也照挑好的时间自动写好
+        for (sp in listOf(yearSpinner, monthSpinner, daySpinner, hourSpinner, minuteSpinner, secondSpinner)) {
+            sp.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    setupTimeOfDayPickers(false)
+                    autoTitleFromTime()
+                }
+                override fun onNothingSelected(parent: AdapterView<*>) {}
+            }
+        }
+        // 「启用自定义提示音」开关：勾上才摆出「提示音」那两颗按钮，不勾就整块收着、归零只响默认提示音
+        soundToggle.setOnCheckedChangeListener { _, on ->
+            soundToggleOn = on
+            applySoundVisibility()
+        }
 
         soundBtn = findViewById<Button>(R.id.btnSound)
         val clearSoundBtn = findViewById<Button>(R.id.btnClearSound)
@@ -200,6 +323,8 @@ class AddEditActivity : Activity() {
                 if (t.isBlank() || t == prev) titleEt.setText(BuiltIn.nameOf(pickedBuiltIn))
                 prevType = pickedBuiltIn
                 applyTypeDependant()
+                applyTimeOfDayVisibility()
+                autoTitleFromTime()
             }
             override fun onNothingSelected(parent: AdapterView<*>) {}
         }
@@ -213,6 +338,21 @@ class AddEditActivity : Activity() {
         }
         // 初始值：类型落在它自己那档
         builtInSpinner.setSelection(pool.indexOf(pickedBuiltIn).coerceAtLeast(0))
+        // 六连框先按当前时刻填好；编辑一条「100年内倒计时」时再跳回它自己存的那个时刻
+        setupTimeOfDayPickers(true)
+        if (c != null && c.builtIn == BuiltIn.CENTURY) {
+            val cal = Calendar.getInstance().apply { timeInMillis = c.currentBuiltInTarget() }
+            selInt(yearSpinner, cal.get(Calendar.YEAR))
+            selInt(monthSpinner, cal.get(Calendar.MONTH))
+            selInt(daySpinner, cal.get(Calendar.DAY_OF_MONTH) - 1)
+            selInt(hourSpinner, cal.get(Calendar.HOUR_OF_DAY))
+            selInt(minuteSpinner, cal.get(Calendar.MINUTE))
+            selInt(secondSpinner, cal.get(Calendar.SECOND))
+            setupTimeOfDayPickers(false)
+        }
+        soundToggle.isChecked = soundToggleOn
+        applyTimeOfDayVisibility()
+        autoTitleFromTime()
         applyTypeDependant()
         // 从卡片上的「提示音名称」按钮进来的：直接把系统铃声选择器顶上去，选完即存
         if (pickSoundOnly && c != null) {
@@ -224,7 +364,9 @@ class AddEditActivity : Activity() {
 
         saveBtn.setOnClickListener {
             val list = CountdownStore.load(this)
-            val target = Calendar.getInstance().apply {
+            // 「100年内倒计时」的目标时刻由六连框给（归零后自动滚到下一个 100 年周期），
+            // 其余各档还用顶部那套「目标日期 / 目标时间」
+            val target = if (pickedBuiltIn == BuiltIn.CENTURY) targetMillisFromPickers() else Calendar.getInstance().apply {
                 set(Calendar.YEAR, datePicker.year)
                 set(Calendar.MONTH, datePicker.month)
                 set(Calendar.DAY_OF_MONTH, datePicker.dayOfMonth)
@@ -233,6 +375,9 @@ class AddEditActivity : Activity() {
                 set(Calendar.SECOND, 0)
                 set(Calendar.MILLISECOND, 0)
             }.timeInMillis
+            // 名字 / 备注照挑好的时间自动写成「2026年10月7日 12:00:00」这种
+            if (pickedBuiltIn == BuiltIn.CENTURY && titleEt.text.toString().trim().isBlank()) titleEt.setText(titleAuto)
+            if (pickedBuiltIn == BuiltIn.CENTURY && remarkEt.text.toString().trim().isBlank()) remarkEt.setText(titleAuto)
 
             // 存哪一档就是哪一档：停在「普通倒计时」就是普通倒计时，挑了某个内置档就按那个内置类型存。
             val finalBuiltIn = pickedBuiltIn
@@ -255,6 +400,11 @@ class AddEditActivity : Activity() {
                     existing.remark = remarkEt.text.toString()
                     // 倒计时类型本身也能改（普通 ↔ 内置随便换，换完它还是内置 / 还是普通倒计时）
                     existing.builtIn = finalBuiltIn
+                    // 「100年内倒计时」：用户挑的那个时刻（一个 100 年大周期的起点）和提示音开关一起记下来
+                    if (finalBuiltIn == BuiltIn.CENTURY) {
+                        existing.builtInTargetMillis = targetMillisFromPickers()
+                        existing.soundEnabled = soundToggleOn
+                    }
                     // 提示音：周期滚动型内置项一律回到默认提示音（清掉可能存过的自定义音）
                     existing.soundUri = if (soundOn) draftSoundUri else null
                 }
@@ -282,6 +432,9 @@ class AddEditActivity : Activity() {
                         // 内置项的目标时刻由系统自己往下跳，这里填的日期时间只是个起点，
                         // 存下来也不会把它降级成普通倒计时
                         builtIn = finalBuiltIn,
+                        // 「100年内倒计时」：挑的那个时刻是一个 100 年大周期的起点，归零后自动滚到下一个百年
+                        builtInTargetMillis = if (finalBuiltIn == BuiltIn.CENTURY) targetMillisFromPickers() else 0L,
+                        soundEnabled = if (finalBuiltIn == BuiltIn.CENTURY) soundToggleOn else false,
                         soundUri = if (soundOn) draftSoundUri else null
                     )
                 )
