@@ -211,7 +211,8 @@ class AddEditActivity : Activity() {
         }
 
         /** 下拉框当前选中的整值：把「2026年」这种文本里的数字抠出来。 */
-        fun intOf(sp: Spinner): Int = sp.selectedItem.toString().replace(Regex("\\D"), "").toInt()
+        fun intOf(sp: Spinner): Int =
+            sp.selectedItem?.toString()?.replace(Regex("\\D"), "")?.toIntOrNull() ?: 0
 
         /** 把一颗下拉框挪到第 v 格（越界就贴边）。 */
         fun selInt(sp: Spinner, v: Int) {
@@ -280,14 +281,18 @@ class AddEditActivity : Activity() {
 
         /** 自动生成的那串名字：照六连框挑好的时间写成的「2026年10月7日 12:00:00」。 */
         val TIME_AUTO = Regex("\\d{4}年\\d{1,2}月\\d{1,2}日 \\d{2}:\\d{2}:\\d{2}")
-        val titleAuto = "${intOf(yearSpinner)}年${intOf(monthSpinner)}月${intOf(daySpinner) + 1}日 " + String.format("%02d:%02d:%02d", intOf(hourSpinner), intOf(minuteSpinner), intOf(secondSpinner))
+        // ⚠️ 这串必须写成函数、不能写成 val：val 会在声明这一行当场求值，而那时六连框还没填过值
+        // （setupTimeOfDayPickers(true) 在下面第 340 多行才跑），spinner.selectedItem 是 null，
+        // "null" 抠掉非数字之后是空串，toInt() 当场抛 NumberFormatException —— 一进这个页面
+        // （点「＋」新建倒计时）就闪退，Edit 形式的同类代码也曾因此炸过。
+        fun titleAuto(): String = "${intOf(yearSpinner)}年${intOf(monthSpinner)}月${intOf(daySpinner) + 1}日 " + String.format("%02d:%02d:%02d", intOf(hourSpinner), intOf(minuteSpinner), intOf(secondSpinner))
 
         /** 名字自动生成：标题还是空的、还是这一型的默认名、还是上一次自动生成的那串，就照挑好的时间写；手打过的名字不动。 */
         fun autoTitleFromTime() {
             if (timeOfDayBlock.visibility != View.VISIBLE) return
             val t = titleEt.text.toString().trim()
             val same = t == BuiltIn.nameOf(pickedBuiltIn) || TIME_AUTO.matches(t)
-            if (t.isBlank() || same) titleEt.setText(titleAuto)
+            if (t.isBlank() || same) titleEt.setText(titleAuto())
         }
 
         // 六颗下拉框任意一颗一变：天数跟着校正，名字也照挑好的时间自动写好
@@ -336,10 +341,12 @@ class AddEditActivity : Activity() {
                 Toast.LENGTH_LONG
             ).show()
         }
+        // 六连框先按当前时刻填好（要先于下面「类型」下拉框那句 setSelection：
+        // 那句会当场回调一次 autoTitleFromTime()，那时六连框得已经有值，否则写进去的是空串）
+        setupTimeOfDayPickers(true)
         // 初始值：类型落在它自己那档
         builtInSpinner.setSelection(pool.indexOf(pickedBuiltIn).coerceAtLeast(0))
-        // 六连框先按当前时刻填好；编辑一条「100年内倒计时」时再跳回它自己存的那个时刻
-        setupTimeOfDayPickers(true)
+        // 编辑一条「100年内倒计时」时，六连框再跳回它自己存的那个时刻
         if (c != null && c.builtIn == BuiltIn.CENTURY) {
             val cal = Calendar.getInstance().apply { timeInMillis = c.currentBuiltInTarget() }
             selInt(yearSpinner, cal.get(Calendar.YEAR))
@@ -376,8 +383,8 @@ class AddEditActivity : Activity() {
                 set(Calendar.MILLISECOND, 0)
             }.timeInMillis
             // 名字 / 备注照挑好的时间自动写成「2026年10月7日 12:00:00」这种
-            if (pickedBuiltIn == BuiltIn.CENTURY && titleEt.text.toString().trim().isBlank()) titleEt.setText(titleAuto)
-            if (pickedBuiltIn == BuiltIn.CENTURY && remarkEt.text.toString().trim().isBlank()) remarkEt.setText(titleAuto)
+            if (pickedBuiltIn == BuiltIn.CENTURY && titleEt.text.toString().trim().isBlank()) titleEt.setText(titleAuto())
+            if (pickedBuiltIn == BuiltIn.CENTURY && remarkEt.text.toString().trim().isBlank()) remarkEt.setText(titleAuto())
 
             // 存哪一档就是哪一档：停在「普通倒计时」就是普通倒计时，挑了某个内置档就按那个内置类型存。
             val finalBuiltIn = pickedBuiltIn
