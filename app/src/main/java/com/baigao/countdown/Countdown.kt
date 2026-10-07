@@ -109,6 +109,7 @@ data class Countdown(
     var builtIn: Int = BuiltIn.NONE,           // 内置倒计时类型（见 BuiltIn）；旧数据缺省为普通倒计时
     var builtInManual: Boolean = false,        // 内置项被用户自己指定了时刻：不再自动滚动，但仍是内置项
     var builtInTargetMillis: Long = 0L,        // 「100年内倒计时」用户挑的那个时刻（一个 100 年大周期的起点，0 = 没挑过）
+    var builtInSpanMillis: Long = 0L,          // 「100年内倒计时」生成那会儿「挑的时刻 − 那一刻」的时长；跨过后照它重新起一轮
     var soundEnabled: Boolean = false,         // 「100年内倒计时」那颗「启用自定义提示音」开关的当前状态
     var animStyle: Int = AnimStyle.NONE        // 跳秒动画样式（见 AnimStyle）；旧数据缺省为无动画
 ) {
@@ -229,31 +230,32 @@ data class Countdown(
                 cal.add(Calendar.DAY_OF_MONTH, 7)
             }
             BuiltIn.CENTURY -> {
-                // 100 年内倒计时：目标就是用户在六连框里挑的那一刻（一个 100 年大周期的起点）。
-                // ⚠️ 挑的时刻**已经过去**时不能再自动跳到一百年的下一个同刻 —— 那样跳一下就跑出
-                // 100 年了，界面上显示的目标也就不再是用户挑的那个时刻（「挑过去的不滚」）：
-                // 一律停在挑的那一刻、剩余归零，与华都云境悦府 / GTA6 这种固定目标内置项一个脾气。
-                // 只有它还在未来、且是我们亲眼看着它走到 0 的（刚跨过、5 秒以内），才顺手滚到
-                // 下一个一百年的同一刻接着往下走秒（「挑未来的才滚」）。
+                // ⚠️ v146 起：跨过之后**不再**跳到「下一个 100 年后的同一刻」，改成照着
+                // 「生成那会儿（挑的时刻 − 那一刻的当前时间）」这段时长重新倒计时（span）：
+                // 生成时差 20 小时 → 归零后是 20 小时倒计时；差 7 小时 → 7 小时；一轮一轮滚下去。
+                // 这段时长在保存那一刻就记进 builtInSpanMillis（AddEditActivity），跨过才用得上。
+                // 目标时间平日里仍然是「用户挑的那一刻」，只有归零那一刻才起新一轮 ——
+                // 所以生成后 / 改完后界面上看到的目标都还是用户挑的那个时刻（v145 立的规矩）。
                 val base = if (builtInTargetMillis > 0) builtInTargetMillis else targetTime
                 if (base <= 0) return false
                 val now = cal.timeInMillis
-                if (base > now || now - base > 5000) {
+                // 这一轮还在走（目标还在未来）：什么都不动，让它老老实实往 0 走
+                if (targetTime > now) return false
+                val span = builtInSpanMillis
+                if (span <= 0) {
+                    // 挑的时刻已经过去、或旧数据没存过跨度：停在挑的那一刻、剩余归零，
+                    // 与华都云境悦府 / GTA6 这种固定目标内置项一个脾气（v145 的「挑过去的不滚」）。
                     if (targetTime == base) return false
                     targetTime = base
                     return true
                 }
-                // 刚刚跨过那一秒：滚到下一个一百年的同一刻
-                var t = base
-                var guard = 0
-                while (t <= now && guard < 2000) {
-                    cal.timeInMillis = t
-                    cal.add(Calendar.YEAR, 100)
-                    t = cal.timeInMillis
-                    guard++
+                // 刚好跨过：从现在起按生成那会儿的时长重新起一轮，备注跟着刷一次「本轮还剩 …」
+                val next = now + span
+                if (next == targetTime) return false
+                targetTime = next
+                if (remark.isBlank() || remark.startsWith("本轮还剩")) {
+                    remark = "本轮还剩 ${spanText(span)}"
                 }
-                if (t == targetTime) return false
-                targetTime = t
                 return true
             }
             else -> return false
@@ -345,6 +347,26 @@ data class Countdown(
         refreshBuiltInTarget()
         // 内置项的「标准模式」含义按类型定制（见 effectiveMode），所以必须把 builtIn 一起传下去
         return CountdownFormatter.remaining(targetTime, displayMode, now, builtIn)
+    }
+}
+
+/**
+ * 把一段毫秒写成人话（「100年内倒计时」的名字、备注都照它自动生成）：
+ * 20 小时 ->「20小时」、7 小时 ->「7小时」、1 天 2 小时 ->「1天2小时」、1小时30分 ->「1小时30分」。
+ * 只在整分 / 整秒之上有余量时才把小一级的单位带上，免得名字上挂着一堆 0。
+ */
+fun spanText(ms: Long): String {
+    var v = ms / 1000L
+    if (v <= 0) return "0秒"
+    val s = v % 60L; v /= 60L
+    val m = v % 60L; v /= 60L
+    val h = v % 24L; v /= 24L
+    val d = v
+    return when {
+        d > 0 -> if (h > 0) "${d}天${h}小时" else "${d}天"
+        h > 0 -> if (m > 0) "${h}小时${m}分" else "${h}小时"
+        m > 0 -> if (s > 0) "${m}分${s}秒" else "${m}分"
+        else -> "${s}秒"
     }
 }
 
