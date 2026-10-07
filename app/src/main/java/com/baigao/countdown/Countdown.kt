@@ -4,6 +4,24 @@ import java.util.Calendar
 import java.util.UUID
 
 /**
+ * v156：倒计时文字的「主题颜色」色板 —— 编辑页那颗颜色下拉框、列表卡片上新增的
+ * 「颜色」按钮两处共用同一份（颜色只写一处，免得两边各改一半）。
+ */
+object ThemeColors {
+    /** 七种可选颜色（ARGB 高字节为不透明；别只写 6 位，否则整块直接变透明）。 */
+    val ARGS = intArrayOf(
+        0xFF00FFFF.toInt(), 0xFFFF00FF.toInt(), 0xFF00FF00.toInt(),
+        0xFFFFFF00.toInt(), 0xFFFF8000.toInt(), 0xFFFF0000.toInt(), 0xFFE8B94A.toInt()
+    )
+    val NAMES = arrayOf("青色", "品红", "绿色", "黄色", "橙色", "红色", "金色")
+    /** 当前色值对应的名字（挑不到就退回第一种，按钮上永远有字）。 */
+    fun nameOf(argb: Int): String {
+        val i = ARGS.indexOfFirst { it == argb }
+        return if (i >= 0) NAMES[i] else NAMES[0]
+    }
+}
+
+/**
  * 内置倒计时类型：系统自动维护目标时间、且不可删除（对应桌面版 BuiltInType 枚举）。
  */
 object BuiltIn {
