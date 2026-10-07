@@ -149,8 +149,8 @@ class MainActivity : Activity() {
     /** 读取本地数据，并确保出厂顺序里那些内置项（每分钟 / 每5分钟 / 每10分钟 / 每半小时 / 每小时 / 当日 / 每周 / 当月 / 华都云境悦府 / GTA6）始终存在。 */
     private fun loadData() {
         data = CountdownStore.load(this)
-        // ⚠️ v150：「100年内倒计时」整个内置项下线，老数据里躺着的那几条连同它们的
-        // 备份快照一起清干净（列表里不该再留着已经选不中的那一档）
+        // ⚠️ v159：「100年内倒计时」整个档位删干净了，老数据里躺着的那几条连同它们的
+        // 备份快照一起清掉（列表里不该再留着已经选不中的那一档）
         dropRetiredCentury()
         // ⚠️ v154：v151 那批 29 个周期滚动档整体下线，老数据里的条目与快照一并清掉
         dropRetiredSteps()
@@ -160,16 +160,14 @@ class MainActivity : Activity() {
     }
 
     /**
-     * v150：「100年内倒计时」整个内置项下线 —— 出厂顺序和「倒计时类型」里都摘了它，
+     * v159：「100年内倒计时」整个档位连同它的代码一起删了（见 BuiltIn 那个空号常量）——
      * 列表里原先躺着的那几条（用户以前挑日子生成的）也一并删掉，顺手把删掉时存的
      * 备份快照「backup_12_*」连同老 key「backup_12」清干净，免得「复」字框里还挂着
-     * 一个再也选不中的类型。内置类型常量 12 照旧留着不回收（见 BuiltIn），
-     * 万一哪天再挂回来，老数据认得出来。
+     * 一个再也选不中的类型。
      */
     private fun dropRetiredCentury() {
         val stale = data.filter { it.builtIn == BuiltIn.CENTURY }
-        val wiped = stale.isNotEmpty() || centuryBackups().isNotEmpty()
-            || removedBuiltIns.remove(BuiltIn.CENTURY)
+        val wiped = stale.isNotEmpty() || removedBuiltIns.remove(BuiltIn.CENTURY)
         if (wiped) {
             removedPrefs.edit()
                 .putStringSet("types", removedBuiltIns.map { it.toString() }.toSet())
@@ -1089,8 +1087,7 @@ class MainActivity : Activity() {
      * 压根没存过。所以这种多出来的类型按「backup_{类型}_{id}」一条一条存；
      * 只可能有单条的内置类型照旧，顺手把老 key 也写一份，老设备上的快照照样认。
      */
-    private fun backupKey(type: Int, id: String): String =
-        if (type == BuiltIn.CENTURY) "backup_${type}_${id}" else "backup_${type}"
+    private fun backupKey(type: Int, id: String): String = "backup_$type"
 
     /**
      * 删除内置倒计时时，把它的完整设置存成快照（JSON 字符串，存在 builtin_removed 里）。
@@ -1101,11 +1098,8 @@ class MainActivity : Activity() {
         removedPrefs.edit()
             .putString(backupKey(c.builtIn, c.id), json)
             .apply()
-        // 普通内置项永远只有一条，老 key 照写一份：
-        // 老版本（以及备份读取时的回落）认的就是「backup_{类型}」这一份
-        if (c.builtIn != BuiltIn.CENTURY) {
-            removedPrefs.edit().putString("backup_${c.builtIn}", json).apply()
-        }
+        // 每个内置项永远只有一条，老 key 就是「backup_{类型}」这一份（老版本认的也是它）
+        removedPrefs.edit().putString("backup_${c.builtIn}", json).apply()
     }
 
     /** 读出某个内置倒计时被删除时的设置快照；老版本删除的没有快照，返回 null。 */
@@ -1143,8 +1137,7 @@ class MainActivity : Activity() {
     /**
      * v149：恢复已被删除的内置倒计时（重新纳入自动补齐），可一次恢复多个。
      *
-     * @param ids 「100年内倒计时」要恢复的条目 id（空 = 老规矩、能找回的一起捞回来）；
-     *           其余内置项永远只有一条，用不着按 id 挑。
+     * @param ids 老接口，留着不动（v159 起已经没有哪一档会存多条，传空就行）。
      */
     private fun restoreBuiltIn(types: IntArray, ids: List<String> = emptyList()) {
         var changed = false
@@ -1156,23 +1149,6 @@ class MainActivity : Activity() {
                 .putStringSet("types", removedBuiltIns.map { it.toString() }.toSet())
                 .apply()
         }
-        // ⚠️ v147：100年内倒计时能存好几条，光把「12 号类型」从已删除里划掉还不够 ——
-        // 下面 ensureBuiltIn() 那句「这个类型已经在列表里了就别补」会把它们全挡在门外
-        // （列表里还躺着另一条同类型 => 勾了「找回小内置」却一条都没回来）。
-        // 所以这里改成按 id 一条条照快照还原：时长（builtInSpanMillis）、名称、备注、
-        // 目标时刻连同主题 / 模式 / 动画一起回来，重启之后照旧按时长一轮一轮往下转。
-        if (types.contains(BuiltIn.CENTURY)) {
-            // v149：只找回勾选上的那几条；没指定（ids 空）就是老规矩，能找回的一起捞回来
-            val want = if (ids.isNotEmpty()) ids.toHashSet() else null
-            for (bak in centuryBackups()) {
-                if (want != null && !want.contains(bak.id)) continue // 没勾上的这条先搁着
-                if (data.any { it.id == bak.id }) continue // 已经在列表里了，别重复造一条
-                bak.finished = false          // 重新计时，允许再响一次铃
-                bak.builtInManual = false     // 回到系统周期，不沿用过期的旧时刻
-                data.add(0, bak)
-                changed = true
-            }
-        }
         // 兜底：某些项可能既不在列表里、也没有被标记删除（例如被改成普通倒计时），
         // 这里统一补齐，保证点「确定」之后出厂顺序里那些内置项真的回到列表里
         if (ensureBuiltInTimers()) changed = true
@@ -1181,38 +1157,6 @@ class MainActivity : Activity() {
         rebuildList()
         syncService()
     }
-
-    /**
-     * 捞出所有被删掉的「100年内倒计时」的快照（v147：可能不止一条，按 id 分开存着）。
-     *
-     * 只认「backup_{类型}_{id}」这种新 key —— 老 key 底下那一份年代太久、也不一定对应
-     * 现在想找回的这一条，交给 loadBuiltInBackup() 的老形式去兜底就好。
-     * ⚠️ v150：这一档整个下线了（见 dropRetiredCentury()），「复」字框里不再给逐条
-     * 找回的位置；老快照启动即清，这里平时是空的。
-     */
-    private fun centuryBackups(): List<Countdown> {
-        val out = ArrayList<Countdown>()
-        val seen = HashSet<String>() // ⚠️ Countdown.id 是 UUID 字符串，不是数字，别写成 HashSet<Long>
-        for (key in removedPrefs.all.keys) {
-            if (!key.startsWith("backup_${BuiltIn.CENTURY}_")) continue
-            val json = removedPrefs.getString(key, null) ?: continue
-            try {
-                val c = CountdownStore.parse(JSONObject(json))
-                if (c.id.isNotEmpty() && seen.add(c.id)) out.add(c)
-            } catch (e: Exception) {
-                // 存烂了的那一份直接跳过，别让整页恢复跟着炸
-            }
-        }
-        return out
-    }
-
-    /**
-     * v149：捞出「已经删掉、还没回到列表里」的「100年内倒计时」快照（逐条，几条就是几条），
-     * 「复」字对话框下半截那份清单用的就是它。⚠️ v150 这一档整个下线了，那份清单
-     * 随之一块撤掉，于是这里恒为空 —— 留着的只是给老代码一个说得通的退路。
-     */
-    private fun missingCenturyBackups(): List<Countdown> =
-        centuryBackups().filter { bak -> data.none { it.id == bak.id } }
 
     /**
      * 当前「不在列表里」的内置倒计时：
@@ -1224,9 +1168,6 @@ class MainActivity : Activity() {
             val t = def.first
             t in removedBuiltIns
                 || data.none { it.builtIn == t }
-                // ⚠️ v147：100年内倒计时能存多条，删掉的那条未必是列表里唯一的一条 ——
-                // 光看「这个类型还在不在」够不着，得按 id 看那条快照有没有躺在列表里
-                || (t == BuiltIn.CENTURY && centuryBackups().any { bak -> data.none { it.id == bak.id } })
         }
 
     /**
@@ -1240,8 +1181,7 @@ class MainActivity : Activity() {
      */
     private fun showRestoreBuiltInDialog() {
         val missing = missingBuiltIns()
-        val centuries = missingCenturyBackups()
-        if (missing.isEmpty() && centuries.isEmpty()) {
+        if (missing.isEmpty()) {
             // v124：只有真把内置顺序拖过才摆复位入口。排序没动过时列表本来就是出厂顺序，
             // 这时候弹一个「都在 + 一颗回默认」的对话框，点了多半是白点。
             if (!builtInOrderChanged()) {
@@ -1262,10 +1202,6 @@ class MainActivity : Activity() {
         }
         val checked = BooleanArray(missing.size) { true }
         val boxes = ArrayList<CheckBox>()
-        // v149：「100年内倒计时」是用户自己一条条生成的，删除时各存了一份快照 ——
-        // 给它们单独的勾选位，想找回哪一条就勾哪一条，不跟内置项混在一起全勾上
-        val centuryChecked = BooleanArray(centuries.size) { true }
-        val centuryBoxes = ArrayList<CheckBox>()
 
         UpdateManager.showStyledDialog(
             activity = this,
@@ -1274,15 +1210,11 @@ class MainActivity : Activity() {
             negativeText = "先留着",
             onPositive = {
                 val types = missing.filterIndexed { i, _ -> checked[i] }.map { it.first }
-                val centuryIds = centuries.filterIndexed { i, _ -> centuryChecked[i] }.map { it.id }
-                if (types.isEmpty() && centuryIds.isEmpty()) {
+                if (types.isEmpty()) {
                     Toast.makeText(this, "还没勾选任何小内置倒计时呢", Toast.LENGTH_SHORT).show()
                 } else {
-                    val restored = types.count { t ->
-                        if (t == BuiltIn.CENTURY) centuries.isNotEmpty()
-                        else loadBuiltInBackup(t) != null
-                    } + centuryIds.size
-                    restoreBuiltIn(types.toIntArray(), centuryIds)
+                    val restored = types.count { loadBuiltInBackup(it) != null }
+                    restoreBuiltIn(types.toIntArray())
                     val msg = if (restored > 0)
                         "已经把 ${types.size} 个小内置倒计时找回来啦（其中 $restored 个还原了原来的设置）"
                     else
@@ -1377,91 +1309,6 @@ class MainActivity : Activity() {
                     setOnClickListener { cb.isChecked = !cb.isChecked }
                 }
                 host.addView(row)
-            }
-            // ---------------- v149：你自己生成的「100年内倒计时」，一条一条单捡 ----------------
-            if (centuries.isNotEmpty()) {
-                host.addView(View(this).apply {
-                    setBackgroundColor(Color.parseColor("#33FFFFFF"))
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT, dp(1))
-                })
-                host.addView(TextView(this).apply {
-                    text = "你自己生成的「100年内倒计时」（${centuries.size} 条）"
-                    setTextColor(Color.parseColor("#00FFFF"))
-                    textSize = 13.5f
-                    setLineSpacing(0f, 1.2f)
-                    setShadowLayer(2f, 0f, 1f, Color.parseColor("#CC000000"))
-                    setPadding(dp(6), dp(10), dp(6), dp(4))
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT)
-                })
-                host.addView(TextView(this).apply {
-                    text = "每条都是删掉之前存下的快照，勾上哪条就找回哪条"
-                    setTextColor(Color.parseColor("#FFC6D5EF"))
-                    textSize = 12f
-                    setLineSpacing(0f, 1.2f)
-                    setShadowLayer(2f, 0f, 1f, Color.parseColor("#CC000000"))
-                    setPadding(dp(8), 0, dp(8), dp(4))
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT)
-                })
-                host.addView(selectAllBtn("这些全选上") {
-                    centuryBoxes.forEach { it.isChecked = true }
-                })
-                host.addView(selectAllBtn("这些全不选啦") {
-                    centuryBoxes.forEach { it.isChecked = false }
-                })
-                for ((i, bak) in centuries.withIndex()) {
-                    val cb = CheckBox(this).apply {
-                        isChecked = true
-                        minWidth = 0
-                        minimumWidth = 0
-                        includeFontPadding = false
-                        buttonTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#00FFFF"))
-                        setOnCheckedChangeListener { _, b -> centuryChecked[i] = b }
-                    }
-                    centuryBoxes.add(cb)
-                    val texts = LinearLayout(this).apply {
-                        orientation = LinearLayout.VERTICAL
-                        setPadding(dp(8), 0, 0, 0)
-                    }
-                    texts.addView(TextView(this).apply {
-                        text = bak.title.ifBlank { BuiltIn.nameOf(BuiltIn.CENTURY) }
-                        setTextColor(Color.parseColor("#FFFFFFFF"))
-                        textSize = 15f
-                        setLineSpacing(0f, 1.15f)
-                        setShadowLayer(2f, 0f, 1f, Color.parseColor("#CC000000"))
-                        layoutParams = LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.MATCH_PARENT,
-                            LinearLayout.LayoutParams.WRAP_CONTENT)
-                    })
-                    texts.addView(TextView(this).apply {
-                        text = "${sdf.format(Date(bak.builtInTargetMillis))} 起 · 每 ${spanText(bak.builtInSpanMillis)} 一轮"
-                        setTextColor(Color.parseColor("#FFC6D5EF"))
-                        textSize = 12.5f
-                        setLineSpacing(0f, 1.15f)
-                        setShadowLayer(2f, 0f, 1f, Color.parseColor("#CC000000"))
-                        layoutParams = LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.MATCH_PARENT,
-                            LinearLayout.LayoutParams.WRAP_CONTENT)
-                    })
-                    val row = LinearLayout(this).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        gravity = Gravity.CENTER_VERTICAL
-                        setPadding(0, dp(6), 0, dp(6))
-                        layoutParams = LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.MATCH_PARENT,
-                            LinearLayout.LayoutParams.WRAP_CONTENT)
-                        isClickable = true
-                        addView(cb)
-                        addView(texts, LinearLayout.LayoutParams(
-                            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-                        setOnClickListener { cb.isChecked = !cb.isChecked }
-                    }
-                    host.addView(row)
-                }
             }
         }
     }
