@@ -153,7 +153,11 @@ class AddEditActivity : Activity() {
         val pool = mutableListOf<Int>()
         if (c != null) pool.add(c.builtIn)
         for (t in pickable) {
-            if (t !in pool && (t == BuiltIn.NONE || existingAll.none { it.builtIn == t })) pool.add(t)
+            // ⚠️ v148：「100年内倒计时」v146 起可以存好几条（删除后还能在「找回小内置」里捞回来），
+            // 所以它不管列表里躺着几条都一样要摆出来 —— 早先跟着「已经有一条就不摆」的老规矩走，
+            // 于是刚生成完一条就再也选不到这一档，非得把那条删了才见得着。除它以外仍是「已有就不重复摆」。
+            val always = t == BuiltIn.NONE || t == BuiltIn.CENTURY
+            if (t !in pool && (always || existingAll.none { it.builtIn == t })) pool.add(t)
         }
         builtInSpinner.adapter = ArrayAdapter(
             this, android.R.layout.simple_spinner_item, pool.map { BuiltIn.nameOf(it) }
@@ -202,11 +206,18 @@ class AddEditActivity : Activity() {
             applyModeBlock()
         }
 
-        /** 把一颗整值下拉框填成 0..max（末尾带单位，如「10月」），填完那颗下拉框的选中位不动。 */
-        fun fillInt(sp: Spinner, max: Int, suffix: String) {
+        /**
+         * 把一颗整值下拉框从 from 填到 max（末尾带单位，如「10月」），填完那颗下拉框的选中位不动。
+         * ⚠️ v148 起「月 / 日」两颗传 from = 1（显示 1月..12月、1日..31日，显示值就是真实值），
+         * 时 / 分 / 秒三颗仍从 0 起（0 时 .. 23 时）。早先三颗都是从 0 起填的，读取时又给「月」减一、
+         * 给「日」加一，两套口径打架：初值那一下（selInt 里减 / 加一抵消）看着还行，
+         * 用户真去点选「10日」时那个 10 被当成了索引，读出来又 +1，存下去就成了 11 日，
+         * 六连框上写着的「10日」和存下去的目标差一天 —— 这就是报的「挑完时间自动加了 1 天」。
+         */
+        fun fillInt(sp: Spinner, max: Int, suffix: String, from: Int = 0) {
             sp.adapter = ArrayAdapter(
                 this, android.R.layout.simple_spinner_item,
-                (0..max).map { "$it$suffix" }.toTypedArray()
+                (from..max).map { "$it$suffix" }.toTypedArray()
             ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
         }
 
@@ -239,17 +250,18 @@ class AddEditActivity : Activity() {
                     this, android.R.layout.simple_spinner_item,
                     (y..y + 100).map { "${it}年" }.toTypedArray()
                 ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-                // ⚠️ 月份下拉框给的是 1..12（不是 0..11）：早先写成 0..11，挑「1月」时
-                // 抠出来的 0 会被当成 0 月，存下去就成了上一年的 12 月，自动生成的名字也写成
-                // 「2027年0月5日」这种，看着就是「目标时间与挑的不一样」。
-                fillInt(monthSpinner, 12, "月")
-                fillInt(daySpinner, 30, "日")
+                // ⚠️ 月份下拉框给的是 1..12、日是 1..31（不是 0 起）：早先写成 0 起，
+                // 抠出来的 0 会被当成 0 月 / 0 日，存下去就成了上一年的 12 月或者当月 1 号，
+                // 自动生成的名字也写成「2027年0月5日」这种，看着就是「目标时间与挑的不一样」。
+                fillInt(monthSpinner, 12, "月", 1)
+                fillInt(daySpinner, 31, "日", 1)
                 fillInt(hourSpinner, 23, "时")
                 fillInt(minuteSpinner, 59, "分")
                 fillInt(secondSpinner, 59, "秒")
                 selInt(yearSpinner, 0)
-                selInt(monthSpinner, now.get(Calendar.MONTH))
-                selInt(daySpinner, now.get(Calendar.DAY_OF_MONTH) - 1)
+                // 显示值就是真实值：月份要 +1（Calendar 的 MONTH 是 0..11），日子直接用
+                selInt(monthSpinner, now.get(Calendar.MONTH) + 1)
+                selInt(daySpinner, now.get(Calendar.DAY_OF_MONTH))
                 selInt(hourSpinner, now.get(Calendar.HOUR_OF_DAY))
                 selInt(minuteSpinner, now.get(Calendar.MINUTE))
                 selInt(secondSpinner, now.get(Calendar.SECOND))
@@ -257,7 +269,8 @@ class AddEditActivity : Activity() {
             // 日那颗跟着年月走：4 / 6 / 9 / 11 月 30 天，2 月平年 28 天、闰年 29 天，
             // 别让用户挑出一个并不存在的日子（Calendar 会因为溢出自动进到下一个月去）
             val y = intOf(yearSpinner)
-            val m = intOf(monthSpinner) - 1   // 下拉框给的是 1..12，Calendar 的月份是 0..11
+            val m = intOf(monthSpinner) - 1        // 下拉框给的是 1..12，Calendar 的月份是 0..11
+            // ↑ 只有算「这个月有几天」要走 Calendar 的 0..11，别处一律认「显示值就是真实值」
             val dim = when (m) {
                 0, 2, 4, 6, 7, 9, 11 -> 31
                 3, 5, 8, 10 -> 30
@@ -265,17 +278,20 @@ class AddEditActivity : Activity() {
                 else -> 31
             }
             if (daySpinner.count != dim) {
+                // 「日」那颗从 1 起填，填出来正好 dim 格（1 日 .. dim 日），选中位不动
                 val keep = intOf(daySpinner)
-                fillInt(daySpinner, dim - 1, "日")
-                selInt(daySpinner, keep.coerceAtLeast(0))
+                fillInt(daySpinner, dim, "日", 1)
+                selInt(daySpinner, keep.coerceIn(1, dim))
             }
         }
 
         /** 六连框当下凑出来的目标时刻（epoch 毫秒）。 */
         fun targetMillisFromPickers(): Long = Calendar.getInstance().apply {
             set(Calendar.YEAR, intOf(yearSpinner))
+            // v148 起「月 / 日」两颗的显示值就是真实值，这里不再减一 / 加一
+            // （只有上面算「本月几天」那处走 Calendar 的 0..11）
             set(Calendar.MONTH, intOf(monthSpinner) - 1)
-            set(Calendar.DAY_OF_MONTH, intOf(daySpinner) + 1)
+            set(Calendar.DAY_OF_MONTH, intOf(daySpinner))
             set(Calendar.HOUR_OF_DAY, intOf(hourSpinner))
             set(Calendar.MINUTE, intOf(minuteSpinner))
             set(Calendar.SECOND, intOf(secondSpinner))
@@ -298,7 +314,7 @@ class AddEditActivity : Activity() {
         // （setupTimeOfDayPickers(true) 在下面第 340 多行才跑），spinner.selectedItem 是 null，
         // "null" 抠掉非数字之后是空串，toInt() 当场抛 NumberFormatException —— 一进这个页面
         // （点「＋」新建倒计时）就闪退，Edit 形式的同类代码也曾因此炸过。
-        fun titleAuto(): String = "${intOf(yearSpinner)}年${intOf(monthSpinner)}月${intOf(daySpinner) + 1}日 " + String.format("%02d:%02d:%02d", intOf(hourSpinner), intOf(minuteSpinner), intOf(secondSpinner))
+        fun titleAuto(): String = "${intOf(yearSpinner)}年${intOf(monthSpinner)}月${intOf(daySpinner)}日 " + String.format("%02d:%02d:%02d", intOf(hourSpinner), intOf(minuteSpinner), intOf(secondSpinner))
 
         /** 名字自动生成：标题还是空的、还是这一型的默认名、还是上一次自动生成的那串，就照挑好的时间写；手打过的名字不动。 */
         // 本次编辑里自动写进名字的那一串（用户自己改过名之后就不再覆盖）
@@ -389,8 +405,8 @@ class AddEditActivity : Activity() {
             ensureYearRange(Calendar.getInstance().apply { timeInMillis = baseMillis }.get(Calendar.YEAR))
             val cal = Calendar.getInstance().apply { timeInMillis = baseMillis }
             selInt(yearSpinner, cal.get(Calendar.YEAR))
-            selInt(monthSpinner, cal.get(Calendar.MONTH))
-            selInt(daySpinner, cal.get(Calendar.DAY_OF_MONTH) - 1)
+            selInt(monthSpinner, cal.get(Calendar.MONTH) + 1)   // 显示值是 1..12，Calendar 的 MONTH 是 0..11
+            selInt(daySpinner, cal.get(Calendar.DAY_OF_MONTH))  // 下拉框显示的就是几号
             selInt(hourSpinner, cal.get(Calendar.HOUR_OF_DAY))
             selInt(minuteSpinner, cal.get(Calendar.MINUTE))
             selInt(secondSpinner, cal.get(Calendar.SECOND))
