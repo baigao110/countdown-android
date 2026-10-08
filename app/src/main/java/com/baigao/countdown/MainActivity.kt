@@ -60,7 +60,7 @@ class MainActivity : Activity() {
 
     /**
      * 内置小倒计时的出厂顺序（越靠前走得越少）：每分钟、每5分钟、每10分钟、每半小时、
-     * 每小时、当日 → 每周 → 当月 → 华都云境悦府 → GTA6。
+     * 每小时、当日 → 每周 → 当月 → 华都云境悦府 → GTA6 → 今年。
      * ⚠️ v154 把 v151 那批（每2~9分钟、每2~23 小时，共 29 个档）整个下线了：出厂顺序与
      *    「倒计时类型」里都摘掉，老数据里的那几十条由 dropRetiredSteps() 启动即清。
      *    数量与顺序都不写死在文案里（见下面几处文案），免得再添一档时又漏改一处。
@@ -73,7 +73,8 @@ class MainActivity : Activity() {
         BuiltIn.MINUTE,
         BuiltIn.FIVE_MIN,
         BuiltIn.TEN_MIN, BuiltIn.HALF_HOUR, BuiltIn.HOUR,
-        BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6
+        BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6,
+        BuiltIn.YEAR  // v165：今年倒计时
     )
 
     /**
@@ -91,6 +92,7 @@ class MainActivity : Activity() {
         BuiltIn.MONTH to "距离本月结束",
         BuiltIn.HUADU to "距离华都云境悦府交付（2026-10-31 00:00）",
         BuiltIn.GTA6 to "距离 GTA6 发售（2026-11-19 08:00）",
+        BuiltIn.YEAR to "距离今年结束",
     ).associate { it.first to Pair(BuiltIn.nameOf(it.first), it.second) }
 
     // 多选删除
@@ -156,7 +158,7 @@ class MainActivity : Activity() {
         }
     }
 
-    /** 读取本地数据，并确保出厂顺序里那些内置项（每分钟 / 每5分钟 / 每10分钟 / 每半小时 / 每小时 / 当日 / 每周 / 当月 / 华都云境悦府 / GTA6）始终存在。 */
+    /** 读取本地数据，并确保出厂顺序里那些内置项（每分钟 / 每5分钟 / 每10分钟 / 每半小时 / 每小时 / 当日 / 每周 / 当月 / 华都云境悦府 / GTA6 / 今年）始终存在。 */
     private fun loadData() {
         data = CountdownStore.load(this)
         // ⚠️ v159：「100年内倒计时」整个档位删干净了，老数据里躺着的那几条连同它们的
@@ -246,7 +248,7 @@ class MainActivity : Activity() {
     private fun ensureBuiltInTimers(): Boolean {
         // 新补的内置项一律插到列表最前面，所以按出厂顺序「倒着」补：
         // 最后一个 GTA6 先插、第一个每分钟最后插，补完列表里内置项的顺序正好是
-        // 出厂顺序（见 defaultBuiltInOrder）：每分钟 → 每5/10分钟 → 每半小时 → 每小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6
+        // 出厂顺序（见 defaultBuiltInOrder）：每分钟 → 每5/10分钟 → 每半小时 → 每小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6 → 今年
         var added = false
         for (t in defaultBuiltInOrder.reversed()) {
             val info = builtInInfo[t] ?: continue
@@ -1204,7 +1206,7 @@ class MainActivity : Activity() {
             }
             AlertDialog.Builder(this)
                 .setTitle("小内置都在")
-                .setMessage("内置小倒计时都乖乖在列表里啦。\n想让它们回到出厂顺序（每分钟 → 每5/10分钟 → 每半小时 → 每小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6）就点「主界面默认排序」。")
+                .setMessage("内置小倒计时都乖乖在列表里啦。\n想让它们回到出厂顺序（每分钟 → 每5/10分钟 → 每半小时 → 每小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6 → 今年）就点「主界面默认排序」。")
                 .setPositiveButton("主界面默认排序") { _, _ -> restoreDefaultOrder() }
                 .setNegativeButton("先留着", null)
                 .show()
