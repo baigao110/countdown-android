@@ -122,6 +122,16 @@ class MainActivity : Activity() {
                 // 一帧内共用一个 now，保证所有倒计时的秒数同时跳变（原先各行各自取时间，
                 // 跨秒边界时彼此差 1 秒，看起来像不同步）
                 val now = AlignedClock.now()
+                // v163：循环开着的那几条归零后自动重新起一轮（目标时间 / 已响铃都回位）：
+                // 存盘并把新目标同步给悬浮窗，列表和悬浮窗两边看到的都是重新起跑的那条
+                var loopRestarted = false
+                for (c in data) {
+                    if (c.advanceLoop(now)) loopRestarted = true
+                }
+                if (loopRestarted) {
+                    CountdownStore.save(this@MainActivity, data)
+                    syncService()
+                }
                 for (i in 0 until listContainer.childCount) {
                     (listContainer.getChildAt(i) as? CountdownRow)?.run {
                         refreshTime(now)
@@ -1625,8 +1635,8 @@ class MainActivity : Activity() {
             modeBtn.setOnClickListener { bound?.let { this@MainActivity.onModePick(it, modeBtn) } }
             animBtn.setOnClickListener { bound?.let { this@MainActivity.onAnimPick(it, animBtn) } }
             colorBtn.setOnClickListener { bound?.let { this@MainActivity.onColorPick(it, colorBtn) } }
-            // 提示音名称按钮：只给普通倒计时和「固定目标」内置项亮（周期滚动型内置倒计时
-            // 没有提示音可选，soundEditable() 一行就判定完，整颗按它收起）
+            // 提示音名称按钮：普通倒计时恒亮；内置这一档由它自己那颗「启用自定义提示音」
+            // 开关定（soundEditable() 一行就判定完），关着就整颗收起、归零只响默认提示音
             soundLabelBtn.visibility = if (c.soundEditable()) View.VISIBLE else View.GONE
             soundLabelBtn.text = SoundNames.name(context, c.soundUri)
             soundLabelBtn.setOnClickListener { bound?.let { this@MainActivity.onSound(it) } }
