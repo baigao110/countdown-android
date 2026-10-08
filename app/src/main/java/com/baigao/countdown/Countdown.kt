@@ -210,7 +210,10 @@ data class Countdown(
     var posY: Int = -1,                        // 悬浮窗位置 Y
     var builtIn: Int = BuiltIn.NONE,           // 内置倒计时类型（见 BuiltIn）；旧数据缺省为普通倒计时
     var builtInManual: Boolean = false,        // 内置项被用户自己指定了时刻：不再自动滚动，但仍是内置项
-    var animStyle: Int = AnimStyle.NONE        // 跳秒动画样式（见 AnimStyle）；旧数据缺省为无动画
+    var animStyle: Int = AnimStyle.NONE,        // 跳秒动画样式（见 AnimStyle）；旧数据缺省为无动画
+    var loop: Boolean = false,                 // v163：归零后要不要自动重新起一轮（true = 归零接着从头倒）
+    var loopSpan: Long = 0L,                   // v163：循环那一轮的总时长（毫秒）；loop 关着时用不上
+    var soundEnabled: Boolean = false,         // v163：内置项自己那颗「启用自定义提示音」开关；旧数据按老口径落地
 ) {
     /** 是否为系统内置倒计时（当日 / 当月 / 华都云境悦府 / GTA6）——内置项不可删除 */
     fun isBuiltIn(): Boolean = builtIn != BuiltIn.NONE
@@ -228,12 +231,13 @@ data class Countdown(
 
 
     /**
-     * 界面上摆不摆「挑自定义提示音」的那两颗按钮、以及卡片上那颗「提示音名称」：
-     * 周期滚动型内置项（每分钟 / 每小时 / 当日 …）一律不给挑 —— 它的目标时刻是系统
-     * 一格格往下跳的，归零照旧响默认提示音；固定目标内置项（华都云境悦府 / GTA6）
-     * 和普通倒计时两边照旧给着。
+     * v163：这一条要不要「启用自定义提示音」—— 编辑页那两颗挑音按钮、以及主界面卡片上
+     * 那颗「提示音名称」都按这一行说话。
+     * 普通倒计时恒为 true（照旧直接给着）；内置这一档由它自己那颗「启用自定义提示音」
+     * 开关定（soundEnabled）：开关开着才摆、才在主界面卡片上亮出那颗提示音按钮，
+     * 关着的一律收着、归零只响默认提示音。
      */
-    fun soundEditable(): Boolean = !isPeriodicBuiltIn()
+    fun soundEditable(): Boolean = if (builtIn == BuiltIn.NONE) true else soundEnabled
 
 
     /**
@@ -371,6 +375,28 @@ data class Countdown(
         val newTarget = cal.timeInMillis
         if (newTarget == targetTime) return false
         targetTime = newTarget
+        return true
+    }
+
+    /**
+     * v163：走到 0 之后要不要自动重新起一轮（只有「是否循环」开着才走这儿）。
+     *
+     * 循环开着的那条倒计时归零之后，目标时刻被推回「现在 + 这一轮的时长」、
+     * 「已归零 / 已响铃」那个标记同时复位 —— 于是它一轮一轮自己往下转，
+     * 每一轮到点照样响提示音、照样出归零通知；循环关着（默认）的一条都不动，
+     * 归零就停在 0，跟以前一模一样。
+     * 内置项的目标时刻本来就是系统一格格往下跳的（每小时 / 当日 / 每周 …），
+     * 这里基本不插手，只有华都云境悦府 / GTA6 这类「日子定死不动」的
+     * 过了那一刻之后才会被推回未来重新倒数。
+     *
+     * @return 这一轮是不是刚刚重新起过（true = 目标时刻被推到了未来）
+     */
+    fun advanceLoop(now: Long): Boolean {
+        if (!loop) return false
+        if (targetTime > now) return false
+        // 一轮从头走到尾的时长：老数据里没存过时先按 1 秒起，至少不会卡在 0 上不动
+        targetTime = now + loopSpan.coerceAtLeast(1000L)
+        finished = false      // 重新计时，这一轮到点照旧响铃
         return true
     }
 
