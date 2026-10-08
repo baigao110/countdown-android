@@ -150,6 +150,26 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp" />
 
+            <!-- v163：「是否循环」下拉框 —— 挑「是」这条倒计时归零之后自动重新起一轮（照自己
+                 这一轮的时长一轮轮往下转），挑「否」归零就停在 0。
+                 跟页面上其它下拉框同一套 GlassSpinner 样式。 -->
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="是否循环"
+                android:textColor="#00FFFF"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:layout_marginTop="16dp" />
+
+            <Spinner
+                android:id="@+id/loopSpinner"
+                style="@style/GlassSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp" />
+
             <!-- v162：「内置档位」这一级整个收掉了（v161 加的 builtInKindLabel / builtInKindSpinner
                  一并删掉），内置这一档由这条自己原来的类型定。 -->
 
