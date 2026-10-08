@@ -82,6 +82,12 @@ class CountdownService : Service() {
                         changed = true
                     }
                     val f = floaters[c.id]
+                    // v163：循环开着的那几条归零后自动重新起一轮（目标时间 / 已响铃都回位），
+                    // 悬浮窗跟着换成新目标，别让它一直停着 0 不动
+                    if (c.advanceLoop(now)) {
+                        changed = true
+                        f?.syncFrom(c)
+                    }
                     if (c.isVisible) {
                         if (f == null && canDrawOverlay()) {
                             addFloater(c)
