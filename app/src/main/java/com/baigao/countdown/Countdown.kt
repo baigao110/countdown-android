@@ -697,6 +697,16 @@ object CountdownFormatter {
     fun modeNames(builtIn: Int): Array<String> =
         availableModes(builtIn).map { MODE_NAMES[it] }.toTypedArray()
 
+    /**
+     * 全部显示模式的名称（v164：编辑页「内置倒计时」那颗下拉框整份列出，第几格就是几号模式）。
+     * 这些档位落到屏幕上照样走 effectiveMode 那套映射，「周模式」这种短周期用不上的
+     * 只是被系统按这条自己的格式渲染，不会摆出个干巴巴的「0周」。
+     */
+    fun allModeNames(): Array<String> = MODE_NAMES
+
+    /** 全部模式里第 index 格对应的模式号（越界贴边）。v164：内置档下拉框摆整份时用，格号即模式号。 */
+    fun rawModeAt(index: Int): Int = index.coerceIn(0, MODE_NAMES.size - 1)
+
     /** 模式号在可选列表中的位置（编辑页下拉框用）；不在列表里时退回第 0 项。 */
     fun modeIndex(mode: Int, builtIn: Int): Int {
         val i = availableModes(builtIn).indexOf(normalizeMode(mode))
