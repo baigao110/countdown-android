@@ -76,6 +76,8 @@ object BuiltIn {
     const val HOUR_21 = 39   // 每21小时倒计时：目标为下一个 21 小时边界（整点）
     const val HOUR_22 = 40   // 每22小时倒计时：目标为下一个 22 小时边界（整点）
     const val HOUR_23 = 41   // 每23小时倒计时：目标为下一个 23 小时边界（整点）
+    // ---- v165：新加的「今年倒计时」（编号只能末尾追加，绝不回收）----
+    const val YEAR = 42   // 今年倒计时：目标为「下一年 1 月 1 日 00:00:00」（今年结束的那一刻）
 
     /**
      * 固定目标时间的内置项（不随日期滚动）：返回 epoch 毫秒；滚动型内置项返回 null。
@@ -163,6 +165,7 @@ object BuiltIn {
         HOUR_21 -> "每21小时倒计时"
         HOUR_22 -> "每22小时倒计时"
         HOUR_23 -> "每23小时倒计时"
+        YEAR -> "今年倒计时"
         else -> "内置倒计时"
     }
 }
@@ -226,7 +229,8 @@ data class Countdown(
      */
     fun isPeriodicBuiltIn(): Boolean = builtIn in intArrayOf(
         BuiltIn.MINUTE, BuiltIn.FIVE_MIN, BuiltIn.TEN_MIN, BuiltIn.HALF_HOUR,
-        BuiltIn.HOUR, BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH
+        BuiltIn.HOUR, BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH,
+        BuiltIn.YEAR  // v165：今年倒计时与每小时同脉（归零自动进下一年），不给换音入口
     ) || builtIn in BuiltIn.MIN_2..BuiltIn.HOUR_23  // v151：每2~9分钟 / 每2~23小时，一律同款不给换音
 
 
@@ -363,6 +367,15 @@ data class Countdown(
                 cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
                 cal.add(Calendar.DAY_OF_MONTH, 7)
             }
+            BuiltIn.YEAR -> {
+                // 今年结束的那一刻：先把本年 1 月 1 日定位出来（时分秒先留着当前时刻好比较），
+                // 已经过去就进到下一年；跨过之后落到「下一年 1 月 1 日 00:00:00」。
+                // 与每小时那个路数一模一样：归零的那一帧系统自己把目标推到下一格，
+                // 不会停在 0 上，一轮一轮自己往下转（跨年自动接上下一年）。
+                cal.set(Calendar.MONTH, Calendar.JANUARY)
+                cal.set(Calendar.DAY_OF_MONTH, 1)
+                if (cal.timeInMillis <= System.currentTimeMillis()) cal.add(Calendar.YEAR, 1)
+            }
             else -> return false
         }
         // 统一为 00:00:00：既与「今日/本月结束的那一刻」语义一致，
@@ -476,6 +489,7 @@ data class Countdown(
             BuiltIn.DAY -> "距离${month}月${day}日${midnight}结束"
             BuiltIn.WEEK -> "距离${month}月${day}日${midnight}结束"
             BuiltIn.MONTH -> "距离${month}月1日${midnight}结束"
+            BuiltIn.YEAR -> "距离${month}月${day}日${midnight}结束"
             else -> remark
         }
     }
@@ -640,7 +654,8 @@ object CountdownFormatter {
         //   每周倒计时最长就 7 天，「周」恒 0，短周期那几个（每5分钟 / 每小时 / 当日 …）更是
         //   永远到不了一周，摆出来只会是干巴巴一个「0周」，所以一律收掉。
         if (builtIn != BuiltIn.MONTH && builtIn != BuiltIn.HUADU &&
-            builtIn != BuiltIn.GTA6 && builtIn != BuiltIn.NONE
+            builtIn != BuiltIn.GTA6 && builtIn != BuiltIn.NONE &&
+            builtIn != BuiltIn.YEAR  // v165：今年最长 365 天，「周」那截有数，与每月那档同待遇
         ) {
             blocked.add(MODE_WEEK)
             blocked.add(MODE_WEEK_DAY_HMS)
