@@ -93,9 +93,12 @@ class AddEditActivity : Activity() {
 
         colorSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, colorNames)
         (colorSpinner.adapter as ArrayAdapter<*>).setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        val modeNameList = CountdownFormatter.modeNames(pickedBuiltIn)
-        // 「标准模式」下拉框：唯一挑显示方式的地方，选项与该倒计时的可选模式一致
-        // （按类型自动收掉装不下的那几档），随时能改，没有次数限制。
+        // v164：内置这一档把「全部显示模式」一列到底（第几格就是几号模式，
+        // 挑哪个都按这条自己的格式落地）；普通倒计时照旧只摆它用得上的那几档
+        val modeNameList = if (pickedBuiltIn != BuiltIn.NONE) CountdownFormatter.allModeNames()
+            else CountdownFormatter.modeNames(pickedBuiltIn)
+        // 「显示模式」下拉框：唯一挑显示方式的地方，选项与该倒计时的可选模式一致
+        // （普通倒计时按类型自动收掉装不下的那几档；内置这一档整份模式都列着），随时能改，没次数限制。
         standardSpinner.adapter = ArrayAdapter(
             this, android.R.layout.simple_spinner_item, modeNameList
         )
@@ -177,6 +180,9 @@ class AddEditActivity : Activity() {
             }
             override fun onNothingSelected(parent: AdapterView<*>) {}
         }
+        // v164：下拉框上显示的那格就是这条的循环属性 —— 列表刚装好时 setSelection 未必落得下去，
+        // 这里按下拉框当前选中位（唯一口径）再读一次，界面显示与这条存的属性永远对得上
+        loop = loopSpinner.selectedItemPosition == 1
 
         // 界面上摆不摆「挑提示音」那一整块：周期滚动型内置项（每分钟 / 每小时 / 当日 …）一律不摆，
         // 普通倒计时、华都云境悦府、GTA6 这些能挑的照旧摆着；就这一行 soundEditable() 说话。
@@ -203,7 +209,10 @@ class AddEditActivity : Activity() {
 
         /** 这条倒计时只剩一种显示模式时，把「标准模式」标题 / 下拉框 / 那句说明一起收掉。 */
         fun applyModeBlock() {
-            val single = !CountdownFormatter.hasModeSwitch(pickedBuiltIn)
+            // v164：内置这一档下拉框恒展开（它摆的是整份模式，永远有得挑）；
+            // 普通倒计时照旧 —— 只剩一种显示时（例如「每分钟」）把标题 / 下拉框 / 说明一起收掉
+            val single = pickedBuiltIn != BuiltIn.NONE &&
+                !CountdownFormatter.hasModeSwitch(pickedBuiltIn)
             standardSpinner.visibility = if (single) View.GONE else View.VISIBLE
             findViewById<View>(R.id.standardModeLabel).visibility =
                 if (single) View.GONE else View.VISIBLE
@@ -230,15 +239,28 @@ class AddEditActivity : Activity() {
             soundToggleBlock.visibility = View.VISIBLE
             applySoundVisibility()
             // 模式下拉框的清单按类型重新算（每5分钟没有「时分秒」，每天没有「天数模式」…）
-            standardSpinner.adapter = ArrayAdapter(
-                this, android.R.layout.simple_spinner_item,
-                CountdownFormatter.modeNames(pickedBuiltIn)
-            ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-            standardSpinner.setSelection(
-                CountdownFormatter.modeIndex(
-                    c?.displayMode ?: CountdownFormatter.MODE_STANDARD, pickedBuiltIn
+            // v164：内置这一档整份模式都列着，用户一眼看得到全部显示模式；普通倒计时照旧
+            if (pickedBuiltIn != BuiltIn.NONE) {
+                standardSpinner.adapter = ArrayAdapter(
+                    this, android.R.layout.simple_spinner_item,
+                    CountdownFormatter.allModeNames()
+                ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+                standardSpinner.setSelection(
+                    CountdownFormatter.normalizeMode(
+                        c?.displayMode ?: CountdownFormatter.MODE_STANDARD
+                    )
                 )
-            )
+            } else {
+                standardSpinner.adapter = ArrayAdapter(
+                    this, android.R.layout.simple_spinner_item,
+                    CountdownFormatter.modeNames(pickedBuiltIn)
+                ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+                standardSpinner.setSelection(
+                    CountdownFormatter.modeIndex(
+                        c?.displayMode ?: CountdownFormatter.MODE_STANDARD, pickedBuiltIn
+                    )
+                )
+            }
             applyModeBlock()
         }
 
@@ -363,7 +385,9 @@ class AddEditActivity : Activity() {
                     if (pickedBuiltIn == BuiltIn.NONE) pickedBuiltIn = BuiltIn.HOUR
                 }
                 val t = titleEt.text.toString()
-                if (t.isBlank() || t == prev) titleEt.setText(BuiltIn.nameOf(pickedBuiltIn))
+                // v164：添加倒计时的名字默认就是空的 —— 只有编辑已有条目时才拿这一型的默认名兜底，
+                // 新建进这页不许顺手填一个「每小时」上去，用户想写就自己写
+                if (c != null && (t.isBlank() || t == prev)) titleEt.setText(BuiltIn.nameOf(pickedBuiltIn))
                 prevType = pickedBuiltIn
                 applyTypeDependant()
                 applyTimeOfDayVisibility()
@@ -429,8 +453,12 @@ class AddEditActivity : Activity() {
                         else finalTarget
                     existing.targetTime = sysTarget
                     existing.customColorArgb = colors[colorSpinner.selectedItemPosition]
-                    existing.displayMode =
+                    // v164：内置这一档摆的是整份模式，第几格就是几号，直接按格号取
+                    existing.displayMode = if (pickedBuiltIn != BuiltIn.NONE) {
+                        CountdownFormatter.rawModeAt(standardSpinner.selectedItemPosition)
+                    } else {
                         CountdownFormatter.modeAt(standardSpinner.selectedItemPosition, pickedBuiltIn)
+                    }
                     existing.animStyle = animSpinner.selectedItemPosition
                     existing.remark = remarkEt.text.toString()
                     // 倒计时类型本身也能改（普通 ↔ 内置随便换，换完它还是内置 / 还是普通倒计时）
@@ -470,9 +498,14 @@ class AddEditActivity : Activity() {
                         title = titleEt.text.toString(),
                         targetTime = target,
                         customColorArgb = colors[colorSpinner.selectedItemPosition],
-                        displayMode = CountdownFormatter.modeAt(
-                            standardSpinner.selectedItemPosition, pickedBuiltIn
-                        ),
+                        // v164：内置这一档摆的是整份模式，第几格就是几号模式
+                        displayMode = if (pickedBuiltIn != BuiltIn.NONE) {
+                            CountdownFormatter.rawModeAt(standardSpinner.selectedItemPosition)
+                        } else {
+                            CountdownFormatter.modeAt(
+                                standardSpinner.selectedItemPosition, pickedBuiltIn
+                            )
+                        },
                         animStyle = animSpinner.selectedItemPosition,
                         remark = remarkEt.text.toString(),
                         // 内置项的目标时刻由系统自己往下跳，这里填的日期时间只是个起点，
