@@ -78,19 +78,11 @@ class AddEditActivity : Activity() {
         // 界面上干脆不摆换音按钮。华都云境悦府、GTA6 这两个「固定目标」内置项不跟着日期跳，
         // 挑提示音照旧给它们留着，跟普通倒计时一路。
         //
-        // v161：「倒计时类型」这一级只摆两项 —— 普通倒计时 / 内置倒计时。
-        // 摆到「内置倒计时」时，下面那一级（内置档位）亮出来，具体挑哪一档就靠它
-        // （每分钟 / 每5分钟 / 每10分钟 / 每半小时 / 每小时 / 当日 / 每周 / 当月 /
-        // 华都云境悦府 / GTA6 这十个）。v151 那批每2~9分钟、每2~23 小时共 29 档
-        // 已于 v154 整体下线，这里不再列。
-        val pickable = listOf(
-            BuiltIn.MINUTE,
-            BuiltIn.FIVE_MIN,
-            BuiltIn.TEN_MIN, BuiltIn.HALF_HOUR, BuiltIn.HOUR,
-            BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6
-        )
+        // v162：「倒计时类型」这一级只摆两项 —— 普通倒计时 / 内置倒计时。
+        // 底下那一层「内置档位」v162 整个收掉了：是不是内置由这一级定，
+        // 内置这一档是哪一档由这条自己来 —— 编辑已有内置就是它原来那一档，新建是「每小时」兜底。
         // 这条倒计时在编辑 / 准备生成的类型（显示模式清单、提示音开关全按它走）。
-        // v161：界面上两级都从「普通倒计时」起 —— 新建、重装、首次装一律默认普通，
+        // v162：界面上这一级只分「普通 / 内置」两格 —— 新建、重装、首次装一律默认普通，
         // 不记上次挑的那一档；只有编辑已有条目时才带出它自己原来的类型。
         // 新建时先给个「每小时」兜底：用户下一步真去点「内置倒计时」，就落在这一档上。
         var pickedBuiltIn: Int = c?.builtIn ?: BuiltIn.HOUR
@@ -137,9 +129,6 @@ class AddEditActivity : Activity() {
         // 会把标题、下拉框和那句说明一起收掉 —— 没有第二档可挑就不占地方。
 
         val builtInSpinner = findViewById<Spinner>(R.id.builtInSpinner)
-        // v161：「内置档位」这一级（第二级下拉框）—— 只有「倒计时类型」挑到「内置倒计时」才亮。
-        val kindLabel = findViewById<TextView>(R.id.builtInKindLabel)
-        val kindSpinner = findViewById<Spinner>(R.id.builtInKindSpinner)
         val soundBlock = findViewById<View>(R.id.soundBlock)
         // ⚠️ v159：「100年内倒计时」那一档整个删了，v158 补的那颗「启用自定义提示音」
         // v159：「100年内倒计时」连带的那颗「启用自定义提示音」开关（它外面那一行 + 里头的 Switch）
@@ -160,19 +149,12 @@ class AddEditActivity : Activity() {
 
 
 
-        // v161：「倒计时类型」这一级就两项 —— 普通倒计时 / 内置倒计时。
-        // 一级只管「是不是内置」；具体哪一档在下面那一级（内置档位）里挑。
+        // v162：「倒计时类型」这一级就两项 —— 普通倒计时 / 内置倒计时，不再有下面那一层「内置档位」。
+        // 一级只管「是不是内置」：是内置的话，它这一档就用这条自己原来的类型（编辑已有内置）
+        // 或者新建时的「每小时」兜底，都不必再挑一遍档位。
         builtInSpinner.adapter = ArrayAdapter(
             this, android.R.layout.simple_spinner_item,
             listOf(BuiltIn.nameOf(BuiltIn.NONE), BUILT_IN_LABEL)
-        ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-        // 内置档位这一级：九个内置档一条不少；编辑已有内置项时把它自己那一档摆最前头，
-        // 免得在长长的下拉里翻半天找它自己。
-        val kindKinds = mutableListOf<Int>()
-        if (pickedBuiltIn != BuiltIn.NONE) kindKinds.add(pickedBuiltIn)
-        for (t in pickable) if (t !in kindKinds) kindKinds.add(t)
-        kindSpinner.adapter = ArrayAdapter(
-            this, android.R.layout.simple_spinner_item, kindKinds.map { BuiltIn.nameOf(it) }
         ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
 
         // 界面上摆不摆「挑提示音」那一整块：周期滚动型内置项（每分钟 / 每小时 / 当日 …）一律不摆，
@@ -195,19 +177,8 @@ class AddEditActivity : Activity() {
                 if (single) View.GONE else View.VISIBLE
         }
 
-        /**
-         * v161：「内置档位」那一级（第二级下拉框）跟着「倒计时类型」显隐 ——
-         * 一级挑到「内置倒计时」才亮，挑「普通倒计时」就收着（那一级定不了任何东西）。
-         */
-        fun applyKindBlock() {
-            val show = kindKinds.isNotEmpty() && pickedBuiltIn != BuiltIn.NONE
-            kindSpinner.visibility = if (show) View.VISIBLE else View.GONE
-            kindLabel.visibility = if (show) View.VISIBLE else View.GONE
-        }
-
         /** 倒计时类型一换，下面这几样跟着全换一遍。 */
         fun applyTypeDependant() {
-            applyKindBlock()
             soundOn = !BuiltIn.isRolling(pickedBuiltIn)
             // ⚠️ v146 只把那颗 Switch 摆出来，忘了它外面还套着一层 gone 的 soundToggleBlock、
             // v159：以及装着它的那一行，开关一直被父层挡着，看不见也点不到。
@@ -337,8 +308,9 @@ class AddEditActivity : Activity() {
             refreshSoundLabel()
         }
         // 类型换档：标题跟着换成这一型的默认名（原来那句还没改过就跟着换），下面这几块全刷一遍。
-        // v161：一级只分「普通 / 内置」两格 —— 挑「内置倒计时」时具体档位仍由下面那一级定，
-        // 这里不跟着去改它（免得初值那一下回调把档位冲掉），只把下面那一级亮出来、选中位补上。
+        // v162：一级只分「普通 / 内置」两格 —— 下面那一层「内置档位」已经收掉了，
+        // 挑「内置倒计时」就按这条自己原来的类型（编辑已有内置）或新建时的「每小时」兜底走，
+        // 这里不另挑档位。
         var prevType = pickedBuiltIn
         builtInSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
@@ -347,7 +319,6 @@ class AddEditActivity : Activity() {
                     pickedBuiltIn = BuiltIn.NONE
                 } else {
                     if (pickedBuiltIn == BuiltIn.NONE) pickedBuiltIn = BuiltIn.HOUR
-                    kindSpinner.setSelection(kindKinds.indexOf(pickedBuiltIn).coerceAtLeast(0))
                 }
                 val t = titleEt.text.toString()
                 if (t.isBlank() || t == prev) titleEt.setText(BuiltIn.nameOf(pickedBuiltIn))
@@ -365,23 +336,10 @@ class AddEditActivity : Activity() {
                 Toast.LENGTH_LONG
             ).show()
         }
-        // 内置档位换档：这一条就按挑的这一档走内置（显示模式、提示音、时刻全跟着它）
-        kindSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                val prev = BuiltIn.nameOf(prevType)
-                pickedBuiltIn = kindKinds[position]
-                val t = titleEt.text.toString()
-                if (t.isBlank() || t == prev) titleEt.setText(BuiltIn.nameOf(pickedBuiltIn))
-                prevType = pickedBuiltIn
-                applyTypeDependant()
-                applyTimeOfDayVisibility()
-            }
-            override fun onNothingSelected(parent: AdapterView<*>) {}
-        }
         // 六连框先按当前时刻填好（要先于下面「类型」下拉框那句 setSelection：那句会当场回调一次，
         // 那时六连框得已经有值；v159 这一整套现在恒收着，留着只是给老数据编辑页一个说得通的路）
         setupTimeOfDayPickers(true)
-        // 初始值：一级落在它自己那一格（普通 / 内置）；下面那级的选中位由上面那句回调补上
+        // 初始值：一级落在它自己那一格（普通 / 内置）
         builtInSpinner.setSelection(if (pickedBuiltIn == BuiltIn.NONE) 0 else 1)
         applyTimeOfDayVisibility()
         applyTypeDependant()
