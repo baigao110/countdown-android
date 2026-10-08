@@ -150,6 +150,27 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp" />
 
+            <!-- v161：「内置档位」这一级 —— 「倒计时类型」挑到「内置倒计时」才亮，
+                 决定这条到底是哪一档内置（每小时 / 每5分钟 / ... / GTA6）。 -->
+            <TextView
+                android:id="@+id/builtInKindLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="内置档位"
+                android:textColor="#00FFFF"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:layout_marginTop="16dp"
+                android:visibility="gone" />
+
+            <Spinner
+                android:id="@+id/builtInKindSpinner"
+                style="@style/GlassSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:visibility="gone" />
+
             <!-- v143：「倒计时类型」挑到「100年内倒计时」才亮出来的一整块 ——
                  六颗下拉框（年 / 月 / 日 / 时 / 分 / 秒，跟页面上其它下拉框同一套 GlassSpinner 样式，
                  一行六等分）定下这条倒计时挑的那个时刻；挑其它类型时整块收着。 -->
