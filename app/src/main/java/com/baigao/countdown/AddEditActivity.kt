@@ -180,9 +180,15 @@ class AddEditActivity : Activity() {
             }
             override fun onNothingSelected(parent: AdapterView<*>) {}
         }
-        // v164：下拉框上显示的那格就是这条的循环属性 —— 列表刚装好时 setSelection 未必落得下去，
-        // 这里按下拉框当前选中位（唯一口径）再读一次，界面显示与这条存的属性永远对得上
-        loop = loopSpinner.selectedItemPosition == 1
+        // v166：下拉框上显示的那格始终跟这条存着的循环属性对得上。
+        // ⚠️ 这里不能立刻去读 selectedItemPosition —— 界面这一帧还没量完高，那一位可能还是
+        // 「没选中」的 -1，一读就把这条存着的「是（归零重新计时）」当场抹成「否」：保存时照 loop
+        // 落盘，下一回打开又显示成「否」，怎么打开都对不上、还把属性改坏了。等这一帧过去再量，
+        // 量到 0 / 1 才回写，量到别的取值一律不动 —— 显示与这条存的属性永远一致。
+        loopSpinner.post {
+            val lpPos = loopSpinner.selectedItemPosition
+            if (lpPos == 0 || lpPos == 1) loop = lpPos == 1
+        }
 
         // 界面上摆不摆「挑提示音」那一整块：周期滚动型内置项（每分钟 / 每小时 / 当日 …）一律不摆，
         // 普通倒计时、华都云境悦府、GTA6 这些能挑的照旧摆着；就这一行 soundEditable() 说话。
@@ -409,6 +415,12 @@ class AddEditActivity : Activity() {
         builtInSpinner.setSelection(if (pickedBuiltIn == BuiltIn.NONE) 0 else 1)
         applyTimeOfDayVisibility()
         applyTypeDependant()
+        // v166：这一摆完再把「是否循环」那格兜底对一次（上一帧那次可能赶在界面量高之前）；
+        // 对上就完事，之后用户手挑才算数，谁也不许再拿它去改这条存的属性
+        loopSpinner.post {
+            val lpPos = loopSpinner.selectedItemPosition
+            if (lpPos == 0 || lpPos == 1) loop = lpPos == 1
+        }
         // 从卡片上的「提示音名称」按钮进来的：直接把系统铃声选择器顶上去，选完即存
         if (pickSoundOnly && c != null) {
             draftSoundUri = c.soundUri
