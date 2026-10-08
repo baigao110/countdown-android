@@ -12,6 +12,7 @@ import android.widget.Button
 import android.widget.DatePicker
 import android.widget.EditText
 import android.widget.Spinner
+import android.widget.Switch
 import android.widget.TextView
 import android.widget.TimePicker
 import android.widget.Toast
@@ -20,6 +21,9 @@ import java.util.Calendar
 // v161：「倒计时类型」这一级的第二项文案；第一项取 BuiltIn.nameOf(NONE)（普通倒计时），
 // 两处名字不会各写一份编错。
 private const val BUILT_IN_LABEL = "内置倒计时"
+// v163：「是否循环」下拉框那两格文案（选中位 0 = 归零就停住 / 1 = 归零重新计时）
+private const val LOOP_NO = "否（归零就停住）"
+private const val LOOP_YES = "是（归零重新计时）"
 
 class AddEditActivity : Activity() {
 
@@ -129,6 +133,8 @@ class AddEditActivity : Activity() {
         // 会把标题、下拉框和那句说明一起收掉 —— 没有第二档可挑就不占地方。
 
         val builtInSpinner = findViewById<Spinner>(R.id.builtInSpinner)
+        // v163：「是否循环」下拉框 —— 挑「是」归零就重新起一轮，挑「否」归零就停住
+        val loopSpinner = findViewById<Spinner>(R.id.loopSpinner)
         val soundBlock = findViewById<View>(R.id.soundBlock)
         // ⚠️ v159：「100年内倒计时」那一档整个删了，v158 补的那颗「启用自定义提示音」
         // v159：「100年内倒计时」连带的那颗「启用自定义提示音」开关（它外面那一行 + 里头的 Switch）
@@ -157,14 +163,42 @@ class AddEditActivity : Activity() {
             listOf(BuiltIn.nameOf(BuiltIn.NONE), BUILT_IN_LABEL)
         ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
 
+        // v163：「是否循环」下拉框（跟页面上其它下拉框同一套 GlassSpinner 样式）：
+        // 挑「是」这条归零后自己重新起一轮，挑「否」归零就停在 0
+        var loop = c?.loop ?: false
+        loopSpinner.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_item,
+            listOf(LOOP_NO, LOOP_YES)
+        ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        loopSpinner.setSelection(if (loop) 1 else 0)
+        loopSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                loop = position == 1
+            }
+            override fun onNothingSelected(parent: AdapterView<*>) {}
+        }
+
         // 界面上摆不摆「挑提示音」那一整块：周期滚动型内置项（每分钟 / 每小时 / 当日 …）一律不摆，
         // 普通倒计时、华都云境悦府、GTA6 这些能挑的照旧摆着；就这一行 soundEditable() 说话。
-        var soundOn = c?.soundEditable() ?: !BuiltIn.isRolling(pickedBuiltIn)
+        var soundOn = if (pickedBuiltIn != BuiltIn.NONE) (c?.soundEnabled ?: false) else true
+        // v163：那颗「启用自定义提示音」的开关现在只给内置倒计时摆 —— 普通倒计时照旧
+        // 直接给那两颗按钮，内置这一档开 / 关由它说话（关着主界面卡片上也不摆提示音按钮）
+        val soundToggleRow = findViewById<View>(R.id.soundToggleRow)
+        val soundToggle = findViewById<Switch>(R.id.soundToggle)
+        soundToggle.isChecked = soundOn
 
-        /** 提示音那两颗按钮跟着 soundOn（类型不是周期滚动内置项）显隐；顺手把按钮上的提示音名刷了。 */
+        /** 提示音那两颗按钮跟着 soundOn（内置这一档由那颗开关定）显隐；顺手把按钮上的提示音名刷了。 */
         fun applySoundVisibility() {
             soundBlock.visibility = if (soundOn) View.VISIBLE else View.GONE
             refreshSoundLabel()
+        }
+
+        soundToggle.setOnCheckedChangeListener { _, on ->
+            // 只有内置这一档摆着这颗开关；普通倒计时那层壳是全展开的，不跟着它动
+            if (pickedBuiltIn != BuiltIn.NONE) {
+                soundOn = on
+                applySoundVisibility()
+            }
         }
 
         /** 这条倒计时只剩一种显示模式时，把「标准模式」标题 / 下拉框 / 那句说明一起收掉。 */
@@ -179,13 +213,21 @@ class AddEditActivity : Activity() {
 
         /** 倒计时类型一换，下面这几样跟着全换一遍。 */
         fun applyTypeDependant() {
-            soundOn = !BuiltIn.isRolling(pickedBuiltIn)
+            // v163：内置这一档由那条自己那颗「启用自定义提示音」开关定；
+            // 普通倒计时那两颗按钮直接摆着，不用先勾开关
+            soundOn = if (pickedBuiltIn != BuiltIn.NONE) soundToggle.isChecked else true
+            soundToggle.isChecked = soundOn
             // ⚠️ v146 只把那颗 Switch 摆出来，忘了它外面还套着一层 gone 的 soundToggleBlock、
             // v159：以及装着它的那一行，开关一直被父层挡着，看不见也点不到。
             // v158 把这两层壳一起管起来：整块（开关那一行 + 下面那两颗按钮）只在「100年内倒计时」
             // 亮出来；其余能挑提示音的几档（普通 / 华都云境悦府 / GTA6）那两颗按钮直接摆，
             // 不用先勾开关；周期滚动型内置项整块收着。
             soundToggleBlock.visibility = if (soundOn) View.VISIBLE else View.GONE
+            // v163：那颗开关在内置这一档摆着（普通倒计时抽掉），下面那两颗按钮照 soundOn 走；
+            // 这一层壳恒展开，不然开关会被它自己的父层收掉（v158 那个 gone 父层的老坑）
+            soundToggleRow.visibility =
+                if (pickedBuiltIn != BuiltIn.NONE) View.VISIBLE else View.GONE
+            soundToggleBlock.visibility = View.VISIBLE
             applySoundVisibility()
             // 模式下拉框的清单按类型重新算（每5分钟没有「时分秒」，每天没有「天数模式」…）
             standardSpinner.adapter = ArrayAdapter(
@@ -366,6 +408,13 @@ class AddEditActivity : Activity() {
 
             // 存哪一档就是哪一档：停在「普通倒计时」就是普通倒计时，挑了某个内置档就按那个内置类型存。
             val finalBuiltIn = pickedBuiltIn
+            // v163：记下「这一轮有多长」（循环重新计时就照它一轮轮往下转）。
+            // 内置项那一刻是系统自己算的，得先问它；目标已经过去了就把这一轮顺延到
+            // 「现在 + 这一轮的时长」，免得刚存下去立刻又归零、一下接一下地响
+            val saveNow = AlignedClock.now()
+            val loopRef = if (finalBuiltIn != BuiltIn.NONE) (c?.currentBuiltInTarget() ?: target) else target
+            val loopSpan = (loopRef - saveNow).coerceAtLeast(1000L)
+            val finalTarget = if (loop && target <= saveNow) saveNow + loopSpan else target
 
             if (c != null) {
                 // 关键修复：必须修改“即将保存的 list”里的同一个对象，否则改的是
@@ -377,7 +426,7 @@ class AddEditActivity : Activity() {
                     // 用户在这里改的日期时间不会存盘，免得下一帧就被系统算出来的目标覆盖掉、看着像「白改」。
                     // 无论怎么改，它都还是内置倒计时（ BuiltIn 保持原样，绝不降级成普通倒计时）。
                     val sysTarget = if (existing.builtIn != BuiltIn.NONE) existing.currentBuiltInTarget()
-                        else target
+                        else finalTarget
                     existing.targetTime = sysTarget
                     existing.customColorArgb = colors[colorSpinner.selectedItemPosition]
                     existing.displayMode =
@@ -392,9 +441,13 @@ class AddEditActivity : Activity() {
                     if (oldType != BuiltIn.NONE && finalBuiltIn == BuiltIn.NONE &&
                         list.none { it.builtIn == oldType && it.id != existing.id }
                     ) dropBuiltInMarkAndBackup(oldType)
-                    // 提示音：周期滚动型内置项一律回到默认提示音（清掉可能存过的自定义音）；
-                    // 普通 / 华都云境悦府 / GTA6 这几档 soundOn 恒为 true，挑的那个就是挑的那个
+                    // 提示音：开关关着就回到默认提示音（清掉可能存过的自定义音），
+                    // 开着挑的那个就是挑的那个
+                    existing.soundEnabled = soundOn
                     existing.soundUri = if (soundOn) draftSoundUri else null
+                    // v163：循环 —— 归零要不要重新起一轮，以及这一轮的时长
+                    existing.loop = loop
+                    existing.loopSpan = loopSpan
                 }
             } else {
                 // 同类型内置项、或者同名的那条已经躺在列表里了：这一下不许再生成，
@@ -425,7 +478,11 @@ class AddEditActivity : Activity() {
                         // 内置项的目标时刻由系统自己往下跳，这里填的日期时间只是个起点，
                         // 存下来也不会把它降级成普通倒计时
                         builtIn = finalBuiltIn,
-                        soundUri = if (soundOn) draftSoundUri else null
+                        soundUri = if (soundOn) draftSoundUri else null,
+                        // v163：循环（归零重新计时）与内置项那颗「启用自定义提示音」开关
+                        loop = loop,
+                        loopSpan = loopSpan,
+                        soundEnabled = soundOn
                     )
                 )
             }
