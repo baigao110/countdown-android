@@ -488,6 +488,8 @@ object CountdownFormatter {
     const val MODE_DAY_HMS = 6  // 天时分秒模式：前面那截恒 0 天，短周期内置项用不上
     const val MODE_DAY_HM = 7   // 天时分模式：同「天时分秒模式」
     const val MODE_MINUTE_SECOND = 8  // 分秒模式：xx分xx秒（隐藏恒 0 的「时」那截）
+    const val MODE_WEEK = 9           // v160 周模式：xx周（只数还剩几个整周）
+    const val MODE_WEEK_DAY_HMS = 10  // v160 周天时分秒模式：xx周xx天xx时xx分xx秒
 
     val MODE_NAMES = arrayOf(
         "标准模式",     // 0  xx周xx天xx时xx分xx秒
@@ -498,7 +500,9 @@ object CountdownFormatter {
         "时分秒模式",   // 5  xx时xx分xx秒
         "天时分秒模式", // 6  xx天xx时xx分xx秒
         "天时分模式",   // 7  xx天xx时xx分
-        "分秒模式"     // 8  xx分xx秒
+        "分秒模式",    // 8  xx分xx秒
+        "周模式",           // 9  xx周
+        "周天时分秒模式"     // 10 xx周xx天xx时xx分xx秒
     )
 
     /**
@@ -517,8 +521,8 @@ object CountdownFormatter {
     }
 
     /**
-     * 模式号合法化：历史数据里可能残留已下线的模式号（例如原 9 = 周天时分秒模式），
-     * 统一回退到 0（标准模式），其文本格式与下线模式相同，用户无感。
+     * 模式号合法化：模式号越界（例如老数据里剩下的非法号）统一回退到 0（标准模式）。
+     * v160 起 9 = 周模式、10 = 周天时分秒模式，都是新档，没有再往下线的模式号了。
      */
     fun normalizeMode(mode: Int): Int = if (mode in MODE_NAMES.indices) mode else 0
 
@@ -563,7 +567,8 @@ object CountdownFormatter {
             // 当日倒计时（最多 24 小时）「时」有数，仍归上面那一档走「时分秒」。
             if (mode == 0 || mode == 4) MODE_MINUTE_SECOND else mode
         BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6 ->
-            if (mode == 0) 6 else mode   // 标准 / 天时分秒 → 天时分秒模式
+            // 标准模式 → 天时分秒模式；v160 起新加的「周模式 9 / 周天时分秒模式 10」原样放行
+            if (mode == 0) 6 else mode
         else -> {
             // v151 起每 2~9 分钟（最多 9 分钟）「时」那截恒 0，v151 那会儿标准模式给「分钟模式」；
             // v152 改成「分秒模式」（xx分xx秒），跟「每半小时」一个写法：秒要看得见。
@@ -597,10 +602,23 @@ object CountdownFormatter {
      *   于是 每 5 / 10 分钟、每半小时、每小时三档的可选档位完全一样：标准 / 分钟 / 秒。
      * - **当日倒计时**（最多 24 小时）：砍「天数模式」加上「天时分秒 / 天时分模式」，
      *   「小时模式」可以留（它能实实在在显示 x 时）。
-     * - 其余倒计时（每周 / 每月 / 华都云境悦府 / GTA6 / 普通）八档全开。
+     * - 每月 / 华都云境悦府 / GTA6 / 普通倒计时（v160 起）十档全开，包括新加的
+     *   「周模式」（xx周）与「周天时分秒模式」（xx周xx天xx时xx分xx秒）；
+     * - 每周倒计时最长就 7 天、「周」那截恒 0，其余短周期内置更是永远到不了一周，
+     *   这两档对它们一律收掉（不然只会摆出一个干巴巴的「0周」）。
      */
     fun availableModes(builtIn: Int): List<Int> {
         val blocked = HashSet<Int>()
+        // v160：周那两档只有「多月头」的（每月 / 华都云境悦府 / GTA6）和你自己建的普通倒计时用得上
+        //   —— 它们最长都得现几天、甚至几个月，「周」那截有数；
+        //   每周倒计时最长就 7 天，「周」恒 0，短周期那几个（每5分钟 / 每小时 / 当日 …）更是
+        //   永远到不了一周，摆出来只会是干巴巴一个「0周」，所以一律收掉。
+        if (builtIn != BuiltIn.MONTH && builtIn != BuiltIn.HUADU &&
+            builtIn != BuiltIn.GTA6 && builtIn != BuiltIn.NONE
+        ) {
+            blocked.add(MODE_WEEK)
+            blocked.add(MODE_WEEK_DAY_HMS)
+        }
         if (builtIn == BuiltIn.MINUTE) {
             // 每分钟倒计时：分钟与时分秒那两档只会显示成 0 分 / 0 时，全都砍掉
             blocked.add(MODE_MINUTE)
@@ -672,7 +690,10 @@ object CountdownFormatter {
         5 -> 5
         6 -> 6
         7 -> 7
-        else -> 8
+        8 -> 8
+        9 -> 9
+        10 -> 10
+        else -> 11
     }
 
     /**
@@ -716,8 +737,16 @@ object CountdownFormatter {
             6 -> dayHms(s)
             7 -> dayHm(s)
             8 -> ms(s)
+            9 -> week(s)
+            10 -> weekDayHms(s)
             else -> weekDayHms(s)
         }
+    }
+
+    /** v160：周模式只看还剩几个整周，天那截（<7天）不摆。 */
+    private fun week(s: Long): String {
+        val wks = s / (7L * 24 * 3600)
+        return String.format("%d周", wks)
     }
 
     private fun weekDayHms(s: Long): String {
