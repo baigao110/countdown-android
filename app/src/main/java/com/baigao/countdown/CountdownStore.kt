@@ -69,6 +69,12 @@ object CountdownStore {
             posY = o.optInt("posY", -1),
             builtIn = builtIn,
             builtInManual = o.optBoolean("builtInManual", false),
+            // v163：循环（归零重新计时）和内置项那颗「启用自定义提示音」开关。
+            // 旧数据一律按老口径落地 —— 循环全关着，提示音能不能挑沿用以前
+            // soundEditable() 那一条（普通倒计时与固定目标内置项恒能挑，滚动型恒不挑）
+            loop = o.optBoolean("loop", false),
+            loopSpan = o.optLong("loopSpan", 0L),
+            soundEnabled = o.optBoolean("soundEnabled", !BuiltIn.isRolling(builtIn)),
         )
     }
 
@@ -92,6 +98,9 @@ object CountdownStore {
         o.put("builtIn", c.builtIn)
         o.put("animStyle", c.animStyle)
         o.put("builtInManual", c.builtInManual)
+        o.put("loop", c.loop)
+        o.put("loopSpan", c.loopSpan)
+        o.put("soundEnabled", c.soundEnabled)
         return o
     }
 
