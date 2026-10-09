@@ -173,21 +173,21 @@ class AddEditActivity : Activity() {
             this, android.R.layout.simple_spinner_item,
             listOf(LOOP_NO, LOOP_YES)
         ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-        loopSpinner.setSelection(if (loop) 1 else 0)
+        // v167：显示必须跟这条存着的循环属性对齐 —— 存「是」打开就停在「是」，存「否」停在「否」。
+        // ⚠️ Spinner 在第一次 layout 之前 setSelection 会被适配器首装冲掉（显示回落到第 0 项「否」），
+        // 首装冒出来的第一记回调还会把 loop 写回 false —— 这就是存「是」的条目打开显示「否」的根因。
+        // 等这一帧过去再选（post 里 setSelection 才稳得住），手挑的回调由 loopReady 把门：
+        // 首装那记 position=0 与选上之前来的任何回调一律不认，显示与存的属性永远一致。
+        var loopReady = false
+        loopSpinner.post {
+            loopReady = true
+            loopSpinner.setSelection(if (loop) 1 else 0)
+        }
         loopSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                loop = position == 1
+                if (loopReady) loop = position == 1
             }
             override fun onNothingSelected(parent: AdapterView<*>) {}
-        }
-        // v166：下拉框上显示的那格始终跟这条存着的循环属性对得上。
-        // ⚠️ 这里不能立刻去读 selectedItemPosition —— 界面这一帧还没量完高，那一位可能还是
-        // 「没选中」的 -1，一读就把这条存着的「是（归零重新计时）」当场抹成「否」：保存时照 loop
-        // 落盘，下一回打开又显示成「否」，怎么打开都对不上、还把属性改坏了。等这一帧过去再量，
-        // 量到 0 / 1 才回写，量到别的取值一律不动 —— 显示与这条存的属性永远一致。
-        loopSpinner.post {
-            val lpPos = loopSpinner.selectedItemPosition
-            if (lpPos == 0 || lpPos == 1) loop = lpPos == 1
         }
 
         // 界面上摆不摆「挑提示音」那一整块：周期滚动型内置项（每分钟 / 每小时 / 当日 …）一律不摆，
@@ -415,12 +415,8 @@ class AddEditActivity : Activity() {
         builtInSpinner.setSelection(if (pickedBuiltIn == BuiltIn.NONE) 0 else 1)
         applyTimeOfDayVisibility()
         applyTypeDependant()
-        // v166：这一摆完再把「是否循环」那格兜底对一次（上一帧那次可能赶在界面量高之前）；
-        // 对上就完事，之后用户手挑才算数，谁也不许再拿它去改这条存的属性
-        loopSpinner.post {
-            val lpPos = loopSpinner.selectedItemPosition
-            if (lpPos == 0 || lpPos == 1) loop = lpPos == 1
-        }
+        // v167：「是否循环」那格的选中态由初始化块里的 post 统一钉住，这里不再兜底读 ——
+        // 早到的 position=0 会把存着的「是」污染成「否」，读这个动作本身就是坑
         // 从卡片上的「提示音名称」按钮进来的：直接把系统铃声选择器顶上去，选完即存
         if (pickSoundOnly && c != null) {
             draftSoundUri = c.soundUri
