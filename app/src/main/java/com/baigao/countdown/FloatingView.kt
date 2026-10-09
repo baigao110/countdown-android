@@ -42,6 +42,7 @@ class FloatingView(
     private val onClose: (Countdown) -> Unit,
     private val onOpacityChange: (Countdown, Int) -> Unit,
     private val onCollapseChange: (Countdown, Boolean) -> Unit,
+    private val onPauseChange: (Countdown) -> Unit,
     private val onPositionChange: (Countdown, Int, Int) -> Unit
 ) {
 
@@ -72,6 +73,7 @@ class FloatingView(
     private val nextBtn: Button = view.findViewById(R.id.fNextMode)
     private val editBtn: Button = view.findViewById(R.id.fEdit)
     private val hideBtn: Button = view.findViewById(R.id.fHide)
+    private val pauseBtn: Button = view.findViewById(R.id.fPause)
 
     private val params: WindowManager.LayoutParams
 
@@ -124,6 +126,13 @@ class FloatingView(
         prevBtn.setOnClickListener { safe("prevMode") { shiftMode(-1) } }
         nextBtn.setOnClickListener { safe("nextMode") { shiftMode(1) } }
         editBtn.setOnClickListener { safe("edit") { onEdit(data) } }
+        // v175：华都云境悦府购买正计时的「暂停 / 开始」切换，状态存盘后同步回主界面
+        pauseBtn.setOnClickListener { safe("pause") {
+            data.togglePause(System.currentTimeMillis())
+            onPauseChange(data)
+            applyPauseBtn()
+            update()
+        } }
 
         // 不透明度调节：拖动时实时把玻璃底调淡 / 调实，倒计时数字始终全亮不受影响
         opacityBar.max = 80
@@ -162,11 +171,21 @@ class FloatingView(
             applyModeText()
             applyTarget() // 内置项对齐目标时间，保证「目标:」显示当前周期
             applyRemark()
+            applyPauseBtn()
             opacityBar.progress = data.opacity.coerceIn(20, 100) - 20
             applyGlassAlpha() // 玻璃底按不透明度淡化，文字（含倒计时数字）不受影响
         } catch (e: Throwable) {
             Log.w(TAG, "bindTexts: ${e.message}")
         }
+    }
+
+    /** v175：悬浮窗里的「暂停 / 开始」按钮——只有华都云境悦府购买正计时这颗内置项才亮出来。 */
+    private fun applyPauseBtn() {
+        try {
+            val show = data.builtIn == BuiltIn.HUADU_BUY
+            pauseBtn.visibility = if (show) View.VISIBLE else View.GONE
+            if (show) pauseBtn.text = if (data.paused) "开始" else "暂停"
+        } catch (_: Throwable) { }
     }
 
     /** 递归收集整棵视图树上的背景 drawable（都 mutate 过，改 alpha 不会串到 App 内其它同款玻璃）。 */
@@ -314,6 +333,10 @@ class FloatingView(
             data.isVisible = c.isVisible
             data.opacity = c.opacity
             data.collapsed = c.collapsed
+            // v175：同步暂停状态，使「暂停 / 开始」在主界面与悬浮窗之间一致
+            data.paused = c.paused
+            data.pausedAt = c.pausedAt
+            data.accumPaused = c.accumPaused
             bindTexts()
             applyGlassAlpha()
             safeUpdateLayout()
