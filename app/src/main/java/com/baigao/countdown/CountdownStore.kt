@@ -76,6 +76,9 @@ object CountdownStore {
             loop = if (builtIn != BuiltIn.NONE) BuiltIn.isRolling(builtIn) else o.optBoolean("loop", false),
             loopSpan = o.optLong("loopSpan", 0L),
             soundEnabled = o.optBoolean("soundEnabled", !BuiltIn.isRolling(builtIn)),
+            paused = o.optBoolean("paused", false),
+            pausedAt = o.optLong("pausedAt", 0L),
+            accumPaused = o.optLong("accumPaused", 0L),
         )
     }
 
@@ -102,6 +105,9 @@ object CountdownStore {
         o.put("loop", c.loop)
         o.put("loopSpan", c.loopSpan)
         o.put("soundEnabled", c.soundEnabled)
+        o.put("paused", c.paused)
+        o.put("pausedAt", c.pausedAt)
+        o.put("accumPaused", c.accumPaused)
         return o
     }
 
