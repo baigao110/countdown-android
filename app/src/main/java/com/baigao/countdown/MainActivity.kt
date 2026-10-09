@@ -951,6 +951,14 @@ class MainActivity : Activity() {
         syncService()
     }
 
+    /** v175：华都云境悦府购买正计时的「暂停 / 开始」切换（仅该内置项生效）。 */
+    fun onPauseToggle(c: Countdown) {
+        c.togglePause(AlignedClock.now())
+        CountdownStore.save(this, data)
+        rebuildList()
+        syncService()
+    }
+
     /** 列表上点「显示模式」：弹出下拉框，在该条目可用的模式里直接挑一个（v156 起不再循环点）。 */
     fun onModePick(c: Countdown, anchor: View) {
         // 只剩一种显示模式时（例如每分钟），这颗按钮本身已经收起来了
@@ -1580,6 +1588,7 @@ class MainActivity : Activity() {
         lateinit var timeTail: TextView   // 最后一位数字之后的单位字样（如「秒」）
         lateinit var remarkTv: TextView
         lateinit var showBtn: Button
+        lateinit var pauseBtn: Button
         lateinit var modeBtn: Button
         lateinit var animBtn: Button
         lateinit var colorBtn: Button
@@ -1639,6 +1648,7 @@ class MainActivity : Activity() {
             timeTail = v.findViewById(R.id.itemTimeTail)
             remarkTv = v.findViewById(R.id.itemRemark)
             showBtn = v.findViewById(R.id.itemShow)
+            pauseBtn = v.findViewById(R.id.itemPause)
             modeBtn = v.findViewById(R.id.itemMode)
             animBtn = v.findViewById(R.id.itemAnim)
             colorBtn = v.findViewById(R.id.itemColor)
@@ -1675,6 +1685,8 @@ class MainActivity : Activity() {
             front.setPadding(side, side, rightPad, side)
 
             showBtn.setOnClickListener { bound?.let { this@MainActivity.onShowToggle(it) } }
+            // v175：华都云境悦府购买正计时的「暂停 / 开始」切换
+            pauseBtn.setOnClickListener { bound?.let { this@MainActivity.onPauseToggle(it) } }
             // v156：「显示模式 / 动画 / 颜色」三颗都改成点开下拉框挑（传自己当锚点，面板贴着它展开）
             modeBtn.setOnClickListener { bound?.let { this@MainActivity.onModePick(it, modeBtn) } }
             animBtn.setOnClickListener { bound?.let { this@MainActivity.onAnimPick(it, animBtn) } }
@@ -1899,6 +1911,13 @@ class MainActivity : Activity() {
             // 备注：内置项用随目标时间同步变化的实时备注（跨整点 / 跨天立刻跟着变）
             refreshRemark()
             showBtn.text = if (c.isVisible) "收起悬浮窗" else "展开悬浮窗"
+            // v175：华都云境悦府购买正计时才有「暂停 / 开始」按钮，按当前暂停态切换文字
+            if (c.builtIn == BuiltIn.HUADU_BUY) {
+                pauseBtn.visibility = View.VISIBLE
+                pauseBtn.text = if (c.paused) "开始" else "暂停"
+            } else {
+                pauseBtn.visibility = View.GONE
+            }
             // 动画效果名称显示在「显示 / 显示模式」按钮之后
             animBtn.text = AnimStyle.name(c.animStyle)
             // 「颜色」按钮上挂着当前色名（青色 / 品红 …），挑完当场就能看见换了色
