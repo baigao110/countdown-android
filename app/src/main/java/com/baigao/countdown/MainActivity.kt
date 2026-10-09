@@ -1651,6 +1651,11 @@ class MainActivity : Activity() {
             // 免得留一颗点下去什么也不动的按钮占地方
             modeBtn.visibility =
                 if (CountdownFormatter.hasModeSwitch(c.builtIn)) View.VISIBLE else View.GONE
+            // v173：这颗按钮动态显示当前选中的显示模式名（标准模式 / 毫秒模式 / 天时分秒 …），
+            // 跟悬浮窗顶部那行一个写法；点它依旧弹出下拉框挑模式
+            if (modeBtn.visibility == View.VISIBLE) {
+                modeBtn.text = CountdownFormatter.modeName(c.displayMode, c.builtIn)
+            }
             // 多选删除的勾选框：平时藏着，进了多选才每行都亮出来
             checkBox = v.findViewById(R.id.itemCheck)
             checkBox.visibility = if (this@MainActivity.multiSelectOn) View.VISIBLE else View.GONE
@@ -1896,6 +1901,10 @@ class MainActivity : Activity() {
             animBtn.text = AnimStyle.name(c.animStyle)
             // 「颜色」按钮上挂着当前色名（青色 / 品红 …），挑完当场就能看见换了色
             colorBtn.text = ThemeColors.nameOf(c.customColorArgb)
+            // v173：模式按钮同步显示当前模式名（切模式 / 换内置项后这一颗也要跟着变）
+            if (modeBtn.visibility == View.VISIBLE) {
+                modeBtn.text = CountdownFormatter.modeName(c.displayMode, c.builtIn)
+            }
         }
 
         /** 刷新备注行：内置项显示随目标时间同步变化的实时备注，其它项沿用原备注。 */
