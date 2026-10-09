@@ -147,10 +147,43 @@ class MainActivity : Activity() {
             // 对齐到整秒：每次刷新都落在整秒之后 15ms，所有条目同一瞬间跳秒，
             // 也不会像固定 1000ms 定时那样累积漂移（漂移会造成停顿、跳 2 秒）
             tickHandler.postDelayed(this, millisToNextSecond())
+            startMsTick()
         }
     }
 
-    /** 接收服务的“数据已变化”广播（如悬浮窗内隐藏/显示），实时刷新列表。 */
+    /**
+     * v172：毫秒模式专用高频副时钟。
+     * 主时钟每秒对齐整秒刷新，毫秒模式只能显示「秒×1000」的假毫秒；
+     * 这里以 ~30fps 只刷「正处在毫秒模式」的卡片，且只改时间文本（不播跳秒动画，避免 30fps 动画糊成一团）。
+     * 没有毫秒模式卡片时它自然停摆，不空转。
+     */
+    private val msTickHandler = Handler(Looper.getMainLooper())
+    private val msTickRunnable = object : Runnable {
+        override fun run() {
+            val live = System.currentTimeMillis()
+            for (i in 0 until listContainer.childCount) {
+                (listContainer.getChildAt(i) as? CountdownRow)?.let { row ->
+                    if (row.isMillisNow()) row.refreshTimeFast(live)
+                }
+            }
+            dragInfo?.ghost?.let { ghost ->
+                if (ghost.isMillisNow()) ghost.refreshTimeFast(live)
+            }
+            if (hasMillisModeItem()) msTickHandler.postDelayed(this, 33L)
+        }
+    }
+    private fun hasMillisModeItem(): Boolean =
+        data.any { CountdownFormatter.isMillisMode(it.displayMode, it.builtIn) }
+    /** 启动/续命毫秒副时钟（幂等：先撤再排，避免重复排期）。 */
+    private fun startMsTick() {
+        msTickHandler.removeCallbacks(msTickRunnable)
+        if (hasMillisModeItem()) msTickHandler.post(msTickRunnable)
+    }
+    private fun stopMsTick() {
+        msTickHandler.removeCallbacks(msTickRunnable)
+    }
+
+    /** 接收服务的"数据已变化"广播（如悬浮窗内隐藏/显示），实时刷新列表。 */
     private val dataChangedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             loadData()
@@ -534,6 +567,7 @@ class MainActivity : Activity() {
             android.util.Log.w("MainActivity", "registerReceiver: ${e.message}")
         }
         tickHandler.post(tickRunnable)
+        startMsTick()
         // 首次使用（或权限缺失且存在可见倒计时时）引导开启悬浮窗权限；
         // 无论有没有悬浮窗权限都要走一遍 syncService：锁屏通知不受悬浮窗权限限制，也得照常维护。
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
@@ -556,6 +590,7 @@ class MainActivity : Activity() {
             // 未注册时忽略
         }
         tickHandler.removeCallbacks(tickRunnable)
+        stopMsTick()
         // 离开前台就清掉常亮 Flag，避免关掉开关后 Flag 残留在已暂停的窗口上
         ScreenKeepOn.onPause(this)
         super.onPause()
@@ -1902,6 +1937,21 @@ class MainActivity : Activity() {
             lastTimeText = text
             applyTimeText(text, c.customColorArgb)
         }
+
+        /**
+         * v172：毫秒模式高频走秒专用——和 refreshTime 一样只刷时间文本，
+         * 但不播跳秒动画（30fps 下播动画只会糊成一团，纯数字快速递减更干净）。
+         */
+        fun refreshTimeFast(now: Long) {
+            val c = bound ?: return
+            val text = c.remainingText(now)
+            if (text == lastTimeText) return
+            lastTimeText = text
+            applyTimeText(text, c.customColorArgb)
+        }
+
+        /** v172：这条卡片当前是否正以毫秒模式显示（供毫秒副时钟判断要不要高频刷它）。 */
+        fun isMillisNow(): Boolean = bound?.let { CountdownFormatter.isMillisMode(it.displayMode, it.builtIn) } ?: false
 
         /** 把时间文本拆成三段显示。 */
         private fun applyTimeText(text: String, color: Int) {
