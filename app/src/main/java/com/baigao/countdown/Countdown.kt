@@ -530,6 +530,7 @@ object CountdownFormatter {
     const val MODE_MINUTE_SECOND = 8  // 分秒模式：xx分xx秒（隐藏恒 0 的「时」那截）
     const val MODE_WEEK = 9           // v160 周模式：xx周（只数还剩几个整周）
     const val MODE_WEEK_DAY_HMS = 10  // v160 周天时分秒模式：xx周xx天xx时xx分xx秒
+    const val MODE_MILLIS = 11        // v171 毫秒模式：xx毫秒（整段剩余时间的毫秒数）
 
     val MODE_NAMES = arrayOf(
         "标准模式",     // 0  xx周xx天xx时xx分xx秒
@@ -542,7 +543,8 @@ object CountdownFormatter {
         "天时分模式",   // 7  xx天xx时xx分
         "分秒模式",    // 8  xx分xx秒
         "周模式",           // 9  xx周
-        "周天时分秒模式"     // 10 xx周xx天xx时xx分xx秒
+        "周天时分秒模式",    // 10 xx周xx天xx时xx分xx秒
+        "毫秒模式",          // 11 xx毫秒
     )
 
     /**
@@ -606,7 +608,7 @@ object CountdownFormatter {
             // 与每 5 / 10 分钟、每半小时、每 2~9 分钟一个写法；
             // 当日倒计时（最多 24 小时）「时」有数，仍归上面那一档走「时分秒」。
             if (mode == 0 || mode == 4) MODE_MINUTE_SECOND else mode
-        BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6 ->
+        BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.YEAR ->
             // 标准模式 → 天时分秒模式；v160 起新加的「周模式 9 / 周天时分秒模式 10」原样放行
             if (mode == 0) 6 else mode
         else -> {
@@ -744,7 +746,8 @@ object CountdownFormatter {
         8 -> 8
         9 -> 9
         10 -> 10
-        else -> 11
+        11 -> 11
+        else -> 12
     }
 
     /**
@@ -790,6 +793,7 @@ object CountdownFormatter {
             8 -> ms(s)
             9 -> week(s)
             10 -> weekDayHms(s)
+            11 -> String.format("%d毫秒", (targetTime - now).coerceAtLeast(0L))
             else -> weekDayHms(s)
         }
     }
