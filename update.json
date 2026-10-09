@@ -1,8 +1,8 @@
 {
-    "versionCode": 154,
-    "versionName": "1.0.0.38",
-    "date": "2026-10-08",
-    "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
-    "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-    "note": "v166：修「是否循环」这一格读属性的时机 —— 打开编辑页那一下界面还没量完高，它读到的是「没选中」，一读就把这条存着的「是（归零重新计时）」抹成「否」，保存落盘后再次打开又显示成「否」，怎么打开都对不上、还把存着的属性改坏了；现在等这一帧过去再量，量到 0 / 1 才回写、别的取值一律不动，显示与这条存的属性永远一致；挑「是」的照样归零自己接着跑下一轮，挑「否」保存就回到归零停住的老样子。「＋」菜单「复」字、主界面卡片照旧同步，悬浮窗同步照旧。「复」字里找回来的老条目一行没动。"
+  "versionCode": 155,
+  "versionName": "1.0.0.38",
+  "date": "2026-10-09",
+  "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
+  "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
+  "note": "v167：把「是否循环」这一格的显示彻底钉死 —— 存「是」的条目打开编辑页直接停在「是」。上一轮修的读回写还漏了一处：下拉框在界面第一次画完之前做的选中会被适配器首装冲掉，显示自己回落到第 0 项「否」，首装冒出来的第一记回调还会把存着的「是（归零重新计时）」写回假。现在等这一帧画完再选、选上之前来的回调一律不认，显示与这条存的属性永远一致，存「是」的照样归零自己接着跑下一轮。悬浮窗同步照旧，老数据一行没动"
 }
