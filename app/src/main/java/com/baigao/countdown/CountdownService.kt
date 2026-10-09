@@ -284,6 +284,21 @@ class CountdownService : Service() {
                     Log.w(TAG, "onCollapseChange: ${e.message}")
                 }
             },
+            onPauseChange = { cd ->
+                try {
+                    val list = CountdownStore.load(this)
+                    val it = list.find { c -> c.id == cd.id }
+                    if (it != null) {
+                        it.paused = cd.paused
+                        it.pausedAt = cd.pausedAt
+                        it.accumPaused = cd.accumPaused
+                        CountdownStore.save(this, list)
+                    }
+                    sendDataChanged() // 通知主界面刷新（暂停按钮 → 开始）
+                } catch (e: Throwable) {
+                    Log.w(TAG, "onPauseChange: ${e.message}")
+                }
+            },
             onPositionChange = { cd, x, y ->
                 try {
                     val list = CountdownStore.load(this)
