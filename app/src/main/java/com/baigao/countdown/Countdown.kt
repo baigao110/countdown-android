@@ -227,6 +227,9 @@ data class Countdown(
     var loop: Boolean = false,                 // v163：归零后要不要自动重新起一轮（true = 归零接着从头倒）
     var loopSpan: Long = 0L,                   // v163：循环那一轮的总时长（毫秒）；loop 关着时用不上
     var soundEnabled: Boolean = false,         // v163：内置项自己那颗「启用自定义提示音」开关；旧数据按老口径落地
+    var paused: Boolean = false,               // v175：正计时暂停开关（仅华都云境悦府购买正计时用：暂停后计时冻结、缺失时间自动补齐）
+    var pausedAt: Long = 0L,                   // v175：暂停时刻（wall-clock 毫秒），仅在 paused 期间有效
+    var accumPaused: Long = 0L,                // v175：累计已暂停时长（毫秒），不含当前这一轮（pausedAt 起的还没算进去）
 ) {
     /** 是否为系统内置倒计时（当日 / 当月 / 华都云境悦府 / GTA6）——内置项不可删除 */
     fun isBuiltIn(): Boolean = builtIn != BuiltIn.NONE
@@ -424,6 +427,30 @@ data class Countdown(
     }
 
     /**
+     * v175：正计时（仅华都云境悦府购买正计时）的暂停 / 继续。
+     * 暂停时把当前读数钉死；继续时把「暂停期间流逝的墙钟时间」计入累计暂停时长，
+     * 于是显示从暂停那一刻接着走、缺失的暂停时长自动补齐（不计入流逝）。
+     */
+    fun pauseNow(pauseTime: Long) {
+        if (!BuiltIn.isCountUp(builtIn) || paused) return
+        paused = true
+        pausedAt = pauseTime
+    }
+
+    fun resumeNow(resumeTime: Long) {
+        if (!BuiltIn.isCountUp(builtIn) || !paused) return
+        accumPaused += (resumeTime - pausedAt).coerceAtLeast(0L)
+        paused = false
+        pausedAt = 0L
+    }
+
+    /** 暂停 / 继续 切换（仅正计时生效，其它类型是空操作）。 */
+    fun togglePause(time: Long) {
+        if (!BuiltIn.isCountUp(builtIn)) return
+        if (paused) resumeNow(time) else pauseNow(time)
+    }
+
+    /**
      * 剩余时间文本（内置项会先刷新目标时间，跨天 / 跨月自动进入下一周期）。
      *
      * @param now 由调用方一次性取好的“当前时刻”。**同一帧刷新多个倒计时必须共用同一个 now**，
@@ -506,8 +533,17 @@ data class Countdown(
 
     fun remainingText(now: Long = AlignedClock.now()): String {
         refreshBuiltInTarget()
+        // 正计时（华都云境悦府购买正计时）暂停处理：暂停期间冻结显示、缺失时间自动补齐。
+        // 把「已暂停的总秒数（取整）」折算成 targetTime 的偏移量，剩余时间 = now - (target + 偏移)，
+        // 于是暂停那一刻的读数被钉死、恢复后从那一刻继续（不把暂停时长算进流逝），跨进程重启也不跳。
+        var t = targetTime
+        if (BuiltIn.isCountUp(builtIn)) {
+            var pausedSecs = Math.floorDiv(accumPaused, 1000L)
+            if (paused) pausedSecs += Math.floorDiv(now - pausedAt, 1000L)
+            t = targetTime + pausedSecs * 1000L
+        }
         // 内置项的「标准模式」含义按类型定制（见 effectiveMode），所以必须把 builtIn 一起传下去
-        return CountdownFormatter.remaining(targetTime, displayMode, now, builtIn)
+        return CountdownFormatter.remaining(t, displayMode, now, builtIn)
     }
 }
 
