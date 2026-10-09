@@ -169,34 +169,42 @@ class AddEditActivity : Activity() {
 
         // v163：「是否循环」下拉框（跟页面上其它下拉框同一套 GlassSpinner 样式）：
         // 挑「是」这条归零后自己重新起一轮，挑「否」归零就停在 0
-        var loop = c?.loop ?: false
+        // v170：这一格从此只「如实显示」—— 内置倒计时由它的档位定死（每分钟 / 每小时 / 当日 /
+        // 每周 … 这些自己往下跳的档恒「是」；华都云境悦府 / GTA6 日子定死、归零停住，恒「否」），
+        // 点也点不动；只有普通倒计时才存自己那份 loop、由用户挑。
+        var loop = if (c != null && c.builtIn == BuiltIn.NONE) c.loop else false
         loopSpinner.adapter = ArrayAdapter(
             this, android.R.layout.simple_spinner_item,
             listOf(LOOP_NO, LOOP_YES)
         ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-        // v167 / v168 / v169：显示必须跟这条存着的循环属性对齐 —— 存「是」打开就停在「是」，存「否」停在「否」。
+        // v167 / v168 / v169 / v170：显示必须跟这条真正会不会循环对齐 —— 该「是」的打开就停在「是」，
+        // 该「否」的停在「否」，绝不统一落第 0 项「否」。
         // ⚠️ Spinner 在第一次 layout 之前 setSelection 会被适配器首装冲掉（显示回落到第 0 项「否」），
-        // 首装冒出来的第一记回调还会把 loop 写回 false —— 这就是存「是」的条目打开显示「否」的根因。
+        // 首装冒出来的第一记回调还会把 loop 写回 false —— 这就是该「是」的条目打开显示「否」的根因。
         // 三道保险：① post 里选（等这一帧画完再选才稳得住）；② 再补几记延迟复核，一直盯到 1.5 秒
-        // （个别机型会在更晚一帧又把选中态冲回第 0 格）；③ 落盘干脆不看这一格「此刻显示什么」——
-        // 用户没动过这颗下拉框就一律沿用这条自己存着的 loop（见 saveBtn 里的 loopNow）。
-        // 用户自己动过这颗下拉框之后就不再复核，免得把他挑的那一格又扳回去。
-        val wantLoop = if (loop) 1 else 0
+        // （个别机型会在更晚一帧又把选中态冲回第 0 格）；③ 落盘压根不看这一格「此刻显示什么」——
+        // 内置项一律按档位落、普通项用户没动过就沿用它自己存的 loop（见 saveBtn 里的 loopNow）。
         var loopTouched = false
-        // v169：只有「真在它上面点了一下」（抬手那一记）才算用户动过这一格；
-        // 手指从它上面划过去（被上层滚动手势接走）收到的是 ACTION_CANCEL，不算动过 ——
-        // 免得一次随手滑动就把复核关掉，那一格又由着系统冲。
+        // 这一格此刻「该」停在第几格：内置看档位（周期滚动型=是，华都 / GTA6=否），普通看它存着的 loop。
+        fun wantLoop(): Int =
+            if (pickedBuiltIn != BuiltIn.NONE) (if (BuiltIn.isRolling(pickedBuiltIn)) 1 else 0)
+            else (if (loop) 1 else 0)
+        // v170：内置这一格只显示、不许改 —— 手指落上去直接把事件吃掉（下拉不弹、值也不动）；
+        // 普通倒计时照旧：抬手那一记才算「用户动过」，复核就此收手、以他挑的那一格为准。
         loopSpinner.setOnTouchListener { _, ev ->
+            if (pickedBuiltIn != BuiltIn.NONE) return@setOnTouchListener true
             if (ev.actionMasked == MotionEvent.ACTION_UP) loopTouched = true
             false
         }
-        // v169：复核由三记加到六记、一直盯到 1.5 秒（0/120/300/600/1000/1500 毫秒）。
+        // v169 / v170：复核六记、一直盯到 1.5 秒（0/120/300/600/1000/1500 毫秒）。
         // 有些机型要到打开页面后更晚的一帧才把这一格冲回第 0 项「否」，前几记都赶不上；
-        // 一律「只要那一格没停在该停的格子上，就当场按这条自己存的属性选回去」。
+        // 一律「只要那一格没停在该停的格子上，就当场按档位 / 存值选回去」。
+        // 内置项永远复核（它天生不该被改）；普通项用户动过之后就不再插手。
         for (delay in longArrayOf(0L, 120L, 300L, 600L, 1000L, 1500L)) {
             loopSpinner.postDelayed({
-                if (!loopTouched && loopSpinner.selectedItemPosition != wantLoop) {
-                    loopSpinner.setSelection(wantLoop)
+                if (pickedBuiltIn != BuiltIn.NONE || !loopTouched) {
+                    val w = wantLoop()
+                    if (loopSpinner.selectedItemPosition != w) loopSpinner.setSelection(w)
                 }
             }, delay)
         }
@@ -279,6 +287,10 @@ class AddEditActivity : Activity() {
                 )
             }
             applyModeBlock()
+            // v170：类型一换，这一格也跟着换成新类型的循环值（内置按档位、普通按存着的）——
+            // 挑「内置倒计时」就按它那一档显示，换回「普通倒计时」就按普通那份 loop 显示。
+            loopTouched = false
+            loopSpinner.setSelection(wantLoop())
         }
 
         /**
@@ -455,10 +467,11 @@ class AddEditActivity : Activity() {
             // 内置项那一刻是系统自己算的，得先问它；目标已经过去了就把这一轮顺延到
             // 「现在 + 这一轮的时长」，免得刚存下去立刻又归零、一下接一下地响
             val saveNow = AlignedClock.now()
-            // v169：「是否循环」落盘不看这一格「此刻显示什么」，以「这条自己存着的属性」为准 ——
-            // 用户没动过这颗下拉框时一律沿用它原来存的 loop（显示万一被系统冲回第 0 项「否」，
-            // 也绝不会把存着的「是」写坏）；只有用户亲手动过（loopTouched）才以他挑的那一格为准。
-            val loopNow = if (loopTouched) (loopSpinner.selectedItemPosition == 1) else (c?.loop ?: false)
+            // v170：「是否循环」落盘 —— 内置倒计时一律按它的档位算（周期滚动型=是，华都 / GTA6=否），
+            // 这一格改不动它；普通倒计时才认这一格：用户动过就以他挑的为准，没动过沿用存着的 loop。
+            // （同样不看这一格「此刻显示什么」，显示万一被系统冲回第 0 项「否」也绝不会把「是」写坏。）
+            val loopNow = if (finalBuiltIn != BuiltIn.NONE) BuiltIn.isRolling(finalBuiltIn)
+                else if (loopTouched) (loopSpinner.selectedItemPosition == 1) else loop
             val loopRef = if (finalBuiltIn != BuiltIn.NONE) (c?.currentBuiltInTarget() ?: target) else target
             val loopSpan = (loopRef - saveNow).coerceAtLeast(1000L)
             val finalTarget = if (loopNow && target <= saveNow) saveNow + loopSpan else target
