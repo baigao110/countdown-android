@@ -78,6 +78,8 @@ object BuiltIn {
     const val HOUR_23 = 41   // 每23小时倒计时：目标为下一个 23 小时边界（整点）
     // ---- v165：新加的「今年倒计时」（编号只能末尾追加，绝不回收）----
     const val YEAR = 42   // 今年倒计时：目标为「下一年 1 月 1 日 00:00:00」（今年结束的那一刻）
+    // ---- v174：新加的「华都云境悦府购买正计时」（编号只能末尾追加，绝不回收）----
+    const val HUADU_BUY = 43  // 华都云境悦府购买正计时：固定起点 2025-04-20 17:30:00，正计时（自购买至今已过去多久）
 
     /**
      * 固定目标时间的内置项（不随日期滚动）：返回 epoch 毫秒；滚动型内置项返回 null。
@@ -90,6 +92,7 @@ object BuiltIn {
         when (type) {
             HUADU -> cal.set(2026, Calendar.OCTOBER, 31, 0, 0, 0)
             GTA6 -> cal.set(2026, Calendar.NOVEMBER, 19, 8, 0, 0)
+            HUADU_BUY -> cal.set(2025, Calendar.APRIL, 20, 17, 30, 0)
             else -> return null
         }
         cal.set(Calendar.MILLISECOND, 0)
@@ -101,7 +104,13 @@ object BuiltIn {
      * 每分钟 …），而不是像华都云境悦府、GTA6 那样日子早就定死不动。
      */
     fun isRolling(type: Int): Boolean =
-        type != NONE && type != HUADU && type != GTA6
+        type != NONE && type != HUADU && type != GTA6 && type != HUADU_BUY
+
+    /**
+     * 是否为「正计时」内置项：起点（targetTime）在过去，显示「自起点至今已过去多久」，
+     * 方向与普通倒计时相反（普通倒计时显示「距目标还剩多久」）。目前只有华都云境悦府购买正计时一档。
+     */
+    fun isCountUp(type: Int): Boolean = type == HUADU_BUY
 
     /**
      * 周期滚动型内置项的那「一格」有多长（分钟）：非周期滚动型恒返回 0。
@@ -130,6 +139,7 @@ object BuiltIn {
         MONTH -> "当月倒计时"
         HUADU -> "华都云境悦府倒计时"
         GTA6 -> "GTA6倒计时"
+        HUADU_BUY -> "华都云境悦府购买正计时"
         WEEK -> "每周倒计时"
         HOUR -> "每小时倒计时"
         HALF_HOUR -> "每半小时倒计时"
@@ -608,7 +618,7 @@ object CountdownFormatter {
             // 与每 5 / 10 分钟、每半小时、每 2~9 分钟一个写法；
             // 当日倒计时（最多 24 小时）「时」有数，仍归上面那一档走「时分秒」。
             if (mode == 0 || mode == 4) MODE_MINUTE_SECOND else mode
-        BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.YEAR ->
+        BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.HUADU_BUY, BuiltIn.YEAR ->
             // 标准模式 → 天时分秒模式；v160 起新加的「周模式 9 / 周天时分秒模式 10」原样放行
             if (mode == 0) 6 else mode
         else -> {
@@ -656,7 +666,8 @@ object CountdownFormatter {
         //   每周倒计时最长就 7 天，「周」恒 0，短周期那几个（每5分钟 / 每小时 / 当日 …）更是
         //   永远到不了一周，摆出来只会是干巴巴一个「0周」，所以一律收掉。
         if (builtIn != BuiltIn.MONTH && builtIn != BuiltIn.HUADU &&
-            builtIn != BuiltIn.GTA6 && builtIn != BuiltIn.NONE &&
+            builtIn != BuiltIn.GTA6 && builtIn != BuiltIn.HUADU_BUY &&
+            builtIn != BuiltIn.NONE &&
             builtIn != BuiltIn.YEAR  // v165：今年最长 365 天，「周」那截有数，与每月那档同待遇
         ) {
             blocked.add(MODE_WEEK)
@@ -782,7 +793,10 @@ object CountdownFormatter {
         // 例如 .237 / .881 / .512），同一瞬间算出的秒数会彼此错开 1 秒，且每个条目都在
         // 各自不同的时刻跳秒——表现为「有的 29 秒、有的 30 秒、有的 31 秒」。
         // 对齐整秒后，所有倒计时都在墙上时钟过整秒的同一瞬间一起跳秒。
-        var s = Math.floorDiv(targetTime, 1000L) - Math.floorDiv(now, 1000L)
+        // 正计时（如华都云境悦府购买正计时）：显示「自起点至今已过去多久」，方向与倒计时相反
+        val up = BuiltIn.isCountUp(builtIn)
+        var s = if (up) Math.floorDiv(now, 1000L) - Math.floorDiv(targetTime, 1000L)
+                else Math.floorDiv(targetTime, 1000L) - Math.floorDiv(now, 1000L)
         if (s < 0) s = 0
         return when (effectiveMode(mode, builtIn)) {
             0 -> weekDayHms(s)
@@ -798,7 +812,7 @@ object CountdownFormatter {
             10 -> weekDayHms(s)
             // v172：毫秒模式必须「真·毫秒」—— 主时钟是整秒对齐的，用它会把尾数抹平，
             // 显示成 185000 这种「秒×1000」的假毫秒；这里直接取当前真实时刻算剩余毫秒数。
-            11 -> String.format("%d毫秒", (targetTime - System.currentTimeMillis()).coerceAtLeast(0L))
+            11 -> String.format("%d毫秒", if (up) (System.currentTimeMillis() - targetTime).coerceAtLeast(0L) else (targetTime - System.currentTimeMillis()).coerceAtLeast(0L))
             else -> weekDayHms(s)
         }
     }
