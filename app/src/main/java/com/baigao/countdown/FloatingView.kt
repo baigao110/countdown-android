@@ -277,6 +277,22 @@ class FloatingView(
         }
     }
 
+    /**
+     * v172：毫秒模式高频走秒专用——只刷时间数字，不播跳秒动画、不刷新备注/目标/模式行
+     * （那些由每秒一次的 update(now) 负责即可），避免 30fps 动画风暴与无谓的文本重写。
+     */
+    fun updateTimeOnly(now: Long) {
+        try {
+            val text = data.remainingText(now)
+            if (text != lastTimeText) {
+                lastTimeText = text
+                applyTimeText(text)
+            }
+        } catch (e: Throwable) {
+            Log.w(TAG, "updateTimeOnly: ${e.message}")
+        }
+    }
+
     /** 把时间文本拆成三段，动画只作用于最后一位数字。 */
     private fun applyTimeText(text: String) {
         val (head, last, tail) = CountdownFormatter.splitLastDigit(text)
