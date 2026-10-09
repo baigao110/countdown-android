@@ -115,7 +115,7 @@ class CountdownService : Service() {
                             addFloater(c)
                         } else if (f != null) {
                             f.update(now)
-                            if (c.targetTime <= now && !c.finished) {
+                            if (c.targetTime <= now && !c.finished && !BuiltIn.isCountUp(c.builtIn)) {
                                 c.finished = true
                                 changed = true
                                 SoundPlayer.play(this, c.soundUri)
