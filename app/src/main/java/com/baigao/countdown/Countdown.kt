@@ -721,6 +721,9 @@ object CountdownFormatter {
      */
     fun allModeNames(): Array<String> = MODE_NAMES
 
+    /** v172：这条倒计时当前是否正以「毫秒模式」显示（含内置档 effectiveMode 映射后的结果）。 */
+    fun isMillisMode(mode: Int, builtIn: Int): Boolean = effectiveMode(mode, builtIn) == MODE_MILLIS
+
     /** 全部模式里第 index 格对应的模式号（越界贴边）。v164：内置档下拉框摆整份时用，格号即模式号。 */
     fun rawModeAt(index: Int): Int = index.coerceIn(0, MODE_NAMES.size - 1)
 
@@ -793,7 +796,9 @@ object CountdownFormatter {
             8 -> ms(s)
             9 -> week(s)
             10 -> weekDayHms(s)
-            11 -> String.format("%d毫秒", (targetTime - now).coerceAtLeast(0L))
+            // v172：毫秒模式必须「真·毫秒」—— 主时钟是整秒对齐的，用它会把尾数抹平，
+            // 显示成 185000 这种「秒×1000」的假毫秒；这里直接取当前真实时刻算剩余毫秒数。
+            11 -> String.format("%d毫秒", (targetTime - System.currentTimeMillis()).coerceAtLeast(0L))
             else -> weekDayHms(s)
         }
     }
