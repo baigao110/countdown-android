@@ -1,8 +1,8 @@
 {
-  "versionCode": 161,
+  "versionCode": 162,
   "versionName": "1.0.0.38",
   "date": "2026-10-09",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-  "note": "v173：卡片上的「显示模式」按钮从写死的「显示模式」四字改成动态显示当前选中的那一档名字—— 选「毫秒模式」就显示「毫秒模式」、选「天时分秒」就显示「天时分秒」、选「标准模式」就显示「标准模式」，一眼看清这条倒计时现在走的哪一档；点它照样弹下拉框挑模式，功能与风格不变。内置 / 普通 / 新建倒计时都生效，悬浮窗同步"
+  "note": "v174：新增内置「华都云境悦府购买正计时」—— 正计时（自2025-04-20 17:30购房起算，显示自购买至今已过去多久），风格与GTA6倒计时一致，全部显示模式可用，悬浮窗同步"
 }
