@@ -28,6 +28,28 @@ class CountdownService : Service() {
     private lateinit var wm: WindowManager
     private val floaters = HashMap<String, FloatingView>()
     private val handler = Handler(Looper.getMainLooper())
+
+    /** v172：毫秒模式专用高频副时钟（同 MainActivity 的 msTick，区别是这里驱动悬浮窗）。 */
+    private val msHandler = Handler(Looper.getMainLooper())
+    private val msTickRunnable = object : Runnable {
+        override fun run() {
+            val live = System.currentTimeMillis()
+            for (f in floaters.values) {
+                val c = f.data
+                if (c.isVisible && CountdownFormatter.isMillisMode(c.displayMode, c.builtIn)) {
+                    f.updateTimeOnly(live)
+                }
+            }
+            if (hasFloatingMillisMode()) msHandler.postDelayed(this, 33L)
+        }
+    }
+    private fun hasFloatingMillisMode(): Boolean =
+        floaters.values.any { it.data.isVisible && CountdownFormatter.isMillisMode(it.data.displayMode, it.data.builtIn) }
+    /** 启动/续命毫秒副时钟（幂等）。 */
+    private fun kickMsTick() {
+        msHandler.removeCallbacks(msTickRunnable)
+        if (hasFloatingMillisMode()) msHandler.post(msTickRunnable)
+    }
     private var running = false
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -117,6 +139,7 @@ class CountdownService : Service() {
                 Log.w(TAG, "tick error: ${e.message}")
             }
             tick()
+            kickMsTick()
         }, millisToNextSecond())
     }
 
