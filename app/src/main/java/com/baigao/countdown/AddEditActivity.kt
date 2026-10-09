@@ -5,6 +5,7 @@ import android.content.Intent
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Bundle
+import android.view.MotionEvent
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -173,20 +174,26 @@ class AddEditActivity : Activity() {
             this, android.R.layout.simple_spinner_item,
             listOf(LOOP_NO, LOOP_YES)
         ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-        // v167 / v168：显示必须跟这条存着的循环属性对齐 —— 存「是」打开就停在「是」，存「否」停在「否」。
+        // v167 / v168 / v169：显示必须跟这条存着的循环属性对齐 —— 存「是」打开就停在「是」，存「否」停在「否」。
         // ⚠️ Spinner 在第一次 layout 之前 setSelection 会被适配器首装冲掉（显示回落到第 0 项「否」），
         // 首装冒出来的第一记回调还会把 loop 写回 false —— 这就是存「是」的条目打开显示「否」的根因。
-        // v168 两道保险：① post 里选（等这一帧画完再选才稳得住）；② 再补几记延迟复核
-        // （个别机型会在更晚一帧又把选中态冲回第 0 格）。用户自己动过这颗下拉框之后就不再复核，
-        // 免得把他挑的那一格又扳回去。保存时一律以「下拉框此刻显示的」为准（见 saveBtn 里的 loopNow），
-        // 显示什么就存什么，绝不再让回调时序说了算。
+        // 三道保险：① post 里选（等这一帧画完再选才稳得住）；② 再补几记延迟复核，一直盯到 1.5 秒
+        // （个别机型会在更晚一帧又把选中态冲回第 0 格）；③ 落盘干脆不看这一格「此刻显示什么」——
+        // 用户没动过这颗下拉框就一律沿用这条自己存着的 loop（见 saveBtn 里的 loopNow）。
+        // 用户自己动过这颗下拉框之后就不再复核，免得把他挑的那一格又扳回去。
         val wantLoop = if (loop) 1 else 0
         var loopTouched = false
-        loopSpinner.setOnTouchListener { _, _ ->
-            loopTouched = true
+        // v169：只有「真在它上面点了一下」（抬手那一记）才算用户动过这一格；
+        // 手指从它上面划过去（被上层滚动手势接走）收到的是 ACTION_CANCEL，不算动过 ——
+        // 免得一次随手滑动就把复核关掉，那一格又由着系统冲。
+        loopSpinner.setOnTouchListener { _, ev ->
+            if (ev.actionMasked == MotionEvent.ACTION_UP) loopTouched = true
             false
         }
-        for (delay in longArrayOf(0L, 220L, 700L)) {
+        // v169：复核由三记加到六记、一直盯到 1.5 秒（0/120/300/600/1000/1500 毫秒）。
+        // 有些机型要到打开页面后更晚的一帧才把这一格冲回第 0 项「否」，前几记都赶不上；
+        // 一律「只要那一格没停在该停的格子上，就当场按这条自己存的属性选回去」。
+        for (delay in longArrayOf(0L, 120L, 300L, 600L, 1000L, 1500L)) {
             loopSpinner.postDelayed({
                 if (!loopTouched && loopSpinner.selectedItemPosition != wantLoop) {
                     loopSpinner.setSelection(wantLoop)
@@ -448,8 +455,10 @@ class AddEditActivity : Activity() {
             // 内置项那一刻是系统自己算的，得先问它；目标已经过去了就把这一轮顺延到
             // 「现在 + 这一轮的时长」，免得刚存下去立刻又归零、一下接一下地响
             val saveNow = AlignedClock.now()
-            // v168：「是否循环」一律以「下拉框此刻显示的」为准 —— 看到什么就存什么，显示与落盘同一个口径
-            val loopNow = loopSpinner.selectedItemPosition == 1
+            // v169：「是否循环」落盘不看这一格「此刻显示什么」，以「这条自己存着的属性」为准 ——
+            // 用户没动过这颗下拉框时一律沿用它原来存的 loop（显示万一被系统冲回第 0 项「否」，
+            // 也绝不会把存着的「是」写坏）；只有用户亲手动过（loopTouched）才以他挑的那一格为准。
+            val loopNow = if (loopTouched) (loopSpinner.selectedItemPosition == 1) else (c?.loop ?: false)
             val loopRef = if (finalBuiltIn != BuiltIn.NONE) (c?.currentBuiltInTarget() ?: target) else target
             val loopSpan = (loopRef - saveNow).coerceAtLeast(1000L)
             val finalTarget = if (loopNow && target <= saveNow) saveNow + loopSpan else target
