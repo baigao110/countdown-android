@@ -1,8 +1,8 @@
 {
-  "versionCode": 159,
+  "versionCode": 160,
   "versionName": "1.0.0.38",
   "date": "2026-10-09",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-  "note": "v171：给所有倒计时都加了一档「毫秒模式」—— 格式就是「xx毫秒」，把整段倒计时以毫秒为单位一口气写出来（比如还剩 3 分 5 秒就显示「185000毫秒」）。内置倒计时（每分钟 / 每5分钟 / 每10分钟 / 每半小时 / 每小时 / 当日 / 每周 / 当月 / 华都云境悦府 / GTA6 / 今年 …）、普通倒计时、新建的条目，显示模式里都多了这一档，挑哪个都一样按整毫秒落地、跳秒风格与其它档完全一致。另外把「今年倒计时」的标准模式从「xx周xx天xx时xx分xx秒」改成「xx天xx时xx分xx秒」，不再把那截永远在涨的「周」摆出来。悬浮窗同步照旧"
+  "note": "v172：修复毫秒模式——之前它只显示「秒×1000」的假毫秒（尾数永远 000），现在改成真正的剩余毫秒数并约 30fps 实时递减（如 185432毫秒），内置/普通/新建倒计时都生效，悬浮窗同步"
 }
