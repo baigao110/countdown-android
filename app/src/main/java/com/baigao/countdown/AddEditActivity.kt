@@ -173,21 +173,25 @@ class AddEditActivity : Activity() {
             this, android.R.layout.simple_spinner_item,
             listOf(LOOP_NO, LOOP_YES)
         ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-        // v167：显示必须跟这条存着的循环属性对齐 —— 存「是」打开就停在「是」，存「否」停在「否」。
+        // v167 / v168：显示必须跟这条存着的循环属性对齐 —— 存「是」打开就停在「是」，存「否」停在「否」。
         // ⚠️ Spinner 在第一次 layout 之前 setSelection 会被适配器首装冲掉（显示回落到第 0 项「否」），
         // 首装冒出来的第一记回调还会把 loop 写回 false —— 这就是存「是」的条目打开显示「否」的根因。
-        // 等这一帧过去再选（post 里 setSelection 才稳得住），手挑的回调由 loopReady 把门：
-        // 首装那记 position=0 与选上之前来的任何回调一律不认，显示与存的属性永远一致。
-        var loopReady = false
-        loopSpinner.post {
-            loopReady = true
-            loopSpinner.setSelection(if (loop) 1 else 0)
+        // v168 两道保险：① post 里选（等这一帧画完再选才稳得住）；② 再补几记延迟复核
+        // （个别机型会在更晚一帧又把选中态冲回第 0 格）。用户自己动过这颗下拉框之后就不再复核，
+        // 免得把他挑的那一格又扳回去。保存时一律以「下拉框此刻显示的」为准（见 saveBtn 里的 loopNow），
+        // 显示什么就存什么，绝不再让回调时序说了算。
+        val wantLoop = if (loop) 1 else 0
+        var loopTouched = false
+        loopSpinner.setOnTouchListener { _, _ ->
+            loopTouched = true
+            false
         }
-        loopSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                if (loopReady) loop = position == 1
-            }
-            override fun onNothingSelected(parent: AdapterView<*>) {}
+        for (delay in longArrayOf(0L, 220L, 700L)) {
+            loopSpinner.postDelayed({
+                if (!loopTouched && loopSpinner.selectedItemPosition != wantLoop) {
+                    loopSpinner.setSelection(wantLoop)
+                }
+            }, delay)
         }
 
         // 界面上摆不摆「挑提示音」那一整块：周期滚动型内置项（每分钟 / 每小时 / 当日 …）一律不摆，
@@ -444,9 +448,11 @@ class AddEditActivity : Activity() {
             // 内置项那一刻是系统自己算的，得先问它；目标已经过去了就把这一轮顺延到
             // 「现在 + 这一轮的时长」，免得刚存下去立刻又归零、一下接一下地响
             val saveNow = AlignedClock.now()
+            // v168：「是否循环」一律以「下拉框此刻显示的」为准 —— 看到什么就存什么，显示与落盘同一个口径
+            val loopNow = loopSpinner.selectedItemPosition == 1
             val loopRef = if (finalBuiltIn != BuiltIn.NONE) (c?.currentBuiltInTarget() ?: target) else target
             val loopSpan = (loopRef - saveNow).coerceAtLeast(1000L)
-            val finalTarget = if (loop && target <= saveNow) saveNow + loopSpan else target
+            val finalTarget = if (loopNow && target <= saveNow) saveNow + loopSpan else target
 
             if (c != null) {
                 // 关键修复：必须修改“即将保存的 list”里的同一个对象，否则改的是
@@ -482,7 +488,7 @@ class AddEditActivity : Activity() {
                     existing.soundEnabled = soundOn
                     existing.soundUri = if (soundOn) draftSoundUri else null
                     // v163：循环 —— 归零要不要重新起一轮，以及这一轮的时长
-                    existing.loop = loop
+                    existing.loop = loopNow
                     existing.loopSpan = loopSpan
                 }
             } else {
@@ -521,7 +527,7 @@ class AddEditActivity : Activity() {
                         builtIn = finalBuiltIn,
                         soundUri = if (soundOn) draftSoundUri else null,
                         // v163：循环（归零重新计时）与内置项那颗「启用自定义提示音」开关
-                        loop = loop,
+                        loop = loopNow,
                         loopSpan = loopSpan,
                         soundEnabled = soundOn
                     )
