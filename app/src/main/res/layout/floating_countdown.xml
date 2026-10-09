@@ -42,6 +42,20 @@
             android:textColor="#9FD8FF" />
 
         <Button
+            android:id="@+id/fPause"
+            android:layout_width="34dp"
+            android:layout_height="26dp"
+            android:layout_marginStart="4dp"
+            android:text="暂停"
+            android:textSize="10sp"
+            android:padding="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:background="@drawable/glass_chip"
+            android:textColor="#9FD8FF"
+            android:visibility="gone" />
+
+        <Button
             android:id="@+id/fDrawer"
             android:layout_width="34dp"
             android:layout_height="26dp"
