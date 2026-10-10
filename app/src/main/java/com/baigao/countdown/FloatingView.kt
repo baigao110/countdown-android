@@ -42,7 +42,8 @@ class FloatingView(
     private val onClose: (Countdown) -> Unit,
     private val onOpacityChange: (Countdown, Int) -> Unit,
     private val onCollapseChange: (Countdown, Boolean) -> Unit,
-    private val onPositionChange: (Countdown, Int, Int) -> Unit
+    private val onPositionChange: (Countdown, Int, Int) -> Unit,
+    private val onPauseChange: (Countdown) -> Unit
 ) {
 
     private val view: View = LayoutInflater.from(context).inflate(R.layout.floating_countdown, null)
@@ -72,6 +73,7 @@ class FloatingView(
     private val nextBtn: Button = view.findViewById(R.id.fNextMode)
     private val editBtn: Button = view.findViewById(R.id.fEdit)
     private val hideBtn: Button = view.findViewById(R.id.fHide)
+    private val pauseBtn: Button = view.findViewById(R.id.fPause)
 
     private val params: WindowManager.LayoutParams
 
@@ -124,6 +126,8 @@ class FloatingView(
         prevBtn.setOnClickListener { safe("prevMode") { shiftMode(-1) } }
         nextBtn.setOnClickListener { safe("nextMode") { shiftMode(1) } }
         editBtn.setOnClickListener { safe("edit") { onEdit(data) } }
+        // v177：华都云境悦府购买正计时的「暂停 / 开始」（玻璃质感，与 GTA6 展开悬浮窗同一路数）
+        pauseBtn.setOnClickListener { safe("pause") { data.togglePause(); onPauseChange(data); applyPauseBtn() } }
 
         // 不透明度调节：拖动时实时把玻璃底调淡 / 调实，倒计时数字始终全亮不受影响
         opacityBar.max = 80
@@ -162,10 +166,25 @@ class FloatingView(
             applyModeText()
             applyTarget() // 内置项对齐目标时间，保证「目标:」显示当前周期
             applyRemark()
+            applyPauseBtn()
             opacityBar.progress = data.opacity.coerceIn(20, 100) - 20
             applyGlassAlpha() // 玻璃底按不透明度淡化，文字（含倒计时数字）不受影响
         } catch (e: Throwable) {
             Log.w(TAG, "bindTexts: ${e.message}")
+        }
+    }
+
+    /** v177：华都云境悦府购买正计时的「暂停 / 开始」按钮：仅该内置项可见，文案随暂停状态翻转。 */
+    private fun applyPauseBtn() {
+        try {
+            if (data.builtIn == BuiltIn.HUADU_BUY) {
+                pauseBtn.visibility = View.VISIBLE
+                pauseBtn.text = if (data.paused) "开始" else "暂停"
+            } else {
+                pauseBtn.visibility = View.GONE
+            }
+        } catch (e: Throwable) {
+            Log.w(TAG, "applyPauseBtn: ${e.message}")
         }
     }
 
@@ -312,6 +331,8 @@ class FloatingView(
             data.animStyle = c.animStyle
             data.remark = c.remark
             data.isVisible = c.isVisible
+            data.paused = c.paused
+            data.pausedAt = c.pausedAt
             data.opacity = c.opacity
             data.collapsed = c.collapsed
             bindTexts()
