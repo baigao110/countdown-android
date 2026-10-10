@@ -21,9 +21,7 @@ object CountdownStore {
             val list = mutableListOf<Countdown>()
             for (i in 0 until arr.length()) {
                 val c = parse(arr.getJSONObject(i))
-                // v176：已下线的「华都云境悦府购买正计时」（BuiltIn.HUADU_BUY=43）不再属于任何内置档，
-                // 旧数据里残留的条目直接丢弃，避免留下一档再也选不中、还会显示错乱的计时。
-                if (c.builtIn != BuiltIn.HUADU_BUY) list.add(c)
+                list.add(c)
             }
             list
         } catch (e: Exception) {
@@ -81,6 +79,9 @@ object CountdownStore {
             loop = if (builtIn != BuiltIn.NONE) BuiltIn.isRolling(builtIn) else o.optBoolean("loop", false),
             loopSpan = o.optLong("loopSpan", 0L),
             soundEnabled = o.optBoolean("soundEnabled", !BuiltIn.isRolling(builtIn)),
+            // v177：华都云境悦府购买正计时的「暂停 / 开始」状态
+            paused = o.optBoolean("paused", false),
+            pausedAt = o.optLong("pausedAt", 0L),
         )
     }
 
@@ -107,6 +108,8 @@ object CountdownStore {
         o.put("loop", c.loop)
         o.put("loopSpan", c.loopSpan)
         o.put("soundEnabled", c.soundEnabled)
+        o.put("paused", c.paused)
+        o.put("pausedAt", c.pausedAt)
         return o
     }
 
