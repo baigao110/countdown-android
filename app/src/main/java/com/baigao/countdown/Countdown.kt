@@ -92,6 +92,7 @@ object BuiltIn {
         when (type) {
             HUADU -> cal.set(2026, Calendar.OCTOBER, 31, 0, 0, 0)
             GTA6 -> cal.set(2026, Calendar.NOVEMBER, 19, 8, 0, 0)
+            HUADU_BUY -> cal.set(2025, Calendar.APRIL, 20, 17, 30, 0)
             else -> return null
         }
         cal.set(Calendar.MILLISECOND, 0)
@@ -103,7 +104,10 @@ object BuiltIn {
      * 每分钟 …），而不是像华都云境悦府、GTA6 那样日子早就定死不动。
      */
     fun isRolling(type: Int): Boolean =
-        type != NONE && type != HUADU && type != GTA6
+        type != NONE && type != HUADU && type != GTA6 && type != HUADU_BUY
+
+    /** 是否为「正计时」内置项（华都云境悦府购买正计时）：方向与普通倒计时相反，显示「自起点至今已过去多久」。 */
+    fun isCountUp(type: Int): Boolean = type == HUADU_BUY
 
     /**
      * 周期滚动型内置项的那「一格」有多长（分钟）：非周期滚动型恒返回 0。
@@ -168,6 +172,7 @@ object BuiltIn {
         HOUR_22 -> "每22小时倒计时"
         HOUR_23 -> "每23小时倒计时"
         YEAR -> "今年倒计时"
+        HUADU_BUY -> "华都云境悦府购买正计时"
         else -> "内置倒计时"
     }
 }
@@ -219,6 +224,8 @@ data class Countdown(
     var loop: Boolean = false,                 // v163：归零后要不要自动重新起一轮（true = 归零接着从头倒）
     var loopSpan: Long = 0L,                   // v163：循环那一轮的总时长（毫秒）；loop 关着时用不上
     var soundEnabled: Boolean = false,         // v163：内置项自己那颗「启用自定义提示音」开关；旧数据按老口径落地
+    var paused: Boolean = false,               // v177：华都云境悦府购买正计时「暂停/开始」开关
+    var pausedAt: Long = 0L,                   // v177：暂停那一刻的墙钟毫秒，用于恢复/冻结显示
 ) {
     /** 是否为系统内置倒计时（当日 / 当月 / 华都云境悦府 / GTA6）——内置项不可删除 */
     fun isBuiltIn(): Boolean = builtIn != BuiltIn.NONE
@@ -416,6 +423,28 @@ data class Countdown(
     }
 
     /**
+     * v177：华都云境悦府购买正计时（内置正计时）的「暂停 / 开始」。
+     * 暂停时记录墙钟瞬间并冻结显示；再次点击从冻结点继续——暂停期间流失的墙钟时间由
+     * remainingText 用真实墙钟自然补齐，所以「暂停 3 分钟 → 开始」会正好多走 3 分钟。
+     */
+    fun pauseNow() {
+        if (!paused) {
+            paused = true
+            pausedAt = System.currentTimeMillis()
+        }
+    }
+
+    fun resumeNow() {
+        if (paused) {
+            paused = false
+        }
+    }
+
+    fun togglePause() {
+        if (paused) resumeNow() else pauseNow()
+    }
+
+    /**
      * 剩余时间文本（内置项会先刷新目标时间，跨天 / 跨月自动进入下一周期）。
      *
      * @param now 由调用方一次性取好的“当前时刻”。**同一帧刷新多个倒计时必须共用同一个 now**，
@@ -499,7 +528,13 @@ data class Countdown(
     fun remainingText(now: Long = AlignedClock.now()): String {
         refreshBuiltInTarget()
         // 内置项的「标准模式」含义按类型定制（见 effectiveMode），所以必须把 builtIn 一起传下去
-        return CountdownFormatter.remaining(targetTime, displayMode, now, builtIn)
+        // v177：正计时（华都云境悦府购买）在「已暂停」时冻结在暂停那一刻；运行时取真实墙钟（毫秒模式也要真毫秒）
+        val effNow = when {
+            builtIn == BuiltIn.HUADU_BUY && paused -> pausedAt
+            builtIn == BuiltIn.HUADU_BUY -> System.currentTimeMillis()
+            else -> now
+        }
+        return CountdownFormatter.remaining(targetTime, displayMode, effNow, builtIn)
     }
 }
 
@@ -610,7 +645,7 @@ object CountdownFormatter {
             // 与每 5 / 10 分钟、每半小时、每 2~9 分钟一个写法；
             // 当日倒计时（最多 24 小时）「时」有数，仍归上面那一档走「时分秒」。
             if (mode == 0 || mode == 4) MODE_MINUTE_SECOND else mode
-        BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.YEAR ->
+        BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.YEAR, BuiltIn.HUADU_BUY ->
             // 标准模式 → 天时分秒模式；v160 起新加的「周模式 9 / 周天时分秒模式 10」原样放行
             if (mode == 0) 6 else mode
         else -> {
@@ -660,7 +695,8 @@ object CountdownFormatter {
         if (builtIn != BuiltIn.MONTH && builtIn != BuiltIn.HUADU &&
             builtIn != BuiltIn.GTA6 &&
             builtIn != BuiltIn.NONE &&
-            builtIn != BuiltIn.YEAR  // v165：今年最长 365 天，「周」那截有数，与每月那档同待遇
+            builtIn != BuiltIn.YEAR &&  // v165：今年最长 365 天，「周」那截有数，与每月那档同待遇
+            builtIn != BuiltIn.HUADU_BUY  // v177：正计时同款（周那截有数）
         ) {
             blocked.add(MODE_WEEK)
             blocked.add(MODE_WEEK_DAY_HMS)
@@ -785,8 +821,15 @@ object CountdownFormatter {
         // 例如 .237 / .881 / .512），同一瞬间算出的秒数会彼此错开 1 秒，且每个条目都在
         // 各自不同的时刻跳秒——表现为「有的 29 秒、有的 30 秒、有的 31 秒」。
         // 对齐整秒后，所有倒计时都在墙上时钟过整秒的同一瞬间一起跳秒。
-        var s = Math.floorDiv(targetTime, 1000L) - Math.floorDiv(now, 1000L)
-        if (s < 0) s = 0
+        // v177：正计时（华都云境悦府购买）方向相反——算「自起点至今已过去多久」，且暂停时冻结在暂停那一刻
+        val up = BuiltIn.isCountUp(builtIn)
+        var s = if (up) {
+            val e = Math.floorDiv(now, 1000L) - Math.floorDiv(targetTime, 1000L)
+            if (e < 0) 0 else e
+        } else {
+            val d = Math.floorDiv(targetTime, 1000L) - Math.floorDiv(now, 1000L)
+            if (d < 0) 0 else d
+        }
         return when (effectiveMode(mode, builtIn)) {
             0 -> weekDayHms(s)
             1 -> String.format("%d时", s / 3600)
@@ -801,7 +844,9 @@ object CountdownFormatter {
             10 -> weekDayHms(s)
             // v172：毫秒模式必须「真·毫秒」—— 主时钟是整秒对齐的，用它会把尾数抹平，
             // 显示成 185000 这种「秒×1000」的假毫秒；这里直接取当前真实时刻算剩余毫秒数。
-            11 -> String.format("%d毫秒", (targetTime - System.currentTimeMillis()).coerceAtLeast(0L))
+            11 -> String.format("%d毫秒",
+                if (up) (now - targetTime).coerceAtLeast(0L)
+                else (targetTime - System.currentTimeMillis()).coerceAtLeast(0L))
             else -> weekDayHms(s)
         }
     }
