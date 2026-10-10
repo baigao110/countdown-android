@@ -74,6 +74,7 @@ class MainActivity : Activity() {
         BuiltIn.FIVE_MIN,
         BuiltIn.TEN_MIN, BuiltIn.HALF_HOUR, BuiltIn.HOUR,
         BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6,
+        BuiltIn.HUADU_BUY,  // v177：华都云境悦府购买正计时（正计时）
         BuiltIn.YEAR  // v165：今年倒计时
     )
 
@@ -92,6 +93,7 @@ class MainActivity : Activity() {
         BuiltIn.MONTH to "距离本月结束",
         BuiltIn.HUADU to "距离华都云境悦府交付（2026-10-31 00:00）",
         BuiltIn.GTA6 to "距离 GTA6 发售（2026-11-19 08:00）",
+        BuiltIn.HUADU_BUY to "自华都云境悦府购买（2025-04-20 17:30）已过去",
         BuiltIn.YEAR to "距离今年结束",
     ).associate { it.first to Pair(BuiltIn.nameOf(it.first), it.second) }
 
@@ -312,7 +314,7 @@ class MainActivity : Activity() {
                 remark = remark,
                 builtIn = type,
                 // 当月 / 华都云境悦府 / GTA6 的「标准模式」就是「天时分秒模式」（与记录读取时的数据升级保持一致）
-                displayMode = if (type in intArrayOf(BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6)) {
+                displayMode = if (type in intArrayOf(BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.HUADU_BUY)) {
                     CountdownFormatter.MODE_DAY_HMS
                 } else 0,
                 isVisible = false   // 默认不强制弹出悬浮窗，可在列表中点「显示」
@@ -944,6 +946,15 @@ class MainActivity : Activity() {
 
     fun onShowToggle(c: Countdown) {
         c.isVisible = !c.isVisible
+        CountdownStore.save(this, data)
+        rebuildList()
+        syncService()
+    }
+
+    /** v177：华都云境悦府购买正计时的「暂停 / 开始」：点一下翻转状态，主界面与悬浮窗同步刷新。 */
+    fun onPauseToggle(c: Countdown) {
+        if (c.builtIn != BuiltIn.HUADU_BUY) return
+        c.togglePause()
         CountdownStore.save(this, data)
         rebuildList()
         syncService()
@@ -1584,6 +1595,7 @@ class MainActivity : Activity() {
         lateinit var editBtn: Button
         lateinit var deleteBtn: Button
         lateinit var soundLabelBtn: Button // 按钮行上的「提示音名称」（只有自定义倒计时才亮）
+        lateinit var pauseBtn: Button      // v177：华都云境悦府购买正计时的「暂停 / 开始」按钮
         lateinit var checkBox: CheckBox // 多选删除用的勾选框（平时藏着）
         var boundId: String = ""
         private var bound: Countdown? = null
@@ -1641,6 +1653,7 @@ class MainActivity : Activity() {
             animBtn = v.findViewById(R.id.itemAnim)
             colorBtn = v.findViewById(R.id.itemColor)
             soundLabelBtn = v.findViewById(R.id.itemSoundLabel)
+            pauseBtn = v.findViewById(R.id.itemPause)
             editBtn = v.findViewById(R.id.itemEdit)
             deleteBtn = v.findViewById(R.id.itemDelete)
 
@@ -1686,6 +1699,8 @@ class MainActivity : Activity() {
             // 这一行要自己滑回原位，别一直敞着操作层留在那儿。
             editBtn.setOnClickListener { bound?.let { this@MainActivity.onEdit(it, this@CountdownRow) } }
             deleteBtn.setOnClickListener { bound?.let { this@MainActivity.onDelete(it, this@CountdownRow) } }
+            // v177：华都云境悦府购买正计时的「暂停 / 开始」（玻璃质感，与 GTA6 展开悬浮窗同一路数）
+            pauseBtn.setOnClickListener { bound?.let { this@MainActivity.onPauseToggle(it) } }
 
             // 展开（滑开）状态下：点一下前景主内容区、或点一下操作面板空白处，都能收回。
             // 多选模式下这两下都让位给「勾上 / 取消勾上这一条」。
@@ -1904,6 +1919,13 @@ class MainActivity : Activity() {
             // v173：模式按钮同步显示当前模式名（切模式 / 换内置项后这一颗也要跟着变）
             if (modeBtn.visibility == View.VISIBLE) {
                 modeBtn.text = CountdownFormatter.modeName(c.displayMode, c.builtIn)
+            }
+            // v177：华都云境悦府购买正计时的「暂停 / 开始」按钮（玻璃质感，与 GTA6 展开悬浮窗同一路数）
+            if (c.builtIn == BuiltIn.HUADU_BUY) {
+                pauseBtn.visibility = View.VISIBLE
+                pauseBtn.text = if (c.paused) "开始" else "暂停"
+            } else {
+                pauseBtn.visibility = View.GONE
             }
         }
 
