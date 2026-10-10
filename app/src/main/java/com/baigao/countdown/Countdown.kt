@@ -78,8 +78,8 @@ object BuiltIn {
     const val HOUR_23 = 41   // 每23小时倒计时：目标为下一个 23 小时边界（整点）
     // ---- v165：新加的「今年倒计时」（编号只能末尾追加，绝不回收）----
     const val YEAR = 42   // 今年倒计时：目标为「下一年 1 月 1 日 00:00:00」（今年结束的那一刻）
-    // ---- v174：新加的「华都云境悦府购买正计时」（编号只能末尾追加，绝不回收）----
-    const val HUADU_BUY = 43  // 华都云境悦府购买正计时：固定起点 2025-04-20 17:30:00，正计时（自购买至今已过去多久）
+    // ---- 43 已退役：v174 新增、v176 删除的「华都云境悦府购买正计时」；编号保留不回收，仅用于清理旧数据 ----
+    const val HUADU_BUY = 43
 
     /**
      * 固定目标时间的内置项（不随日期滚动）：返回 epoch 毫秒；滚动型内置项返回 null。
@@ -92,7 +92,6 @@ object BuiltIn {
         when (type) {
             HUADU -> cal.set(2026, Calendar.OCTOBER, 31, 0, 0, 0)
             GTA6 -> cal.set(2026, Calendar.NOVEMBER, 19, 8, 0, 0)
-            HUADU_BUY -> cal.set(2025, Calendar.APRIL, 20, 17, 30, 0)
             else -> return null
         }
         cal.set(Calendar.MILLISECOND, 0)
@@ -104,13 +103,7 @@ object BuiltIn {
      * 每分钟 …），而不是像华都云境悦府、GTA6 那样日子早就定死不动。
      */
     fun isRolling(type: Int): Boolean =
-        type != NONE && type != HUADU && type != GTA6 && type != HUADU_BUY
-
-    /**
-     * 是否为「正计时」内置项：起点（targetTime）在过去，显示「自起点至今已过去多久」，
-     * 方向与普通倒计时相反（普通倒计时显示「距目标还剩多久」）。目前只有华都云境悦府购买正计时一档。
-     */
-    fun isCountUp(type: Int): Boolean = type == HUADU_BUY
+        type != NONE && type != HUADU && type != GTA6
 
     /**
      * 周期滚动型内置项的那「一格」有多长（分钟）：非周期滚动型恒返回 0。
@@ -139,7 +132,6 @@ object BuiltIn {
         MONTH -> "当月倒计时"
         HUADU -> "华都云境悦府倒计时"
         GTA6 -> "GTA6倒计时"
-        HUADU_BUY -> "华都云境悦府购买正计时"
         WEEK -> "每周倒计时"
         HOUR -> "每小时倒计时"
         HALF_HOUR -> "每半小时倒计时"
@@ -227,9 +219,6 @@ data class Countdown(
     var loop: Boolean = false,                 // v163：归零后要不要自动重新起一轮（true = 归零接着从头倒）
     var loopSpan: Long = 0L,                   // v163：循环那一轮的总时长（毫秒）；loop 关着时用不上
     var soundEnabled: Boolean = false,         // v163：内置项自己那颗「启用自定义提示音」开关；旧数据按老口径落地
-    var paused: Boolean = false,               // v175：正计时暂停开关（仅华都云境悦府购买正计时用：暂停后计时冻结、缺失时间自动补齐）
-    var pausedAt: Long = 0L,                   // v175：暂停时刻（wall-clock 毫秒），仅在 paused 期间有效
-    var accumPaused: Long = 0L,                // v175：累计已暂停时长（毫秒），不含当前这一轮（pausedAt 起的还没算进去）
 ) {
     /** 是否为系统内置倒计时（当日 / 当月 / 华都云境悦府 / GTA6）——内置项不可删除 */
     fun isBuiltIn(): Boolean = builtIn != BuiltIn.NONE
@@ -427,30 +416,6 @@ data class Countdown(
     }
 
     /**
-     * v175：正计时（仅华都云境悦府购买正计时）的暂停 / 继续。
-     * 暂停时把当前读数钉死；继续时把「暂停期间流逝的墙钟时间」计入累计暂停时长，
-     * 于是显示从暂停那一刻接着走、缺失的暂停时长自动补齐（不计入流逝）。
-     */
-    fun pauseNow(pauseTime: Long) {
-        if (!BuiltIn.isCountUp(builtIn) || paused) return
-        paused = true
-        pausedAt = pauseTime
-    }
-
-    fun resumeNow(resumeTime: Long) {
-        if (!BuiltIn.isCountUp(builtIn) || !paused) return
-        accumPaused += (resumeTime - pausedAt).coerceAtLeast(0L)
-        paused = false
-        pausedAt = 0L
-    }
-
-    /** 暂停 / 继续 切换（仅正计时生效，其它类型是空操作）。 */
-    fun togglePause(time: Long) {
-        if (!BuiltIn.isCountUp(builtIn)) return
-        if (paused) resumeNow(time) else pauseNow(time)
-    }
-
-    /**
      * 剩余时间文本（内置项会先刷新目标时间，跨天 / 跨月自动进入下一周期）。
      *
      * @param now 由调用方一次性取好的“当前时刻”。**同一帧刷新多个倒计时必须共用同一个 now**，
@@ -533,17 +498,8 @@ data class Countdown(
 
     fun remainingText(now: Long = AlignedClock.now()): String {
         refreshBuiltInTarget()
-        // 正计时（华都云境悦府购买正计时）暂停处理：暂停期间冻结显示、缺失时间自动补齐。
-        // 把「已暂停的总秒数（取整）」折算成 targetTime 的偏移量，剩余时间 = now - (target + 偏移)，
-        // 于是暂停那一刻的读数被钉死、恢复后从那一刻继续（不把暂停时长算进流逝），跨进程重启也不跳。
-        var t = targetTime
-        if (BuiltIn.isCountUp(builtIn)) {
-            var pausedSecs = Math.floorDiv(accumPaused, 1000L)
-            if (paused) pausedSecs += Math.floorDiv(now - pausedAt, 1000L)
-            t = targetTime + pausedSecs * 1000L
-        }
         // 内置项的「标准模式」含义按类型定制（见 effectiveMode），所以必须把 builtIn 一起传下去
-        return CountdownFormatter.remaining(t, displayMode, now, builtIn)
+        return CountdownFormatter.remaining(targetTime, displayMode, now, builtIn)
     }
 }
 
@@ -654,7 +610,7 @@ object CountdownFormatter {
             // 与每 5 / 10 分钟、每半小时、每 2~9 分钟一个写法；
             // 当日倒计时（最多 24 小时）「时」有数，仍归上面那一档走「时分秒」。
             if (mode == 0 || mode == 4) MODE_MINUTE_SECOND else mode
-        BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.HUADU_BUY, BuiltIn.YEAR ->
+        BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.YEAR ->
             // 标准模式 → 天时分秒模式；v160 起新加的「周模式 9 / 周天时分秒模式 10」原样放行
             if (mode == 0) 6 else mode
         else -> {
@@ -702,7 +658,7 @@ object CountdownFormatter {
         //   每周倒计时最长就 7 天，「周」恒 0，短周期那几个（每5分钟 / 每小时 / 当日 …）更是
         //   永远到不了一周，摆出来只会是干巴巴一个「0周」，所以一律收掉。
         if (builtIn != BuiltIn.MONTH && builtIn != BuiltIn.HUADU &&
-            builtIn != BuiltIn.GTA6 && builtIn != BuiltIn.HUADU_BUY &&
+            builtIn != BuiltIn.GTA6 &&
             builtIn != BuiltIn.NONE &&
             builtIn != BuiltIn.YEAR  // v165：今年最长 365 天，「周」那截有数，与每月那档同待遇
         ) {
@@ -829,10 +785,7 @@ object CountdownFormatter {
         // 例如 .237 / .881 / .512），同一瞬间算出的秒数会彼此错开 1 秒，且每个条目都在
         // 各自不同的时刻跳秒——表现为「有的 29 秒、有的 30 秒、有的 31 秒」。
         // 对齐整秒后，所有倒计时都在墙上时钟过整秒的同一瞬间一起跳秒。
-        // 正计时（如华都云境悦府购买正计时）：显示「自起点至今已过去多久」，方向与倒计时相反
-        val up = BuiltIn.isCountUp(builtIn)
-        var s = if (up) Math.floorDiv(now, 1000L) - Math.floorDiv(targetTime, 1000L)
-                else Math.floorDiv(targetTime, 1000L) - Math.floorDiv(now, 1000L)
+        var s = Math.floorDiv(targetTime, 1000L) - Math.floorDiv(now, 1000L)
         if (s < 0) s = 0
         return when (effectiveMode(mode, builtIn)) {
             0 -> weekDayHms(s)
@@ -848,7 +801,7 @@ object CountdownFormatter {
             10 -> weekDayHms(s)
             // v172：毫秒模式必须「真·毫秒」—— 主时钟是整秒对齐的，用它会把尾数抹平，
             // 显示成 185000 这种「秒×1000」的假毫秒；这里直接取当前真实时刻算剩余毫秒数。
-            11 -> String.format("%d毫秒", if (up) (System.currentTimeMillis() - targetTime).coerceAtLeast(0L) else (targetTime - System.currentTimeMillis()).coerceAtLeast(0L))
+            11 -> String.format("%d毫秒", (targetTime - System.currentTimeMillis()).coerceAtLeast(0L))
             else -> weekDayHms(s)
         }
     }
