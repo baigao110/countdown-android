@@ -124,7 +124,7 @@ def ensure_release():
     body = new_block + "\n" + old_body
     created = api("POST", f"/repos/{OWNER}/{REPO}/releases",
                   {"tag_name": RELEASE_TAG, "name": REL_NAME, "body": body,
-                   "make_latest": True, "target_commitish": "main"})
+                   "make_latest": "true", "target_commitish": "main"})
     print(f"  [OK] 已新建 release {RELEASE_TAG}（id={created['id']}）")
     return created["id"]
 
