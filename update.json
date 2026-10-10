@@ -1,8 +1,8 @@
 {
-  "versionCode": 164,
+  "versionCode": 165,
   "versionName": "1.0.0.38",
-  "date": "2026-10-09",
+  "date": "2026-10-10",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-  "note": "v176：删除「华都云境悦府购买正计时」内置档及其全部相关代码（含正计时的暂停/开始按钮），恢复为纯倒计时应用；App 打开时会自动清理旧数据中残留的该档条目，其它倒计时不受影响"
+  "note": "v177：重新加回「华都云境悦府购买正计时」内置正计时（与华都云境悦府/GTA6 同款玻璃质感卡片，方向相反）：起点固定 2025-04-20 17:30，显示「自购买至今已过去多久」，11 档显示模式全可用，名字/颜色/跳秒动画/备注/提示音可改；新增「暂停/开始」按钮（玻璃质感，与 GTA6 展开/收起悬浮窗同款）：点暂停即冻结、点开始从冻结点续计并自动补齐暂停期流失时间，可来回循环；主界面卡片与悬浮窗状态互相同步。悬浮窗同步照旧"
 }
