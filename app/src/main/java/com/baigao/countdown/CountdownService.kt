@@ -115,7 +115,7 @@ class CountdownService : Service() {
                             addFloater(c)
                         } else if (f != null) {
                             f.update(now)
-                            if (c.targetTime <= now && !c.finished && !BuiltIn.isCountUp(c.builtIn)) {
+                            if (c.targetTime <= now && !c.finished) {
                                 c.finished = true
                                 changed = true
                                 SoundPlayer.play(this, c.soundUri)
@@ -282,21 +282,6 @@ class CountdownService : Service() {
                     CountdownStore.save(this, list)
                 } catch (e: Throwable) {
                     Log.w(TAG, "onCollapseChange: ${e.message}")
-                }
-            },
-            onPauseChange = { cd ->
-                try {
-                    val list = CountdownStore.load(this)
-                    val it = list.find { c -> c.id == cd.id }
-                    if (it != null) {
-                        it.paused = cd.paused
-                        it.pausedAt = cd.pausedAt
-                        it.accumPaused = cd.accumPaused
-                        CountdownStore.save(this, list)
-                    }
-                    sendDataChanged() // 通知主界面刷新（暂停按钮 → 开始）
-                } catch (e: Throwable) {
-                    Log.w(TAG, "onPauseChange: ${e.message}")
                 }
             },
             onPositionChange = { cd, x, y ->
