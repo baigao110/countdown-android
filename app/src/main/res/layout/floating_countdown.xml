@@ -66,6 +66,22 @@
             android:minHeight="0dp"
             android:background="@drawable/glass_chip"
             android:textColor="#FF6666" />
+
+        <!-- v177：华都云境悦府购买正计时的「暂停 / 开始」按钮（仅该内置项显示） -->
+        <Button
+            android:id="@+id/fPause"
+            android:layout_width="40dp"
+            android:layout_height="26dp"
+            android:layout_marginStart="4dp"
+            android:text="暂停"
+            android:textSize="11sp"
+            android:padding="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:background="@drawable/glass_chip"
+            android:textColor="#9FD8FF"
+            android:visibility="gone" />
+
     </LinearLayout>
 
     <!-- 实时倒计时：拆成三段，跳秒动画只作用于最后一位数字 -->
