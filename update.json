@@ -1,8 +1,8 @@
 {
-  "versionCode": 163,
+  "versionCode": 164,
   "versionName": "1.0.0.38",
   "date": "2026-10-09",
   "apkUrl": "https://github.com/baigao110/countdown-android/releases/download/v1.0.0.38/countdown-android-v1.0.0.38-release.apk",
   "htmlUrl": "https://github.com/baigao110/countdown-android/releases/tag/v1.0.0.38",
-  "note": "v175：华都云境悦府购买正计时新增「暂停/开始」按钮—— 点暂停正计时当场停住、按钮翻成开始；再点开始从停住那一刻继续、暂停期间流失时间自动补齐，暂停/开始可循环切换，按钮风格与GTA6展开/收起悬浮窗一致，悬浮窗同步"
+  "note": "v176：删除「华都云境悦府购买正计时」内置档及其全部相关代码（含正计时的暂停/开始按钮），恢复为纯倒计时应用；App 打开时会自动清理旧数据中残留的该档条目，其它倒计时不受影响"
 }
