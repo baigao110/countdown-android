@@ -115,7 +115,7 @@ class CountdownService : Service() {
                             addFloater(c)
                         } else if (f != null) {
                             f.update(now)
-                            if (c.targetTime <= now && !c.finished) {
+                            if (c.targetTime <= now && !c.finished && !BuiltIn.isCountUp(c.builtIn)) {
                                 c.finished = true
                                 changed = true
                                 SoundPlayer.play(this, c.soundUri)
@@ -291,6 +291,23 @@ class CountdownService : Service() {
                     CountdownStore.save(this, list)
                 } catch (e: Throwable) {
                     Log.w(TAG, "onPositionChange: ${e.message}")
+                }
+            },
+            onPauseChange = { cd ->
+                try {
+                    val list = CountdownStore.load(this)
+                    val item = list.find { it.id == cd.id }
+                    if (item != null) {
+                        item.paused = cd.paused
+                        item.pausedAt = cd.pausedAt
+                        CountdownStore.save(this, list)
+                    }
+                    // 通知主界面列表同步「暂停 / 开始」状态
+                    sendDataChanged()
+                    // 悬浮窗自身按钮已 flip，这里刷新一下时间（暂停后冻结显示）
+                    floaters[cd.id]?.update()
+                } catch (e: Throwable) {
+                    Log.w(TAG, "onPauseChange: ${e.message}")
                 }
             }
         )
