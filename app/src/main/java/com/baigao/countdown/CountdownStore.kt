@@ -19,7 +19,12 @@ object CountdownStore {
         return try {
             val arr = JSONArray(file.readText())
             val list = mutableListOf<Countdown>()
-            for (i in 0 until arr.length()) list.add(parse(arr.getJSONObject(i)))
+            for (i in 0 until arr.length()) {
+                val c = parse(arr.getJSONObject(i))
+                // v176：已下线的「华都云境悦府购买正计时」（BuiltIn.HUADU_BUY=43）不再属于任何内置档，
+                // 旧数据里残留的条目直接丢弃，避免留下一档再也选不中、还会显示错乱的计时。
+                if (c.builtIn != BuiltIn.HUADU_BUY) list.add(c)
+            }
             list
         } catch (e: Exception) {
             mutableListOf()
@@ -51,7 +56,7 @@ object CountdownStore {
                 // 老数据绕机器一电平级成 6，显示、下拉框选中项、悬浮窗标题三者一致。
                 // 按类型已收掉的那些模式（当日倒计时的「天时分秒 / 天时分」、每小时与每半小时的
                 // 「小时模式 / 天时分秒 / 天时分」等）对旧数据一样生效，不在可选列表里就退回标准模式
-                val upgraded = if (m == CountdownFormatter.MODE_STANDARD && builtIn in intArrayOf(BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.HUADU_BUY)) {
+                val upgraded = if (m == CountdownFormatter.MODE_STANDARD && builtIn in intArrayOf(BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6)) {
                     CountdownFormatter.MODE_DAY_HMS
                 } else m
                 if (upgraded in CountdownFormatter.availableModes(builtIn)) upgraded
@@ -76,9 +81,6 @@ object CountdownStore {
             loop = if (builtIn != BuiltIn.NONE) BuiltIn.isRolling(builtIn) else o.optBoolean("loop", false),
             loopSpan = o.optLong("loopSpan", 0L),
             soundEnabled = o.optBoolean("soundEnabled", !BuiltIn.isRolling(builtIn)),
-            paused = o.optBoolean("paused", false),
-            pausedAt = o.optLong("pausedAt", 0L),
-            accumPaused = o.optLong("accumPaused", 0L),
         )
     }
 
@@ -105,9 +107,6 @@ object CountdownStore {
         o.put("loop", c.loop)
         o.put("loopSpan", c.loopSpan)
         o.put("soundEnabled", c.soundEnabled)
-        o.put("paused", c.paused)
-        o.put("pausedAt", c.pausedAt)
-        o.put("accumPaused", c.accumPaused)
         return o
     }
 
