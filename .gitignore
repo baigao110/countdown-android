@@ -27,3 +27,6 @@ sync_log*.txt
 
 # 本地归档/暂存目录（不入库）
 _apk_stale_trash/
+
+# 本地 agent 记忆（含密钥，绝不入库）
+.workbuddy/
