@@ -196,6 +196,20 @@
                 android:layout_marginStart="6dp"
                 android:visibility="gone" />
 
+            <!-- v177：华都云境悦府购买正计时的「暂停 / 开始」按钮（仅该内置项显示） -->
+            <Button
+                android:id="@+id/itemPause"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="暂停"
+                android:textSize="12sp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:background="@drawable/glass_chip"
+                android:padding="6dp"
+                android:layout_marginStart="6dp"
+                android:visibility="gone" />
+
         </LinearLayout>
     </LinearLayout>
 
