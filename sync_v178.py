@@ -26,7 +26,8 @@ with open(os.path.join(ROOT, "update.json"), encoding="utf-8") as f:
     UJ = json.load(f)
 VERSION_CODE = int(UJ["versionCode"])
 NOTE = UJ["note"]
-REL_NAME = f"倒计时安卓版 v1.0.0.38（v{VERSION_CODE}）"
+RELEASE_NUMBER = 178  # 人类可读发版号（与 versionCode 差 12：v178 -> 166）
+REL_NAME = f"倒计时安卓版 v1.0.0.38（v{RELEASE_NUMBER}）"
 
 
 def api(method, path, data=None, quiet=False, binary=False):
@@ -133,7 +134,7 @@ def patch_release():
     rid = rel["id"]
     old_body = rel.get("body") or ""
     new_block = (f"**发布日期：{RELEASE_DATE}**\n"
-                 f"v{VERSION_CODE}：{NOTE}\n"
+                 f"{NOTE}\n"
                  f"**版本号**：versionCode {VERSION_CODE}（versionName 1.0.0.38）\n"
                  f"**更新日志**：{NOTE}\n")
     body = new_block + "\n" + old_body
