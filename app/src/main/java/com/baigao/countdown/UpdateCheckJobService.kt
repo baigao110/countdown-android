@@ -35,7 +35,7 @@ class UpdateCheckJobService : JobService() {
                     UpdateCheckState.record(this, false, "")
                 } else {
                     UpdateCheckState.record(this, true, info.name)
-                    if (UpdateManager.hasNewVersion(info)) {
+                    if (UpdateManager.hasNewVersion(this, info)) {
                         UpdateNotifier.notifyUpdate(this, info)
                     }
                 }
