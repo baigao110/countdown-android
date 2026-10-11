@@ -43,7 +43,8 @@ class FloatingView(
     private val onOpacityChange: (Countdown, Int) -> Unit,
     private val onCollapseChange: (Countdown, Boolean) -> Unit,
     private val onPositionChange: (Countdown, Int, Int) -> Unit,
-    private val onPauseChange: (Countdown) -> Unit
+    private val onPauseChange: (Countdown) -> Unit,
+    private val onColorChange: (Countdown, Int) -> Unit
 ) {
 
     private val view: View = LayoutInflater.from(context).inflate(R.layout.floating_countdown, null)
@@ -74,6 +75,9 @@ class FloatingView(
     private val editBtn: Button = view.findViewById(R.id.fEdit)
     private val hideBtn: Button = view.findViewById(R.id.fHide)
     private val pauseBtn: Button = view.findViewById(R.id.fPause)
+    private val prevColorBtn: Button = view.findViewById(R.id.fPrevColor)
+    private val nextColorBtn: Button = view.findViewById(R.id.fNextColor)
+    private val colorNameTv: TextView = view.findViewById(R.id.fColorName)
 
     private val params: WindowManager.LayoutParams
 
@@ -128,6 +132,8 @@ class FloatingView(
         editBtn.setOnClickListener { safe("edit") { onEdit(data) } }
         // v177：华都云境悦府购买正计时的「暂停 / 开始」（玻璃质感，与 GTA6 展开悬浮窗同一路数）
         pauseBtn.setOnClickListener { safe("pause") { data.togglePause(); onPauseChange(data); applyPauseBtn() } }
+        prevColorBtn.setOnClickListener { safe("prevColor") { shiftColor(-1) } }
+        nextColorBtn.setOnClickListener { safe("nextColor") { shiftColor(1) } }
 
         // 不透明度调节：拖动时实时把玻璃底调淡 / 调实，倒计时数字始终全亮不受影响
         opacityBar.max = 80
@@ -169,6 +175,7 @@ class FloatingView(
             applyPauseBtn()
             opacityBar.progress = data.opacity.coerceIn(20, 100) - 20
             applyGlassAlpha() // 玻璃底按不透明度淡化，文字（含倒计时数字）不受影响
+            colorNameTv.text = ThemeColors.nameOf(data.customColorArgb) // 抽屉里的主题色名跟着当前色走
         } catch (e: Throwable) {
             Log.w(TAG, "bindTexts: ${e.message}")
         }
@@ -395,6 +402,35 @@ class FloatingView(
         val i = modes.indexOf(data.displayMode)
         val next = modes[((i + delta) % modes.size + modes.size) % modes.size]
         onModeChange(data, next)
+    }
+
+    /**
+     * 在主题色板里「上一个 / 下一个」循环切换倒计时文字颜色（悬浮窗与 UI 界面共用同一份 ThemeColors）。
+     * 改完即时刷新标题 / 时间数字 / 色名，并回调让服务落盘 + 广播主界面同步。
+     */
+    private fun shiftColor(delta: Int) {
+        try {
+            val colors = ThemeColors.ARGS
+            val i = colors.indexOfFirst { it == data.customColorArgb }
+            val base = if (i >= 0) i else 0
+            val next = ((base + delta) % colors.size + colors.size) % colors.size
+            data.customColorArgb = colors[next]
+            applyColorTexts()
+            onColorChange(data, data.customColorArgb)
+        } catch (e: Throwable) {
+            Log.w(TAG, "shiftColor: ${e.message}")
+        }
+    }
+
+    /** 把当前主题色应用到标题 / 时间数字与色名显示（换色后即时刷新，不靠下一跳）。 */
+    private fun applyColorTexts() {
+        try {
+            titleTv.setTextColor(data.customColorArgb)
+            timeHead.setTextColor(data.customColorArgb)
+            timeLast.setTextColor(data.customColorArgb)
+            timeTail.setTextColor(data.customColorArgb)
+            colorNameTv.text = ThemeColors.nameOf(data.customColorArgb)
+        } catch (_: Throwable) { }
     }
 
     /** 收缩 / 放开：收缩后仅保留标题栏小条。 */
