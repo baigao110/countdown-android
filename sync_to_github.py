@@ -4,7 +4,7 @@
 安卓版 → GitHub 幂等全量同步脚本
 ================================
 
-用途：把 CountdownAndroid 工程同步到 GitHub 仓库 baigao110/countdown-android。
+用途：把 CountdownAndroid 工程同步到 GitHub 仓库 baigao110/daojishi。
 
 做了三件事：
 1. 遍历本地 git 已跟踪文件，与 GitHub 仓库上的内容逐一比对，**只提交真正有差异的文件**；
@@ -36,7 +36,7 @@ import urllib.error
 from urllib.parse import quote
 
 OWNER = "baigao110"
-REPO = "countdown-android"
+REPO = "daojishi"
 ROOT = os.path.dirname(os.path.abspath(__file__))
 GIT = r"C:/Users/BDJ/.workbuddy/binaries/PortableGit/versions/1.2.0/cmd/git.exe"
 
