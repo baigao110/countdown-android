@@ -74,6 +74,7 @@ class MainActivity : Activity() {
         BuiltIn.FIVE_MIN,
         BuiltIn.TEN_MIN, BuiltIn.HALF_HOUR, BuiltIn.HOUR,
         BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6,
+        BuiltIn.HUADU_20,  // 本轮：华都云境悦府20日倒计时（固定目标 2026-10-20 00:00）
         BuiltIn.HUADU_BUY,  // v177：华都云境悦府购买正计时（正计时）
         BuiltIn.YEAR  // v165：今年倒计时
     )
@@ -93,6 +94,7 @@ class MainActivity : Activity() {
         BuiltIn.MONTH to "距离本月结束",
         BuiltIn.HUADU to "距离华都云境悦府交付（2026-10-31 00:00）",
         BuiltIn.GTA6 to "距离 GTA6 发售（2026-11-19 08:00）",
+        BuiltIn.HUADU_20 to "距离华都云境悦府20日（2026-10-20 00:00）",
         BuiltIn.HUADU_BUY to "自华都云境悦府购买（2025-04-20 17:30）已过去",
         BuiltIn.YEAR to "距离今年结束",
     ).associate { it.first to Pair(BuiltIn.nameOf(it.first), it.second) }
@@ -314,7 +316,7 @@ class MainActivity : Activity() {
                 remark = remark,
                 builtIn = type,
                 // 当月 / 华都云境悦府 / GTA6 的「标准模式」就是「天时分秒模式」（与记录读取时的数据升级保持一致）
-                displayMode = if (type in intArrayOf(BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.HUADU_BUY)) {
+                displayMode = if (type in intArrayOf(BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.HUADU_20, BuiltIn.HUADU_BUY)) {
                     CountdownFormatter.MODE_DAY_HMS
                 } else 0,
                 isVisible = false   // 默认不强制弹出悬浮窗，可在列表中点「显示」
