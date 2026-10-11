@@ -223,7 +223,7 @@ object UpdateNotifier {
         val builder = Notification.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat)
             .setContentTitle("发现新版本 v${info.name}")
-            .setContentText("当前 v${UpdateManager.CURRENT_VERSION_NAME}，点击查看更新日志")
+            .setContentText("当前 v${UpdateManager.currentVersionName(context)}，点击查看更新日志")
             .setContentIntent(contentPi)
             .addAction(R.drawable.ic_stat, "立即更新", nowPi)
             // 与系统闹钟 / 计时器一致：常驻通知，不会被随手划掉；息屏 / 后台也能持续提醒
