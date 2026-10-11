@@ -135,7 +135,7 @@ class AboutActivity : Activity() {
         versionTv.text = "版本 v${UpdateManager.CURRENT_VERSION_NAME}"
         findViewById<TextView>(R.id.githubLinkTv).setOnClickListener {
             try {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/baigao110/countdown-android")))
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/baigao110/daojishi")))
             } catch (_: Exception) {
                 Toast.makeText(this, "打不开链接呢", Toast.LENGTH_SHORT).show()
             }
