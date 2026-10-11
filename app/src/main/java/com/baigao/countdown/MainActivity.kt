@@ -352,6 +352,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        UpdateManager.refreshCurrentVersion(applicationContext)
         setContentView(R.layout.activity_main)
 
         removedPrefs = getSharedPreferences("builtin_removed", MODE_PRIVATE)
