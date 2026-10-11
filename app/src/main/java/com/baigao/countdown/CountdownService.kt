@@ -309,6 +309,17 @@ class CountdownService : Service() {
                 } catch (e: Throwable) {
                     Log.w(TAG, "onPauseChange: ${e.message}")
                 }
+            },
+            onColorChange = { cd, color ->
+                try {
+                    val list = CountdownStore.load(this)
+                    list.find { it.id == cd.id }?.let { it.customColorArgb = color }
+                    CountdownStore.save(this, list)
+                    // 悬浮窗切了主题色，广播让主界面列表实时同步（卡片上「颜色」按钮的色名跟着变）
+                    sendDataChanged()
+                } catch (e: Throwable) {
+                    Log.w(TAG, "onColorChange: ${e.message}")
+                }
             }
         )
         f.show()
