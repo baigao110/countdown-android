@@ -183,7 +183,7 @@ def main():
     with open(os.path.join(ROOT, "update.json"), encoding="utf-8") as f:
         cfg = json.load(f)
     tag = f"v{cfg['versionName']}"
-    apk_name = f"countdown-android-{cfg['versionName']}-release.apk"
+    apk_name = f"countdown-android-v{cfg['versionName']}-release.apk"
 
     files = tracked_files()
     print(f"=== 1. 源码全量比对（本地跟踪 {len(files)} 个文件）===")
