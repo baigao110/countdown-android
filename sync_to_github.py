@@ -193,6 +193,30 @@ def patch_release_body(tag: str, note_line: str):
         {"body": new_body, "make_latest": "true"})
 
 
+def create_release_if_missing(tag: str, note_line: str):
+    existing = get_release(tag)
+    if existing is not None:
+        print(f"  [INFO] Release {tag} 已存在，跳过创建")
+        return existing
+    print(f"=== 0. 新建 Release {tag} ===")
+    body = note_line if note_line else f"版本 {tag}"
+    payload = {
+        "tag_name": tag,
+        "name": tag,
+        "body": body,
+        "draft": False,
+        "prerelease": False,
+        "make_latest": "true",
+    }
+    try:
+        rel = api("POST", f"/repos/{OWNER}/{REPO}/releases", payload)
+        print(f"  [OK] 已创建 Release {tag}（id={rel.get('id')}）")
+        return rel
+    except Exception as e:  # noqa
+        print(f"  [ERROR] 创建 Release 失败: {e}")
+        return None
+
+
 def main():
     with open(os.path.join(ROOT, "update.json"), encoding="utf-8") as f:
         cfg = json.load(f)
@@ -215,11 +239,14 @@ def main():
     if counts["UPDATED"] == 0 and counts["NEW"] == 0 and counts["FAILED"] == 0:
         print("  => 源码已与 GitHub 完全同步")
 
+    note_line = ("🎨 悬浮窗抽屉新增「上一个主题色 / 下一个主题色」按钮，与主界面倒计时主题颜色"
+                 "实时双向同步（切色即时落盘并广播，主界面卡片颜色跟着变）。版本号升至 v1.0.0.61。")
     print(f"=== 2. 上传 APK 到 Release {tag} ===")
+    create_release_if_missing(tag, note_line)
     upload_apk(tag, apk_name)
 
     print("=== 3. 发布说明 & 设为 latest ===")
-    patch_release_body(tag, "🏠 新增「华都云境悦府20日倒计时」内置档（目标 2026-10-20 00:00，与 GTA6 同款风格、悬浮窗同步）。")
+    patch_release_body(tag, note_line)
     print("DONE")
 
 
