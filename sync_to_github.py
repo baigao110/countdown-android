@@ -54,7 +54,7 @@ def api(method, path, data=None, quiet=False):
     req = urllib.request.Request(url, data=body, headers=HDR, method=method)
     req.add_header("Content-Type", "application/json")
     last_err = None
-    for attempt in range(1, 6):
+    for attempt in range(1, 13):
         try:
             with urllib.request.urlopen(req, timeout=180) as r:
                 raw = r.read()
@@ -73,8 +73,8 @@ def api(method, path, data=None, quiet=False):
             # （IncompleteRead）时退避重试
             last_err = e
             if not quiet:
-                print(f"  [retry {attempt}/5] TLS/网络抖动: {e}")
-            time.sleep(2 * attempt)
+                print(f"  [retry {attempt}/12] TLS/网络抖动: {e}")
+            time.sleep(3 * attempt)
     if last_err:
         raise last_err
 
