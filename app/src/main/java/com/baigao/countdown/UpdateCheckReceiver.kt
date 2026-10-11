@@ -32,7 +32,7 @@ class UpdateCheckReceiver : BroadcastReceiver() {
                     UpdateCheckState.record(context, false, "")
                 } else {
                     UpdateCheckState.record(context, true, info.name)
-                    if (UpdateManager.hasNewVersion(info)) {
+                    if (UpdateManager.hasNewVersion(context, info)) {
                         UpdateNotifier.notifyUpdate(context, info)
                     }
                 }
