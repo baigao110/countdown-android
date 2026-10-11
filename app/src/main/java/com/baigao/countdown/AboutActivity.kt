@@ -132,7 +132,7 @@ class AboutActivity : Activity() {
         }
         timeFormatSpinner = findViewById(R.id.timeFormatSpinner)
         timeFormatDescTv = findViewById(R.id.timeFormatDescTv)
-        versionTv.text = "版本 v${UpdateManager.CURRENT_VERSION_NAME}"
+        versionTv.text = "版本 v${UpdateManager.currentVersionName(this)}"
         findViewById<TextView>(R.id.githubLinkTv).setOnClickListener {
             try {
                 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/baigao110/daojishi")))
@@ -547,7 +547,7 @@ class AboutActivity : Activity() {
         // 回到「关于」页就显示「已是最新版本」（临时忽略，下次手动检查仍会重新提示）。
         val ignored = UpdateManager.consumeIgnored()
         if (ignored != null) {
-            statusTv.text = "已经是最新版本啦 v${UpdateManager.CURRENT_VERSION_NAME}"
+            statusTv.text = "已经是最新版本啦 v${UpdateManager.currentVersionName(this)}"
             updateBtn.text = "检查更新"
             updateBtn.setOnClickListener { checkUpdate(forceDialog = true, forcePage = true) }
             Toast.makeText(this, "已经是最新版本啦", Toast.LENGTH_SHORT).show()
@@ -579,7 +579,7 @@ class AboutActivity : Activity() {
             updateBtn.isEnabled = true
             if (info == null) {
                 updateBtn.text = "检查更新"
-                statusTv.text = "已经是最新版本啦 v${UpdateManager.CURRENT_VERSION_NAME}"
+                statusTv.text = "已经是最新版本啦 v${UpdateManager.currentVersionName(this)}"
                 if (forceDialog) {
                     Toast.makeText(this, "已经是最新版本啦", Toast.LENGTH_SHORT).show()
                 }
