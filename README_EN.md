@@ -259,7 +259,7 @@ for it, so it is not downgraded.
 Download the latest APK from Releases and install it directly (you need to allow
 「安装未知应用」 Install unknown apps):
 
-<https://github.com/baigao110/countdown-android/releases/latest>
+<https://github.com/baigao110/daojishi/releases/latest>
 
 Version info inside the app comes from `update.json` in the repository root (versionCode, download
 URL and update notes).
