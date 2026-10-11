@@ -22,7 +22,7 @@ object DisclaimerManager {
 
     /** 是否应在本次启动弹出：首次使用或老版本升级上来。 */
     fun shouldShowOnLaunch(ctx: Context): Boolean {
-        val cur = UpdateManager.versionToNumber(UpdateManager.CURRENT_VERSION_NAME)
+        val cur = UpdateManager.currentVersionNum(ctx)
         val agreed = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
             .getInt(KEY_AGREED, -1)
         return agreed < cur
@@ -30,7 +30,7 @@ object DisclaimerManager {
 
     /** 记录当前版本已看过免责声明，后续启动不再弹出。 */
     fun markAgreed(ctx: Context) {
-        val cur = UpdateManager.versionToNumber(UpdateManager.CURRENT_VERSION_NAME)
+        val cur = UpdateManager.currentVersionNum(ctx)
         ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
             .edit().putInt(KEY_AGREED, cur).apply()
     }
