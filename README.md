@@ -205,7 +205,7 @@
 
 从 Releases 下载最新 APK 直接安装即可（需允许「安装未知应用」）：
 
-<https://github.com/baigao110/countdown-android/releases/latest>
+<https://github.com/baigao110/daojishi/releases/latest>
 
 App 内的版本信息来自仓库根目录的 `update.json`（含 versionCode、下载地址与更新说明）。
 
