@@ -80,6 +80,8 @@ object BuiltIn {
     const val YEAR = 42   // 今年倒计时：目标为「下一年 1 月 1 日 00:00:00」（今年结束的那一刻）
     // ---- 43 已退役：v174 新增、v176 删除的「华都云境悦府购买正计时」；编号保留不回收，仅用于清理旧数据 ----
     const val HUADU_BUY = 43
+    // ---- 本轮新加的「华都云境悦府20日倒计时」：固定目标 2026-10-20 00:00:00，风格与 GTA6 一致（日子定死、不滚动、可改名/色/动画/备注/提示音），全部 11 显示模式可用，悬浮窗同步 ----
+    const val HUADU_20 = 44
 
     /**
      * 固定目标时间的内置项（不随日期滚动）：返回 epoch 毫秒；滚动型内置项返回 null。
@@ -92,6 +94,7 @@ object BuiltIn {
         when (type) {
             HUADU -> cal.set(2026, Calendar.OCTOBER, 31, 0, 0, 0)
             GTA6 -> cal.set(2026, Calendar.NOVEMBER, 19, 8, 0, 0)
+            HUADU_20 -> cal.set(2026, Calendar.OCTOBER, 20, 0, 0, 0)
             HUADU_BUY -> cal.set(2025, Calendar.APRIL, 20, 17, 30, 0)
             else -> return null
         }
@@ -104,7 +107,7 @@ object BuiltIn {
      * 每分钟 …），而不是像华都云境悦府、GTA6 那样日子早就定死不动。
      */
     fun isRolling(type: Int): Boolean =
-        type != NONE && type != HUADU && type != GTA6 && type != HUADU_BUY
+        type != NONE && type != HUADU && type != GTA6 && type != HUADU_20 && type != HUADU_BUY
 
     /** 是否为「正计时」内置项（华都云境悦府购买正计时）：方向与普通倒计时相反，显示「自起点至今已过去多久」。 */
     fun isCountUp(type: Int): Boolean = type == HUADU_BUY
@@ -136,6 +139,7 @@ object BuiltIn {
         MONTH -> "当月倒计时"
         HUADU -> "华都云境悦府倒计时"
         GTA6 -> "GTA6倒计时"
+        HUADU_20 -> "华都云境悦府20日倒计时"
         WEEK -> "每周倒计时"
         HOUR -> "每小时倒计时"
         HALF_HOUR -> "每半小时倒计时"
@@ -645,7 +649,7 @@ object CountdownFormatter {
             // 与每 5 / 10 分钟、每半小时、每 2~9 分钟一个写法；
             // 当日倒计时（最多 24 小时）「时」有数，仍归上面那一档走「时分秒」。
             if (mode == 0 || mode == 4) MODE_MINUTE_SECOND else mode
-        BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.YEAR, BuiltIn.HUADU_BUY ->
+        BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.HUADU_20, BuiltIn.YEAR, BuiltIn.HUADU_BUY ->
             // 标准模式 → 天时分秒模式；v160 起新加的「周模式 9 / 周天时分秒模式 10」原样放行
             if (mode == 0) 6 else mode
         else -> {
@@ -694,6 +698,7 @@ object CountdownFormatter {
         //   永远到不了一周，摆出来只会是干巴巴一个「0周」，所以一律收掉。
         if (builtIn != BuiltIn.MONTH && builtIn != BuiltIn.HUADU &&
             builtIn != BuiltIn.GTA6 &&
+            builtIn != BuiltIn.HUADU_20 &&  // 本轮：华都云境悦府20日倒计时与 GTA6 同款（周那截有数）
             builtIn != BuiltIn.NONE &&
             builtIn != BuiltIn.YEAR &&  // v165：今年最长 365 天，「周」那截有数，与每月那档同待遇
             builtIn != BuiltIn.HUADU_BUY  // v177：正计时同款（周那截有数）
