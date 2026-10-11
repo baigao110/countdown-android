@@ -23,6 +23,8 @@ import subprocess
 import time
 import urllib.request
 import urllib.error
+import ssl
+import http.client
 from urllib.parse import quote
 
 OWNER = "baigao110"
@@ -51,18 +53,30 @@ def api(method, path, data=None, quiet=False):
     body = json.dumps(data).encode("utf-8") if data is not None else None
     req = urllib.request.Request(url, data=body, headers=HDR, method=method)
     req.add_header("Content-Type", "application/json")
-    try:
-        with urllib.request.urlopen(req, timeout=180) as r:
-            raw = r.read()
-            return json.loads(raw.decode("utf-8")) if raw else None
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode("utf-8", "ignore")[:500]
-        e.detail = detail  # 供上层判断错误类型
-        if e.code == 404:
-            return None
-        if not quiet:
-            print(f"  HTTP {e.code} {method} {path}: {detail}")
-        raise
+    last_err = None
+    for attempt in range(1, 6):
+        try:
+            with urllib.request.urlopen(req, timeout=180) as r:
+                raw = r.read()
+                return json.loads(raw.decode("utf-8")) if raw else None
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode("utf-8", "ignore")[:500]
+            e.detail = detail  # 供上层判断错误类型
+            if e.code == 404:
+                return None
+            if not quiet:
+                print(f"  HTTP {e.code} {method} {path}: {detail}")
+            raise
+        except (urllib.error.URLError, ssl.SSLError, http.client.IncompleteRead,
+                http.client.HTTPException, ConnectionError, OSError) as e:
+            # 代理/TLS 握手偶发被重置（SSL: UNEXPECTED_EOF_WHILE_READING）或读响应中断
+            # （IncompleteRead）时退避重试
+            last_err = e
+            if not quiet:
+                print(f"  [retry {attempt}/5] TLS/网络抖动: {e}")
+            time.sleep(2 * attempt)
+    if last_err:
+        raise last_err
 
 
 def tracked_files():
