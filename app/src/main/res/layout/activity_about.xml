@@ -82,7 +82,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:gravity="center"
-            android:text="项目主页 · github.com/baigao110/countdown-android"
+            android:text="项目主页 · github.com/baigao110/daojishi"
             android:textColor="#00FFFF"
             android:textSize="13sp" />
 
