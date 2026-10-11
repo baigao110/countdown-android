@@ -126,8 +126,37 @@ object UpdateManager {
         UpdatePromptMode.NOTIFY -> false
     }
 
-    const val CURRENT_VERSION_NAME = "1.0.0.39"
-    private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
+    /**
+     * 当前安装版本号。运行时从 PackageManager 读取真实 APK 版本，
+     * 不再写死成某个版本字符串——否则会出现「已升级到新版本、App 却仍显示旧版本号」、
+     * 以及「把已安装的新版本误判为需要更新」的问题。
+     * 通过 refreshCurrentVersion(ctx) 在应用启动 / 每次检查更新前刷新。
+     */
+    var CURRENT_VERSION_NAME = "1.0.0.0"
+    var CURRENT_VERSION_NUM = 0
+
+    /** 用 PackageManager 读取已安装 APK 的真实版本名与版本号，刷新上面的两个变量。 */
+    fun refreshCurrentVersion(ctx: Context) {
+        try {
+            val pi = ctx.packageManager.getPackageInfo(ctx.packageName, 0)
+            CURRENT_VERSION_NAME = pi.versionName ?: "1.0.0.0"
+            CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
+        } catch (e: Exception) {
+            // 读取失败时保留上一次的值（或初始占位），不影响后续逻辑
+        }
+    }
+
+    /** 取当前安装版本名（会先刷新，确保与已装 APK 一致）。 */
+    fun currentVersionName(ctx: Context): String {
+        refreshCurrentVersion(ctx)
+        return CURRENT_VERSION_NAME
+    }
+
+    /** 取当前安装版本号（会先刷新，确保与已装 APK 一致）。 */
+    fun currentVersionNum(ctx: Context): Int {
+        refreshCurrentVersion(ctx)
+        return CURRENT_VERSION_NUM
+    }
 
     private const val OWNER = "baigao110"
     private const val REPO = "daojishi"
@@ -175,8 +204,10 @@ object UpdateManager {
     }
 
     /** 该版本是否比当前 App 新（后台定期检查用，避免外部拿到私有的版本数值）。 */
-    fun hasNewVersion(info: UpdateInfo?): Boolean =
-        info != null && info.num > CURRENT_VERSION_NUM
+    fun hasNewVersion(ctx: Context, info: UpdateInfo?): Boolean {
+        refreshCurrentVersion(ctx)
+        return info != null && info.num > CURRENT_VERSION_NUM
+    }
 
     /**
      * 「忽略更新」：非持久化的临时忽略。
@@ -572,8 +603,9 @@ object UpdateManager {
 
     /** 更新提示的内容：发布日期 / 当前版本 / 更新日志（对话框与更新页共用）。 */
     fun fillUpdateContent(ctx: Context, host: LinearLayout, info: UpdateInfo) {
+        refreshCurrentVersion(ctx)
         host.addView(kvRow(ctx, "发布日期", info.date.ifEmpty { "未知" }))
-        host.addView(kvRow(ctx, "当前版本", "v$CURRENT_VERSION_NAME"))
+        host.addView(kvRow(ctx, "当前版本", "v${currentVersionName(ctx)}"))
         host.addView(sectionTitle(ctx, "更新日志"))
         host.addView(bodyText(ctx, if (info.note.isBlank()) "暂时没有更新说明哦" else info.note))
     }
@@ -931,7 +963,7 @@ object UpdateManager {
                 )
             )
 
-            head("v1.0.0.39 新增功能")
+            head("v${currentVersionName(activity)} 新增功能")
             line(
                 "用药提醒：在「＋」菜单「吃药提醒」里开关，可设每天 N 次、每次服药时刻与时机（8 选 1），到点发系统通知、通知上带「已吃药」按钮，点一下即记进吃药日历（按天显示）；三路冗余闹钟 + 巡检补发，退出 App 后仍按时提醒",
                 "锁屏时钟：列表里「展开」过的倒计时会在锁屏 / 通知栏各占一条常驻通知，每秒跳秒，标题 / 数字 / 模式 / 备注 / 配色与悬浮窗一致",
