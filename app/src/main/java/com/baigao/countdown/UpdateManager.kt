@@ -130,7 +130,7 @@ object UpdateManager {
     private val CURRENT_VERSION_NUM = versionToNumber(CURRENT_VERSION_NAME)
 
     private const val OWNER = "baigao110"
-    private const val REPO = "countdown-android"
+    private const val REPO = "daojishi"
     private const val LATEST_RELEASE = "https://api.github.com/repos/$OWNER/$REPO/releases/latest"
     private const val UPDATE_JSON =
         "https://raw.githubusercontent.com/$OWNER/$REPO/main/update.json"
