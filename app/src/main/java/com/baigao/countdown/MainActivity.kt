@@ -73,8 +73,9 @@ class MainActivity : Activity() {
         BuiltIn.MINUTE,
         BuiltIn.FIVE_MIN,
         BuiltIn.TEN_MIN, BuiltIn.HALF_HOUR, BuiltIn.HOUR,
-        BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6,
-        BuiltIn.HUADU_20,  // 本轮：华都云境悦府20日倒计时（固定目标 2026-10-20 00:00）
+        BuiltIn.DAY, BuiltIn.WEEK, BuiltIn.MONTH,
+        BuiltIn.HUADU_20,  // 本轮：华都云境悦府20日倒计时（固定目标 2026-10-20 00:00），放在当月倒计时下面
+        BuiltIn.HUADU, BuiltIn.GTA6,
         BuiltIn.HUADU_BUY,  // v177：华都云境悦府购买正计时（正计时）
         BuiltIn.YEAR  // v165：今年倒计时
     )
@@ -285,7 +286,7 @@ class MainActivity : Activity() {
     private fun ensureBuiltInTimers(): Boolean {
         // 新补的内置项一律插到列表最前面，所以按出厂顺序「倒着」补：
         // 最后一个 GTA6 先插、第一个每分钟最后插，补完列表里内置项的顺序正好是
-        // 出厂顺序（见 defaultBuiltInOrder）：每分钟 → 每5/10分钟 → 每半小时 → 每小时 → 当日 → 每周 → 当月 → 华都云境悦府 → GTA6 → 今年
+        // 出厂顺序（见 defaultBuiltInOrder）：每分钟 → 每5/10分钟 → 每半小时 → 每小时 → 当日 → 每周 → 当月 → 华都云境悦府20日 → 华都云境悦府 → GTA6 → 今年
         var added = false
         for (t in defaultBuiltInOrder.reversed()) {
             val info = builtInInfo[t] ?: continue
