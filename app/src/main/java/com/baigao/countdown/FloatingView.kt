@@ -16,6 +16,7 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.SeekBar
 import android.widget.TextView
+import android.widget.Toast
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -127,13 +128,13 @@ class FloatingView(
         hideBtn.setOnClickListener { safe("hide") { onClose(data) } }
         drawerBtn.setOnClickListener { safe("drawer") { if (!data.collapsed) toggleDrawer() } }
         collapseBtn.setOnClickListener { safe("collapse") { toggleCollapse() } }
-        prevBtn.setOnClickListener { safe("prevMode") { shiftMode(-1) } }
-        nextBtn.setOnClickListener { safe("nextMode") { shiftMode(1) } }
-        editBtn.setOnClickListener { safe("edit") { onEdit(data) } }
+        prevBtn.setOnClickListener { safe("prevMode") { if (data.isMissionCompleted()) { showMissionToast(); return@safe }; shiftMode(-1) } }
+        nextBtn.setOnClickListener { safe("nextMode") { if (data.isMissionCompleted()) { showMissionToast(); return@safe }; shiftMode(1) } }
+        editBtn.setOnClickListener { safe("edit") { if (data.isMissionCompleted()) { showMissionToast(); return@safe }; onEdit(data) } }
         // v177：华都云境悦府购买正计时的「暂停 / 开始」（玻璃质感，与 GTA6 展开悬浮窗同一路数）
-        pauseBtn.setOnClickListener { safe("pause") { data.togglePause(); onPauseChange(data); applyPauseBtn() } }
-        prevColorBtn.setOnClickListener { safe("prevColor") { shiftColor(-1) } }
-        nextColorBtn.setOnClickListener { safe("nextColor") { shiftColor(1) } }
+        pauseBtn.setOnClickListener { safe("pause") { if (data.isMissionCompleted()) { showMissionToast(); return@safe }; data.togglePause(); onPauseChange(data); applyPauseBtn() } }
+        prevColorBtn.setOnClickListener { safe("prevColor") { if (data.isMissionCompleted()) { showMissionToast(); return@safe }; shiftColor(-1) } }
+        nextColorBtn.setOnClickListener { safe("nextColor") { if (data.isMissionCompleted()) { showMissionToast(); return@safe }; shiftColor(1) } }
 
         // 不透明度调节：拖动时实时把玻璃底调淡 / 调实，倒计时数字始终全亮不受影响
         opacityBar.max = 80
@@ -484,7 +485,7 @@ class FloatingView(
                         onPositionChange(data, params.x, params.y)
                     } else {
                         if (data.collapsed) toggleCollapse() // 收缩条点一下即“放开”
-                        else if (!drawerOpen) shiftMode(1)
+                        else if (!drawerOpen) { if (data.isMissionCompleted()) showMissionToast() else shiftMode(1) }
                     }
                     true
                 }
@@ -591,6 +592,13 @@ class FloatingView(
         } catch (e: Throwable) {
             Log.w(TAG, "$tag: ${e.message}")
         }
+    }
+
+    /** 华都云境悦府12~20日倒计时归零后：悬浮窗里点其余按钮也提示「完成使命」（与主界面提示框同步）。 */
+    private fun showMissionToast() {
+        try {
+            Toast.makeText(context, "该倒计时已完成使命，现停止运行！请谅解！", Toast.LENGTH_LONG).show()
+        } catch (_: Throwable) { }
     }
 
     companion object {
