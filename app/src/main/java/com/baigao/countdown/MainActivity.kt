@@ -964,6 +964,26 @@ class MainActivity : Activity() {
 
     // ---------------- 各按钮动作（供列表项回调） ----------------
 
+    /** 华都云境悦府12~20日倒计时归零后：点其余按钮统一弹「完成使命」提示，命中即拦截。 */
+    private fun showMissionDoneIfCompleted(c: Countdown): Boolean {
+        if (!c.isMissionCompleted()) return false
+        UpdateManager.showStyledDialog(
+            activity = this,
+            title = "已完成使命",
+            positiveText = "好的",
+            negativeText = null
+        ) { host ->
+            val tv = TextView(this)
+            tv.text = "该倒计时已完成使命，现停止运行！请谅解！"
+            tv.setTextColor(Color.parseColor("#FFE4EEFF"))
+            tv.textSize = 14f
+            tv.setLineSpacing(0f, 1.45f)
+            tv.setShadowLayer(2f, 0f, 1f, Color.parseColor("#CC000000"))
+            tv.setPadding(dp(4), dp(6), dp(4), dp(6))
+            host.addView(tv)
+        }
+        return true
+    }
     fun onShowToggle(c: Countdown) {
         c.isVisible = !c.isVisible
         CountdownStore.save(this, data)
@@ -973,6 +993,7 @@ class MainActivity : Activity() {
 
     /** v177：华都云境悦府购买正计时的「暂停 / 开始」：点一下翻转状态，主界面与悬浮窗同步刷新。 */
     fun onPauseToggle(c: Countdown) {
+        if (showMissionDoneIfCompleted(c)) return
         if (c.builtIn != BuiltIn.HUADU_BUY) return
         c.togglePause()
         CountdownStore.save(this, data)
@@ -982,6 +1003,7 @@ class MainActivity : Activity() {
 
     /** 列表上点「显示模式」：弹出下拉框，在该条目可用的模式里直接挑一个（v156 起不再循环点）。 */
     fun onModePick(c: Countdown, anchor: View) {
+        if (showMissionDoneIfCompleted(c)) return
         // 只剩一种显示模式时（例如每分钟），这颗按钮本身已经收起来了
         if (!CountdownFormatter.hasModeSwitch(c.builtIn)) return
         // 只在「该条目可用的模式」里列：当日倒计时跳过已下线的天数模式
@@ -1000,6 +1022,7 @@ class MainActivity : Activity() {
 
     /** 列表上点「动画」按钮：弹出下拉框，直接挑一种跳秒动画（v156 起不再循环点）。 */
     fun onAnimPick(c: Countdown, anchor: View) {
+        if (showMissionDoneIfCompleted(c)) return
         val items = AnimStyle.NAMES.map { 0xFF00FFFF.toInt() to it }
         showPickPopup(anchor, items, c.animStyle) { i ->
             if (i == c.animStyle) return@showPickPopup
@@ -1012,6 +1035,7 @@ class MainActivity : Activity() {
 
     /** 列表上点「颜色」按钮：弹出下拉框，直接挑倒计时文字的主题色（列表与悬浮窗同帧生效）。 */
     fun onColorPick(c: Countdown, anchor: View) {
+        if (showMissionDoneIfCompleted(c)) return
         val items = ThemeColors.NAMES.mapIndexed { i, n -> ThemeColors.ARGS[i] to n }
         showPickPopup(anchor, items, ThemeColors.ARGS.indexOfFirst { it == c.customColorArgb }) { i ->
             if (c.customColorArgb == ThemeColors.ARGS[i]) return@showPickPopup
@@ -1028,6 +1052,7 @@ class MainActivity : Activity() {
      * @param row 被点开的这一行（左滑操作层上的按钮才会传），提示框关掉时它要自己滑回原位。
      */
     fun onEdit(c: Countdown, row: CountdownRow? = null) {
+        if (showMissionDoneIfCompleted(c)) return
         if (c.isBuiltIn()) {
             // 内置倒计时也能改（v1.0.0.9 起），只是先问一句：点「继续」才进编辑页。
             showBuiltInNotice(
@@ -1042,6 +1067,7 @@ class MainActivity : Activity() {
 
     /** 点卡片上的提示音名称：直接开系统铃声选择器（只有普通倒计时和「固定目标」内置项才有这一颗）。 */
     fun onSound(c: Countdown) {
+        if (showMissionDoneIfCompleted(c)) return
         val i = Intent(this, AddEditActivity::class.java)
         i.putExtra("id", c.id)
         i.putExtra("pickSoundOnly", true)
@@ -1062,6 +1088,7 @@ class MainActivity : Activity() {
      * @param row 被点开的这一行（左滑操作层上的按钮才会传），确认框关掉时它要自己滑回原位。
      */
     fun onDelete(c: Countdown, row: CountdownRow? = null) {
+        if (showMissionDoneIfCompleted(c)) return
         // 内置倒计时同样可以删除（v1.0.0.9 起），但删之前先跟用户说清楚：
         // 它一直是内置倒计时，收回列表后随时能「找回小内置」原样回来，点「继续」才收。
         if (c.isBuiltIn()) {
