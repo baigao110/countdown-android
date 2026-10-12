@@ -10,10 +10,10 @@ import java.util.UUID
 object ThemeColors {
     /** 七种可选颜色（ARGB 高字节为不透明；别只写 6 位，否则整块直接变透明）。 */
     val ARGS = intArrayOf(
-        0xFF1B3A5B.toInt(), 0xFF800020.toInt(), 0xFF6B8E23.toInt(),
-        0xFFFF7F50.toInt(), 0xFFB57EDC.toInt(), 0xFFB76E79.toInt(), 0xFF6F4E37.toInt()
+        0xFF00FFFF.toInt(), 0xFF00FF00.toInt(), 0xFFFF00FF.toInt(),
+        0xFFFFFF00.toInt(), 0xFFFF8000.toInt(), 0xFFFF0000.toInt(), 0xFFE8B94A.toInt()
     )
-    val NAMES = arrayOf("藏青色", "栗色", "橄榄绿", "珊瑚色", "薰衣草紫", "玫瑰金", "咖啡色")
+    val NAMES = arrayOf("青色", "绿色", "品红", "黄色", "橙色", "红色", "金色")
     /** 当前色值对应的名字（挑不到就退回第一种，按钮上永远有字）。 */
     fun nameOf(argb: Int): String {
         val i = ARGS.indexOfFirst { it == argb }
@@ -238,7 +238,7 @@ data class Countdown(
     var id: String = UUID.randomUUID().toString(),
     var title: String = "",
     var targetTime: Long = 0L,                 // 目标时间，epoch 毫秒
-    var customColorArgb: Int = 0xFF1B3A5B.toInt(), // 主题颜色
+    var customColorArgb: Int = 0xFF00FFFF.toInt(), // 主题颜色（默认值：青色）
     var displayMode: Int = 0,                  // 显示模式（见 CountdownFormatter.MODE_NAMES）
     var isVisible: Boolean = true,             // 是否在悬浮窗显示
     var remark: String = "",                   // 备注
