@@ -118,4 +118,48 @@ object CountdownStore {
         for (c in list) arr.put(toJson(c))
         File(context.filesDir, FILE).writeText(arr.toString())
     }
+
+    // ---------------- 华都云境悦府12~20日倒计时：归零即删除（完成使命） ----------------
+
+    private const val MISSION_DONE_PREFS = "builtin_removed"
+    private const val MISSION_DONE_KEY = "mission_done_types"
+
+    /** 某华都云境悦府 N 日内置档是否已经「完成使命」被删（持久化，重启不复发）。 */
+    fun isMissionDone(context: Context, type: Int): Boolean {
+        val prefs = context.getSharedPreferences(MISSION_DONE_PREFS, Context.MODE_PRIVATE)
+        return prefs.getStringSet(MISSION_DONE_KEY, emptySet())?.contains(type.toString()) ?: false
+    }
+
+    /** 记下某个华都云境悦府 N 日倒计时「已完成使命」被删除，之后不再自动补齐。 */
+    private fun markMissionDone(context: Context, type: Int) {
+        val prefs = context.getSharedPreferences(MISSION_DONE_PREFS, Context.MODE_PRIVATE)
+        val set = HashSet(prefs.getStringSet(MISSION_DONE_KEY, emptySet()) ?: emptySet())
+        if (!set.add(type.toString())) return
+        prefs.edit().putStringSet(MISSION_DONE_KEY, set).apply()
+    }
+
+    /**
+     * 收割所有已归零的「华都云境悦府12~20日倒计时」：从列表里移除、记下已完成使命、
+     * 落盘，返回被删掉的条目（供弹提示框）。幂等：已删过的不会再进列表，故重复调用安全。
+     */
+    fun reapCompletedMissions(context: Context, list: MutableList<Countdown>): List<Countdown> {
+        val now = System.currentTimeMillis()
+        val removed = mutableListOf<Countdown>()
+        val it = list.iterator()
+        while (it.hasNext()) {
+            val c = it.next()
+            val b = c.builtIn
+            if (b != BuiltIn.HUADU_12 && b != BuiltIn.HUADU_13 && b != BuiltIn.HUADU_14 &&
+                b != BuiltIn.HUADU_15 && b != BuiltIn.HUADU_16 && b != BuiltIn.HUADU_17 &&
+                b != BuiltIn.HUADU_18 && b != BuiltIn.HUADU_19 && b != BuiltIn.HUADU_20) continue
+            val t = BuiltIn.fixedTargetMillis(b) ?: continue
+            if (now >= t) {
+                markMissionDone(context, b)
+                it.remove()
+                removed.add(c)
+            }
+        }
+        if (removed.isNotEmpty()) save(context, list)
+        return removed
+    }
 }
