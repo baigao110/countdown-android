@@ -1319,8 +1319,9 @@ class MainActivity : Activity() {
     private fun missingBuiltIns(): List<Triple<Int, String, String>> =
         builtInDefs.filter { def ->
             val t = def.first
-            t in removedBuiltIns
-                || data.none { it.builtIn == t }
+            (t in removedBuiltIns
+                || data.none { it.builtIn == t })
+                && !CountdownStore.isMissionDone(this, t)
         }
 
     /**
