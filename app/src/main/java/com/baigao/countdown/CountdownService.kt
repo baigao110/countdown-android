@@ -95,6 +95,23 @@ class CountdownService : Service() {
         handler.postDelayed({
             try {
                 val list = CountdownStore.load(this)
+                // 归零的华都云境悦府12~20日倒计时：自动删除（主界面与悬浮窗同步消失），
+                // 若该倒计时正显示悬浮窗，则拉起主界面弹「完成使命」提示框（风格与其他提示框一致）
+                val missionRemoved = CountdownStore.reapCompletedMissions(this, list)
+                if (missionRemoved.isNotEmpty()) {
+                    rebuildFloaters()
+                    val visibleTitles = missionRemoved.filter { it.isVisible }.map { it.title }
+                    if (visibleTitles.isNotEmpty()) {
+                        try {
+                            val i = Intent(this, MainActivity::class.java)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            i.putStringArrayListExtra(MainActivity.EXTRA_MISSION_DONE, ArrayList(visibleTitles))
+                            startActivity(i)
+                        } catch (e: Throwable) {
+                            Log.w(TAG, "launch mission dialog: ${e.message}")
+                        }
+                    }
+                }
                 val now = AlignedClock.now() // 本次 tick 统一时刻（已对齐整秒），多个悬浮窗同步走秒
                 var changed = false
                 for (c in list) {
