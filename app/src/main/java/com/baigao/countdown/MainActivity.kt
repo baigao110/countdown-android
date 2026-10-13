@@ -45,6 +45,8 @@ class MainActivity : Activity() {
     private lateinit var listContainer: LinearLayout
     private lateinit var dragLayer: FrameLayout
     private var data = mutableListOf<Countdown>()
+    /** 待弹「完成使命」提示框的华都云境悦府 N 日倒计时标题清单（收割后暂存，弹完清空）。 */
+    private var pendingMissionTitles = mutableListOf<String>()
     private var overlayDialog: AlertDialog? = null
     private var dragInfo: DragInfo? = null
 
@@ -135,6 +137,8 @@ class MainActivity : Activity() {
     private val tickHandler = Handler(Looper.getMainLooper())
     private val tickRunnable = object : Runnable {
         override fun run() {
+            // 归零的华都云境悦府12~20日倒计时：自动删除并弹提示（幂等，重复调用安全）
+            reapCompletedMissions()
             // 内置倒计时（当日 / 当月）跨天、跨月后目标时间会变，需要整表重建；
             // 拖动排序过程中不重建，避免打断操作。
             if (refreshBuiltInTargets() && dragInfo == null) {
@@ -223,6 +227,8 @@ class MainActivity : Activity() {
         if (ensureBuiltInTimers()) CountdownStore.save(this, data)
         // 内置小倒计时的顺序：拖过就按拖出来的顺序，没拖过就按出厂顺序（见 defaultBuiltInOrder）
         applyBuiltInOrder()
+        // 归零的华都云境悦府12~20日倒计时：自动删除并弹「已完成使命」提示
+        reapCompletedMissions()
     }
 
     /**
@@ -313,6 +319,8 @@ class MainActivity : Activity() {
 
     /** 补齐单个内置倒计时；已存在则保留用户的位置、颜色、模式等配置。 */
     private fun ensureBuiltIn(type: Int, title: String, remark: String): Boolean {
+        // 「完成使命」归零后自动删除的华都云境悦府 N 日倒计时：不再自动补齐
+        if (CountdownStore.isMissionDone(this, type)) return false
         // 被用户删除过的内置项不再自动补齐，否则删完一重启又回来了
         if (type in removedBuiltIns) return false
         if (data.any { it.builtIn == type }) return false
@@ -365,6 +373,8 @@ class MainActivity : Activity() {
         const val EXTRA_SHOW_UPDATE = "show_update"
         /** 通知上的「立即更新」：进主界面后直接下载安装。 */
         const val EXTRA_UPDATE_NOW = "update_now"
+        /** 悬浮窗服务收割到「完成使命」的倒计时后，拉起主界面弹提示框时携带的标题列表。 */
+        const val EXTRA_MISSION_DONE = "mission_done"
         /** 进程存活期间只自动检查一次更新，避免每次 onResume 都弹窗。 */
         private var updateCheckedOnce = false
     }
@@ -512,6 +522,11 @@ class MainActivity : Activity() {
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         setIntent(intent)
+        // 悬浮窗服务收割到「完成使命」的倒计时后拉起本界面，这里接住标题清单去弹提示
+        intent?.getStringArrayListExtra(EXTRA_MISSION_DONE)?.let { titles ->
+            if (titles.isNotEmpty()) pendingMissionTitles.addAll(titles)
+            intent.removeExtra(EXTRA_MISSION_DONE)
+        }
         handleUpdateIntent(intent)
     }
 
@@ -575,6 +590,11 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        // 悬浮窗服务收割到「完成使命」的倒计时后拉起本界面，这里接住标题清单去弹提示
+        intent.getStringArrayListExtra(EXTRA_MISSION_DONE)?.let { titles ->
+            if (titles.isNotEmpty()) pendingMissionTitles.addAll(titles)
+            intent.removeExtra(EXTRA_MISSION_DONE)
+        }
         // 屏幕常亮开关：开启时本应用在前台保持屏幕常亮不锁屏
         ScreenKeepOn.apply(this)
         // 从「允许安装未知应用」设置页返回后，继续之前挂起的安装
@@ -964,26 +984,6 @@ class MainActivity : Activity() {
 
     // ---------------- 各按钮动作（供列表项回调） ----------------
 
-    /** 华都云境悦府12~20日倒计时归零后：点其余按钮统一弹「完成使命」提示，命中即拦截。 */
-    private fun showMissionDoneIfCompleted(c: Countdown): Boolean {
-        if (!c.isMissionCompleted()) return false
-        UpdateManager.showStyledDialog(
-            activity = this,
-            title = "已完成使命",
-            positiveText = "好的",
-            negativeText = null
-        ) { host ->
-            val tv = TextView(this)
-            tv.text = "该倒计时已完成使命，现停止运行！请谅解！"
-            tv.setTextColor(Color.parseColor("#FFE4EEFF"))
-            tv.textSize = 14f
-            tv.setLineSpacing(0f, 1.45f)
-            tv.setShadowLayer(2f, 0f, 1f, Color.parseColor("#CC000000"))
-            tv.setPadding(dp(4), dp(6), dp(4), dp(6))
-            host.addView(tv)
-        }
-        return true
-    }
     fun onShowToggle(c: Countdown) {
         c.isVisible = !c.isVisible
         CountdownStore.save(this, data)
@@ -991,9 +991,50 @@ class MainActivity : Activity() {
         syncService()
     }
 
+    /**
+     * 收割已归零的「华都云境悦府12~20日倒计时」：删除该倒计时（主界面与悬浮窗同步消失），
+     * 并记下已完成使命（之后不再自动补齐）。删完弹「xx倒计时已完成使命，现停止运行并已删除该倒计时！请谅解！」。
+     */
+    private fun reapCompletedMissions() {
+        val removed = CountdownStore.reapCompletedMissions(this, data)
+        if (removed.isEmpty()) return
+        for (c in removed) pendingMissionTitles.add(c.title)
+        rebuildList()
+        syncService()
+        showMissionDoneDialogIfAny()
+    }
+
+    /** 若有待提示的「完成使命」标题，用与其他提示框同一套玻璃风格弹出来，弹完清空。 */
+    private fun showMissionDoneDialogIfAny() {
+        if (pendingMissionTitles.isEmpty()) return
+        val titles = ArrayList(pendingMissionTitles)
+        pendingMissionTitles.clear()
+        val body = if (titles.size == 1) {
+            "${titles[0]}已完成使命，现停止运行并已删除该倒计时！请谅解！"
+        } else {
+            val sb = StringBuilder("以下倒计时已完成使命，现停止运行并已删除该倒计时！请谅解！\n")
+            for (t in titles) sb.append("· $t\n")
+            sb.toString().trimEnd()
+        }
+        UpdateManager.showStyledDialog(
+            activity = this,
+            title = "已完成使命",
+            positiveText = "好的",
+            negativeText = null
+        ) { host ->
+            val tv = TextView(this)
+            tv.text = body
+            tv.setTextColor(Color.parseColor("#FFE4EEFF"))
+            tv.textSize = 14f
+            tv.setLineSpacing(0f, 1.45f)
+            tv.setShadowLayer(2f, 0f, 1f, Color.parseColor("#CC000000"))
+            tv.setPadding(dp(4), dp(6), dp(4), dp(6))
+            host.addView(tv)
+        }
+    }
+
     /** v177：华都云境悦府购买正计时的「暂停 / 开始」：点一下翻转状态，主界面与悬浮窗同步刷新。 */
     fun onPauseToggle(c: Countdown) {
-        if (showMissionDoneIfCompleted(c)) return
         if (c.builtIn != BuiltIn.HUADU_BUY) return
         c.togglePause()
         CountdownStore.save(this, data)
@@ -1003,7 +1044,6 @@ class MainActivity : Activity() {
 
     /** 列表上点「显示模式」：弹出下拉框，在该条目可用的模式里直接挑一个（v156 起不再循环点）。 */
     fun onModePick(c: Countdown, anchor: View) {
-        if (showMissionDoneIfCompleted(c)) return
         // 只剩一种显示模式时（例如每分钟），这颗按钮本身已经收起来了
         if (!CountdownFormatter.hasModeSwitch(c.builtIn)) return
         // 只在「该条目可用的模式」里列：当日倒计时跳过已下线的天数模式
@@ -1022,7 +1062,6 @@ class MainActivity : Activity() {
 
     /** 列表上点「动画」按钮：弹出下拉框，直接挑一种跳秒动画（v156 起不再循环点）。 */
     fun onAnimPick(c: Countdown, anchor: View) {
-        if (showMissionDoneIfCompleted(c)) return
         val items = AnimStyle.NAMES.map { 0xFF00FFFF.toInt() to it }
         showPickPopup(anchor, items, c.animStyle) { i ->
             if (i == c.animStyle) return@showPickPopup
@@ -1035,7 +1074,6 @@ class MainActivity : Activity() {
 
     /** 列表上点「颜色」按钮：弹出下拉框，直接挑倒计时文字的主题色（列表与悬浮窗同帧生效）。 */
     fun onColorPick(c: Countdown, anchor: View) {
-        if (showMissionDoneIfCompleted(c)) return
         val items = ThemeColors.NAMES.mapIndexed { i, n -> ThemeColors.ARGS[i] to n }
         showPickPopup(anchor, items, ThemeColors.ARGS.indexOfFirst { it == c.customColorArgb }) { i ->
             if (c.customColorArgb == ThemeColors.ARGS[i]) return@showPickPopup
@@ -1052,7 +1090,6 @@ class MainActivity : Activity() {
      * @param row 被点开的这一行（左滑操作层上的按钮才会传），提示框关掉时它要自己滑回原位。
      */
     fun onEdit(c: Countdown, row: CountdownRow? = null) {
-        if (showMissionDoneIfCompleted(c)) return
         if (c.isBuiltIn()) {
             // 内置倒计时也能改（v1.0.0.9 起），只是先问一句：点「继续」才进编辑页。
             showBuiltInNotice(
@@ -1067,7 +1104,6 @@ class MainActivity : Activity() {
 
     /** 点卡片上的提示音名称：直接开系统铃声选择器（只有普通倒计时和「固定目标」内置项才有这一颗）。 */
     fun onSound(c: Countdown) {
-        if (showMissionDoneIfCompleted(c)) return
         val i = Intent(this, AddEditActivity::class.java)
         i.putExtra("id", c.id)
         i.putExtra("pickSoundOnly", true)
@@ -1088,7 +1124,6 @@ class MainActivity : Activity() {
      * @param row 被点开的这一行（左滑操作层上的按钮才会传），确认框关掉时它要自己滑回原位。
      */
     fun onDelete(c: Countdown, row: CountdownRow? = null) {
-        if (showMissionDoneIfCompleted(c)) return
         // 内置倒计时同样可以删除（v1.0.0.9 起），但删之前先跟用户说清楚：
         // 它一直是内置倒计时，收回列表后随时能「找回小内置」原样回来，点「继续」才收。
         if (c.isBuiltIn()) {
