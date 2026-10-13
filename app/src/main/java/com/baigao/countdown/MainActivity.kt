@@ -223,6 +223,9 @@ class MainActivity : Activity() {
     /** 读取本地数据，并确保出厂顺序里那些内置项（每分钟 / 每5分钟 / 每10分钟 / 每半小时 / 每小时 / 当日 / 每周 / 当月 / 华都云境悦府 / GTA6 / 今年）始终存在。 */
     private fun loadData() {
         data = CountdownStore.load(this)
+        // 每次回到主界面都从 SharedPreferences 重新读一遍「已删除内置项」集合，
+        // 否则在编辑页点了「彻底删除」回来后，ensureBuiltInTimers 又会把它补回来。
+        loadRemovedBuiltIns()
         // ⚠️ v159：「100年内倒计时」整个档位删干净了，老数据里躺着的那几条连同它们的
         // 备份快照一起清掉（列表里不该再留着已经选不中的那一档）
         dropRetiredCentury()
@@ -408,7 +411,7 @@ class MainActivity : Activity() {
         findViewById<View>(R.id.selCancelBtn).setOnClickListener { exitMultiSelect() }
         findViewById<View>(R.id.selAllBtn).setOnClickListener { selectAllRows() }
         findViewById<View>(R.id.selNoneBtn).setOnClickListener { clearAllRows() }
-        removedPrefs.getStringSet("types", emptySet())?.forEach { removedBuiltIns.add(it.toInt()) }
+        loadRemovedBuiltIns()
 
         scrollView = findViewById(R.id.scroll)
         listContainer = findViewById(R.id.listContainer)
@@ -1278,6 +1281,14 @@ class MainActivity : Activity() {
         }
     }
 
+    /** 启动时把「已被删除的内置倒计时」（含彻底删除）从 SharedPreferences 读回内存集合。 */
+    private fun loadRemovedBuiltIns() {
+        removedBuiltIns.clear()
+        removedPrefs.getStringSet("types", emptySet())?.forEach {
+            it.toIntOrNull()?.let { t -> removedBuiltIns.add(t) }
+        }
+    }
+
     /** 记录「某个内置倒计时已被删除」，写盘持久化。 */
     private fun markBuiltInRemoved(type: Int) {
         if (!removedBuiltIns.add(type)) return
@@ -1322,6 +1333,7 @@ class MainActivity : Activity() {
             (t in removedBuiltIns
                 || data.none { it.builtIn == t })
                 && !CountdownStore.isMissionDone(this, t)
+                && !CountdownStore.isPermanentlyRemoved(this, t)
         }
 
     /**
