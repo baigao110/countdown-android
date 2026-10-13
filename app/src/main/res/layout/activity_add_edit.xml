@@ -420,6 +420,19 @@
             </LinearLayout>
 
 
+            <!-- v1.0.0.62：内置倒计时「彻底删除（不能找回）」按钮（仅编辑内置项时显示） -->
+            <Button
+                android:id="@+id/btnPermanentDelete"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="18dp"
+                android:text="彻底删除（不能找回）"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="#FFFF6666"
+                android:background="@drawable/pill_btn_gray"
+                android:visibility="gone" />
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
