@@ -261,15 +261,6 @@ data class Countdown(
     /** 是否为系统内置倒计时（当日 / 当月 / 华都云境悦府 / GTA6）——内置项不可删除 */
     fun isBuiltIn(): Boolean = builtIn != BuiltIn.NONE
 
-    /** 华都云境悦府12~20日倒计时：到达目标日 00:00 即「完成使命」，归零后其余按钮禁用并提示。 */
-    fun isMissionCompleted(): Boolean {
-        val b = builtIn
-        if (b != BuiltIn.HUADU_12 && b != BuiltIn.HUADU_13 && b != BuiltIn.HUADU_14 &&
-            b != BuiltIn.HUADU_15 && b != BuiltIn.HUADU_16 && b != BuiltIn.HUADU_17 &&
-            b != BuiltIn.HUADU_18 && b != BuiltIn.HUADU_19 && b != BuiltIn.HUADU_20) return false
-        val t = BuiltIn.fixedTargetMillis(b) ?: return false
-        return System.currentTimeMillis() >= t
-    }
     /**
      * 是否为「周期滚动型」内置倒计时（每分钟 / 每5分钟 / 每10分钟 / 每半小时 /
      * 每小时 / 当日 / 每周 / 当月）——这一类的目标时刻由系统一格格往下跳，
