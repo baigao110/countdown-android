@@ -119,7 +119,7 @@ object CountdownStore {
         File(context.filesDir, FILE).writeText(arr.toString())
     }
 
-    // ---------------- 华都云境悦府12~20日倒计时：归零即删除（完成使命） ----------------
+    // ---------------- 华都云境悦府12~20日、21日星期三、28日星期三倒计时：归零即删除（完成使命） ----------------
 
     private const val MISSION_DONE_PREFS = "builtin_removed"
     private const val MISSION_DONE_KEY = "mission_done_types"
@@ -139,7 +139,7 @@ object CountdownStore {
     }
 
     /**
-     * 收割所有已归零的「华都云境悦府12~20日倒计时」：从列表里移除、记下已完成使命、
+     * 收割所有已归零的「华都云境悦府12~20日、21日星期三、28日星期三倒计时」：从列表里移除、记下已完成使命、
      * 落盘，返回被删掉的条目（供弹提示框）。幂等：已删过的不会再进列表，故重复调用安全。
      */
     fun reapCompletedMissions(context: Context, list: MutableList<Countdown>): List<Countdown> {
@@ -151,7 +151,8 @@ object CountdownStore {
             val b = c.builtIn
             if (b != BuiltIn.HUADU_12 && b != BuiltIn.HUADU_13 && b != BuiltIn.HUADU_14 &&
                 b != BuiltIn.HUADU_15 && b != BuiltIn.HUADU_16 && b != BuiltIn.HUADU_17 &&
-                b != BuiltIn.HUADU_18 && b != BuiltIn.HUADU_19 && b != BuiltIn.HUADU_20) continue
+                b != BuiltIn.HUADU_18 && b != BuiltIn.HUADU_19 && b != BuiltIn.HUADU_20 &&
+                b != BuiltIn.HUADU_21 && b != BuiltIn.HUADU_28) continue
             val t = BuiltIn.fixedTargetMillis(b) ?: continue
             if (now >= t) {
                 markMissionDone(context, b)
