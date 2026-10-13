@@ -17,6 +17,7 @@ import android.widget.Switch
 import android.widget.TextView
 import android.widget.TimePicker
 import android.widget.Toast
+import android.graphics.Color
 import java.util.Calendar
 
 // v161：「倒计时类型」这一级的第二项文案；第一项取 BuiltIn.nameOf(NONE)（普通倒计时），
@@ -566,6 +567,47 @@ class AddEditActivity : Activity() {
             finish()
         }
         cancelBtn.setOnClickListener { finish() }
+
+        // v1.0.0.62：编辑内置倒计时时显示「彻底删除（不能找回）」按钮（普通倒计时不显示）。
+        // 风格与页面上其它按钮一致；点一下弹同款玻璃确认框，确认后该内置项从主界面列表与悬浮窗同步消失、
+        // 且不再出现在「恢复内置」里（彻底不能找回），重装 App 不受影响会重新生成。
+        val permDeleteBtn = findViewById<Button>(R.id.btnPermanentDelete)
+        permDeleteBtn.visibility = if (builtInEdit) View.VISIBLE else View.GONE
+        if (builtInEdit) {
+            permDeleteBtn.setOnClickListener {
+                val c2 = editTarget ?: return@setOnClickListener
+                val title = c2.title
+                UpdateManager.showStyledDialog(
+                    activity = this,
+                    title = "彻底删除（不能找回）",
+                    positiveText = "确认删除",
+                    negativeText = "先不了",
+                    onPositive = {
+                        val list = CountdownStore.load(this)
+                        val type = c2.builtIn
+                        list.removeAll { it.id == c2.id }
+                        CountdownStore.save(this, list)
+                        CountdownStore.markPermanentlyRemoved(this, type)
+                        setResult(Activity.RESULT_OK)
+                        if (fromFloating) {
+                            val ri = Intent(this, CountdownService::class.java)
+                            ri.action = CountdownService.ACTION_START
+                            startForegroundService(ri)
+                        }
+                        finish()
+                    }
+                ) { host ->
+                    host.addView(TextView(this).apply {
+                        text = "确定要把「$title」彻底删掉吗？\n\n删除后将无法找回——它不会再出现在「恢复内置」列表里。\n（重装 App 会重新生成，不影响重新安装）"
+                        setTextColor(Color.parseColor("#FFE4EEFF"))
+                        textSize = 14f
+                        setLineSpacing(0f, 1.45f)
+                        setShadowLayer(2f, 0f, 1f, Color.parseColor("#CC000000"))
+                        setPadding(16, 20, 16, 20)
+                    })
+                }
+            }
+        }
     }
 
 
