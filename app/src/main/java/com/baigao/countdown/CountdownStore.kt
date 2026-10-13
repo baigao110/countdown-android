@@ -138,6 +138,28 @@ object CountdownStore {
         prefs.edit().putStringSet(MISSION_DONE_KEY, set).apply()
     }
 
+    // ---------------- 内置倒计时「彻底删除（不能找回）」持久化 ----------------
+    private const val PERMANENT_PREFS = "builtin_removed"
+    private const val PERMANENT_KEY = "permanent_types"
+
+    /** 某内置倒计时是否被「彻底删除（不能找回）」过。 */
+    fun isPermanentlyRemoved(context: Context, type: Int): Boolean {
+        val prefs = context.getSharedPreferences(PERMANENT_PREFS, Context.MODE_PRIVATE)
+        return prefs.getStringSet(PERMANENT_KEY, emptySet())?.contains(type.toString()) ?: false
+    }
+
+    /** 彻底删除某内置倒计时：记进 types（不再自动补齐）+ permanent_types（恢复内置列表也不出现），并清掉它的设置快照。 */
+    fun markPermanentlyRemoved(context: Context, type: Int) {
+        val prefs = context.getSharedPreferences(PERMANENT_PREFS, Context.MODE_PRIVATE)
+        val types = HashSet(prefs.getStringSet("types", emptySet()) ?: emptySet())
+        types.add(type.toString())
+        prefs.edit().putStringSet("types", types).apply()
+        val perm = HashSet(prefs.getStringSet(PERMANENT_KEY, emptySet()) ?: emptySet())
+        perm.add(type.toString())
+        prefs.edit().putStringSet(PERMANENT_KEY, perm).apply()
+        prefs.edit().remove("backup_$type").apply()
+    }
+
     /**
      * 收割所有已归零的「华都云境悦府12~20日、21日星期三、28日星期三倒计时」：从列表里移除、记下已完成使命、
      * 落盘，返回被删掉的条目（供弹提示框）。幂等：已删过的不会再进列表，故重复调用安全。
