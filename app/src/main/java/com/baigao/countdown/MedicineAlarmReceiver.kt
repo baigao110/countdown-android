@@ -18,10 +18,10 @@ class MedicineAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             MedicineReminder.ACTION_TAKEN -> {
-                MedicineReminder.setTaken(context, true)
+                val ts = MedicineReminder.recordTakeEvent(context)
                 MedicineReminder.cancelNotification(context)
                 try {
-                    Toast.makeText(context, "已经记下今天吃药啦", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "已经记下今天吃药啦（${MedicineReminder.formatTakeEvent(ts)}）", Toast.LENGTH_SHORT).show()
                 } catch (e: Throwable) {
                     // 部分 ROM 不允许后台弹 Toast，忽略
                 }
