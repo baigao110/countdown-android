@@ -61,35 +61,13 @@ class MedicineCalendarActivity : Activity() {
             shown.add(Calendar.MONTH, 1)
             render()
         }
-        todayBtn.setOnClickListener {
-            val taken = MedicineReminder.isTaken(this)
-            if (taken) {
-                MedicineReminder.setTaken(this, false)
-                Toast.makeText(this, "已经撤销今天的记录啦", Toast.LENGTH_SHORT).show()
-            } else {
-                val ts = MedicineReminder.recordTakeEvent(this)
-                Toast.makeText(
-                    this,
-                    "已经记下今天吃药啦（${MedicineReminder.formatTakeEvent(ts)}）",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-            render(); renderLog()
-        }
+        todayBtn.setOnClickListener { tryRecordToday() }
         findViewById<Button>(R.id.timesBtn).setOnClickListener { showTimesPicker() }
         findViewById<Button>(R.id.doseEditBtn).setOnClickListener {
             DoseEditor.showDialog(this) { render() }
         }
-        // 「记一笔吃药」：再记一次吃药事件（同一天可记多次，比如一天吃三顿）
-        findViewById<Button>(R.id.addLogBtn).setOnClickListener {
-            val ts = MedicineReminder.recordTakeEvent(this)
-            Toast.makeText(
-                this,
-                "记下一笔吃药啦（${MedicineReminder.formatTakeEvent(ts)}）",
-                Toast.LENGTH_SHORT
-            ).show()
-            render(); renderLog()
-        }
+        // 「记一笔吃药」：再记一次吃药事件（同一天可记多次；超过每天设定次数会弹提示框）
+        findViewById<Button>(R.id.addLogBtn).setOnClickListener { tryRecordToday() }
         // 「清空记录」：把全部吃药记录清掉（带同款玻璃确认框）
         findViewById<Button>(R.id.clearLogBtn).setOnClickListener { showClearLogConfirm() }
         render(); renderLog()
@@ -181,7 +159,8 @@ class MedicineCalendarActivity : Activity() {
         statTv.text = statBase
 
         // ---------- 今日按钮 ----------
-        todayBtn.text = if (MedicineReminder.isTaken(this)) "撤销今天记录" else "今天已吃药"
+        val tCount = MedicineReminder.takeCountToday(this)
+        todayBtn.text = if (tCount > 0) "今天已吃 $tCount 次 · 再记一笔" else "记一笔吃药（今天）"
     }
 
     private fun cellView(day: Int, fmt: java.text.SimpleDateFormat, taken: Set<String>): FrameLayout {
@@ -233,7 +212,7 @@ class MedicineCalendarActivity : Activity() {
             box.setOnClickListener {
                 val nowTaken = MedicineReminder.isTaken(this, key)
                 if (nowTaken) {
-                    MedicineReminder.setTaken(this, false, key)
+                    MedicineReminder.removeTakeDay(this, key)
                     Toast.makeText(
                         this,
                         "已经撤销 ${monthLabel(day)} 的记录啦",
@@ -273,7 +252,7 @@ class MedicineCalendarActivity : Activity() {
             .show()
     }
 
-    /** 吃药记录日志：按日期分组、组内按时间列出每次吃药的「年月日时分秒」，每条可单独删除。 */
+    /** 吃药记录日志：按日期分组，每组显示「当天吃了几次」。 */
     private fun renderLog() {
         val container = findViewById<LinearLayout>(R.id.logContainer)
         val emptyTv = findViewById<TextView>(R.id.logEmptyTv)
@@ -285,53 +264,81 @@ class MedicineCalendarActivity : Activity() {
         }
         emptyTv.visibility = View.GONE
         val todayKey = MedicineReminder.todayKey()
-        val week = arrayOf("周日", "周一", "周二", "周三", "周四", "周五", "周六")
         for ((dayKey, times) in groups) {
-            // 日期分组头
-            val header = TextView(this)
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+            row.gravity = Gravity.CENTER_VERTICAL
+
             val w = MedicineReminder.dayWeekday(dayKey)
             val label = if (dayKey == todayKey) "$dayKey（今天 $w）" else "$dayKey（$w）"
-            header.text = label
-            header.setTextColor(0xFF00FFFF.toInt())
-            header.textSize = 14f
-            header.setTypeface(null, Typeface.BOLD)
-            val hlp = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            hlp.topMargin = dp(10); hlp.bottomMargin = dp(2)
-            header.layoutParams = hlp
-            container.addView(header)
+            val head = TextView(this)
+            head.text = "$label：已吃药 ${times.size} 次"
+            head.setTextColor(0xFF00FFFF.toInt())
+            head.textSize = 14f
+            head.setTypeface(null, Typeface.BOLD)
+            head.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
 
-            // 当天的每一次吃药事件
-            for (ts in times) {
-                val row = LinearLayout(this)
-                row.orientation = LinearLayout.HORIZONTAL
-                row.gravity = Gravity.CENTER_VERTICAL
+            val del = Button(this)
+            del.text = "×"
+            del.textSize = 18f
+            del.setTextColor(0xFF001018.toInt())
+            del.setBackgroundResource(R.drawable.circle_btn)
+            val dlp = LinearLayout.LayoutParams(dp(34), dp(34))
+            dlp.leftMargin = dp(8)
+            del.layoutParams = dlp
+            del.setOnClickListener {
+                MedicineReminder.removeTakeDay(this, dayKey)
+                render(); renderLog()
+                Toast.makeText(this, "已经撤销 ${dayKey} 的记录了", Toast.LENGTH_SHORT).show()
+            }
 
-                val time = TextView(this)
-                time.text = MedicineReminder.formatTakeEvent(ts)
-                time.setTextColor(0xFFEAF6FF.toInt())
-                time.textSize = 14f
-                time.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            row.addView(head)
+            row.addView(del)
+            container.addView(row)
+        }
+    }
 
-                val del = Button(this)
-                del.text = "×"
-                del.textSize = 18f
-                del.setTextColor(0xFF001018.toInt())
-                del.setBackgroundResource(R.drawable.circle_btn)
-                val dlp = LinearLayout.LayoutParams(dp(34), dp(34))
-                dlp.leftMargin = dp(8)
-                del.layoutParams = dlp
-                del.setOnClickListener {
-                    MedicineReminder.removeTakeEvent(this, ts)
+    /** 记一笔今天的吃药：超过当天设定次数时弹同款玻璃提示框「今天已吃药了，不要重复吃药哦！」。 */
+    private fun tryRecordToday() {
+        val count = MedicineReminder.takeCountToday(this)
+        val limit = MedicineReminder.timesPerDay(this)
+        if (count >= limit) {
+            if (isFinishing) return
+            UpdateManager.showStyledDialog(
+                activity = this,
+                title = "今天已吃药了",
+                positiveText = "仍要记录",
+                negativeText = "取消",
+                onPositive = {
+                    val ts = MedicineReminder.recordTakeEvent(this)
+                    Toast.makeText(
+                        this,
+                        "记下一笔啦（${MedicineReminder.formatTakeEvent(ts)}）",
+                        Toast.LENGTH_SHORT
+                    ).show()
                     render(); renderLog()
                 }
-
-                row.addView(time)
-                row.addView(del)
-                container.addView(row)
+            ) { host ->
+                val tv = TextView(this).apply {
+                    text = "不要重复吃药哦！今天已经记了 ${count} 次，确定还要再记一笔吗？"
+                    setTextColor(0xFFE4EEFF.toInt())
+                    textSize = 14f
+                    setShadowLayer(2f, 0f, 1f, 0xCC000000.toInt())
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                }
+                host.addView(tv)
             }
+            return
         }
+        val ts = MedicineReminder.recordTakeEvent(this)
+        Toast.makeText(
+            this,
+            "记下一笔啦（${MedicineReminder.formatTakeEvent(ts)}）",
+            Toast.LENGTH_SHORT
+        ).show()
+        render(); renderLog()
     }
 
     /** 「清空记录」确认框：和其它提示框同款玻璃风格。 */
