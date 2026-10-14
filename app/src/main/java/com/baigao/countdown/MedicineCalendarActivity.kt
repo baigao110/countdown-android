@@ -2,15 +2,18 @@ package com.baigao.countdown
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
+import android.view.View
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 import android.text.SpannableStringBuilder
 
@@ -60,19 +63,36 @@ class MedicineCalendarActivity : Activity() {
         }
         todayBtn.setOnClickListener {
             val taken = MedicineReminder.isTaken(this)
-            MedicineReminder.setTaken(this, !taken)
-            Toast.makeText(
-                this,
-                if (taken) "已经撤销今天的记录啦" else "已经记下今天吃药啦",
-                Toast.LENGTH_SHORT
-            ).show()
-            render()
+            if (taken) {
+                MedicineReminder.setTaken(this, false)
+                Toast.makeText(this, "已经撤销今天的记录啦", Toast.LENGTH_SHORT).show()
+            } else {
+                val ts = MedicineReminder.recordTakeEvent(this)
+                Toast.makeText(
+                    this,
+                    "已经记下今天吃药啦（${MedicineReminder.formatTakeEvent(ts)}）",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            render(); renderLog()
         }
         findViewById<Button>(R.id.timesBtn).setOnClickListener { showTimesPicker() }
         findViewById<Button>(R.id.doseEditBtn).setOnClickListener {
             DoseEditor.showDialog(this) { render() }
         }
-        render()
+        // 「记一笔吃药」：再记一次吃药事件（同一天可记多次，比如一天吃三顿）
+        findViewById<Button>(R.id.addLogBtn).setOnClickListener {
+            val ts = MedicineReminder.recordTakeEvent(this)
+            Toast.makeText(
+                this,
+                "记下一笔吃药啦（${MedicineReminder.formatTakeEvent(ts)}）",
+                Toast.LENGTH_SHORT
+            ).show()
+            render(); renderLog()
+        }
+        // 「清空记录」：把全部吃药记录清掉（带同款玻璃确认框）
+        findViewById<Button>(R.id.clearLogBtn).setOnClickListener { showClearLogConfirm() }
+        render(); renderLog()
     }
 
     override fun onResume() {
@@ -80,7 +100,7 @@ class MedicineCalendarActivity : Activity() {
         // 屏幕常亮开关：开启时本应用在前台保持屏幕常亮不锁屏
         ScreenKeepOn.apply(this)
         today.timeInMillis = System.currentTimeMillis()
-        render()
+        render(); renderLog()
     }
 
     override fun onPause() {
@@ -208,17 +228,26 @@ class MedicineCalendarActivity : Activity() {
         lp.gravity = Gravity.CENTER
         box.addView(tv, lp)
 
-        // 过去与今天的格子可点：补记 / 撤销
+        // 过去与今天的格子可点：补记 / 撤销（补记会记下精确到秒的吃药时刻）
         if (!isFuture) {
             box.setOnClickListener {
                 val nowTaken = MedicineReminder.isTaken(this, key)
-                MedicineReminder.setTaken(this, !nowTaken, key)
-                Toast.makeText(
-                    this,
-                    if (nowTaken) "已经撤销 ${monthLabel(day)} 的记录啦" else "已经补记 ${monthLabel(day)} 啦",
-                    Toast.LENGTH_SHORT
-                ).show()
-                render()
+                if (nowTaken) {
+                    MedicineReminder.setTaken(this, false, key)
+                    Toast.makeText(
+                        this,
+                        "已经撤销 ${monthLabel(day)} 的记录啦",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    val ts = MedicineReminder.recordTakeEvent(this, System.currentTimeMillis(), key)
+                    Toast.makeText(
+                        this,
+                        "已经补记 ${monthLabel(day)} 啦（${MedicineReminder.formatTakeEvent(ts)}）",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                render(); renderLog()
             }
         }
         return box
@@ -242,5 +271,93 @@ class MedicineCalendarActivity : Activity() {
             }
             .setNegativeButton("先不了", null)
             .show()
+    }
+
+    /** 吃药记录日志：按日期分组、组内按时间列出每次吃药的「年月日时分秒」，每条可单独删除。 */
+    private fun renderLog() {
+        val container = findViewById<LinearLayout>(R.id.logContainer)
+        val emptyTv = findViewById<TextView>(R.id.logEmptyTv)
+        container.removeAllViews()
+        val groups = MedicineReminder.takeLogGroupedByDay(this)
+        if (groups.isEmpty()) {
+            emptyTv.visibility = View.VISIBLE
+            return
+        }
+        emptyTv.visibility = View.GONE
+        val todayKey = MedicineReminder.todayKey()
+        val week = arrayOf("周日", "周一", "周二", "周三", "周四", "周五", "周六")
+        for ((dayKey, times) in groups) {
+            // 日期分组头
+            val header = TextView(this)
+            val w = MedicineReminder.dayWeekday(dayKey)
+            val label = if (dayKey == todayKey) "$dayKey（今天 $w）" else "$dayKey（$w）"
+            header.text = label
+            header.setTextColor(0xFF00FFFF.toInt())
+            header.textSize = 14f
+            header.setTypeface(null, Typeface.BOLD)
+            val hlp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            hlp.topMargin = dp(10); hlp.bottomMargin = dp(2)
+            header.layoutParams = hlp
+            container.addView(header)
+
+            // 当天的每一次吃药事件
+            for (ts in times) {
+                val row = LinearLayout(this)
+                row.orientation = LinearLayout.HORIZONTAL
+                row.gravity = Gravity.CENTER_VERTICAL
+
+                val time = TextView(this)
+                time.text = MedicineReminder.formatTakeEvent(ts)
+                time.setTextColor(0xFFEAF6FF.toInt())
+                time.textSize = 14f
+                time.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+
+                val del = Button(this)
+                del.text = "×"
+                del.textSize = 18f
+                del.setTextColor(0xFF001018.toInt())
+                del.setBackgroundResource(R.drawable.circle_btn)
+                val dlp = LinearLayout.LayoutParams(dp(34), dp(34))
+                dlp.leftMargin = dp(8)
+                del.layoutParams = dlp
+                del.setOnClickListener {
+                    MedicineReminder.removeTakeEvent(this, ts)
+                    render(); renderLog()
+                }
+
+                row.addView(time)
+                row.addView(del)
+                container.addView(row)
+            }
+        }
+    }
+
+    /** 「清空记录」确认框：和其它提示框同款玻璃风格。 */
+    private fun showClearLogConfirm() {
+        if (isFinishing) return
+        UpdateManager.showStyledDialog(
+            activity = this,
+            title = "清空吃药记录",
+            positiveText = "清空",
+            negativeText = "先不了",
+            onPositive = {
+                MedicineReminder.clearTakeLog(this)
+                render(); renderLog()
+                Toast.makeText(this, "已经清空全部吃药记录啦", Toast.LENGTH_SHORT).show()
+            }
+        ) { host ->
+            val tv = TextView(this).apply {
+                text = "确定要清空全部吃药记录吗？清空后没法恢复哦（当天「已吃」标记也会一起去掉）。"
+                setTextColor(0xFFE4EEFF.toInt())
+                textSize = 14f
+                setShadowLayer(2f, 0f, 1f, 0xCC000000.toInt())
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+            host.addView(tv)
+        }
     }
 }
