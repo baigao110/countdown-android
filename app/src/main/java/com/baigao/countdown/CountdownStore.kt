@@ -54,7 +54,7 @@ object CountdownStore {
                 // 老数据绕机器一电平级成 6，显示、下拉框选中项、悬浮窗标题三者一致。
                 // 按类型已收掉的那些模式（当日倒计时的「天时分秒 / 天时分」、每小时与每半小时的
                 // 「小时模式 / 天时分秒 / 天时分」等）对旧数据一样生效，不在可选列表里就退回标准模式
-                val upgraded = if (m == CountdownFormatter.MODE_STANDARD && builtIn in intArrayOf(BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.HUADU_20, BuiltIn.HUADU_21, BuiltIn.HUADU_28, BuiltIn.HUADU_15, BuiltIn.HUADU_16, BuiltIn.HUADU_17, BuiltIn.HUADU_18, BuiltIn.HUADU_19, BuiltIn.HUADU_12, BuiltIn.HUADU_13, BuiltIn.HUADU_14)) {
+                val upgraded = if (m == CountdownFormatter.MODE_STANDARD && builtIn in intArrayOf(BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.HUADU_20, BuiltIn.HUADU_21, BuiltIn.HUADU_28, BuiltIn.HUADU_15, BuiltIn.HUADU_16, BuiltIn.HUADU_17, BuiltIn.HUADU_18, BuiltIn.HUADU_19, BuiltIn.HUADU_12, BuiltIn.HUADU_13, BuiltIn.HUADU_14, BuiltIn.HUADU_22, BuiltIn.HUADU_23, BuiltIn.HUADU_24, BuiltIn.HUADU_25, BuiltIn.HUADU_26, BuiltIn.HUADU_27)) {
                     CountdownFormatter.MODE_DAY_HMS
                 } else m
                 if (upgraded in CountdownFormatter.availableModes(builtIn)) upgraded
@@ -161,7 +161,7 @@ object CountdownStore {
     }
 
     /**
-     * 收割所有已归零的「华都云境悦府12~20日、21日星期三、28日星期三倒计时」：从列表里移除、记下已完成使命、
+     * 收割所有已归零的「华都云境悦府12~28日倒计时（含21/28星期三）」：从列表里移除、记下已完成使命、
      * 落盘，返回被删掉的条目（供弹提示框）。幂等：已删过的不会再进列表，故重复调用安全。
      */
     fun reapCompletedMissions(context: Context, list: MutableList<Countdown>): List<Countdown> {
@@ -174,7 +174,9 @@ object CountdownStore {
             if (b != BuiltIn.HUADU_12 && b != BuiltIn.HUADU_13 && b != BuiltIn.HUADU_14 &&
                 b != BuiltIn.HUADU_15 && b != BuiltIn.HUADU_16 && b != BuiltIn.HUADU_17 &&
                 b != BuiltIn.HUADU_18 && b != BuiltIn.HUADU_19 && b != BuiltIn.HUADU_20 &&
-                b != BuiltIn.HUADU_21 && b != BuiltIn.HUADU_28) continue
+                b != BuiltIn.HUADU_21 && b != BuiltIn.HUADU_28 &&
+                b != BuiltIn.HUADU_22 && b != BuiltIn.HUADU_23 && b != BuiltIn.HUADU_24 &&
+                b != BuiltIn.HUADU_25 && b != BuiltIn.HUADU_26 && b != BuiltIn.HUADU_27) continue
             val t = BuiltIn.fixedTargetMillis(b) ?: continue
             if (now >= t) {
                 markMissionDone(context, b)
