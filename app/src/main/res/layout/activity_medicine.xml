@@ -9,11 +9,16 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:padding="14dp">
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="14dp">
 
         <!-- 顶部返回栏 -->
         <LinearLayout
@@ -203,6 +208,75 @@
             android:textSize="12sp"
             android:text="点过去的或今天的日期可以补记 / 撤销，未来的日期不能记哦。\n提醒时间、次数和服药时机可以在「关于」页或上面按钮设置。" />
 
+        <!-- 吃药记录日志：每次吃药的时间（年月日时分秒） -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="吃药记录（每次时间）"
+                    android:textColor="#00FFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/clearLogBtn"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="清空记录"
+                    android:textSize="13sp"
+                    android:textColor="#001018"
+                    android:background="@drawable/circle_btn" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/addLogBtn"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="10dp"
+                android:text="＋ 记一笔吃药（现在）"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="#001018"
+                android:background="@drawable/circle_btn" />
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="220dp"
+                android:layout_marginTop="10dp"
+                android:background="#1AFFFFFF"
+                android:padding="8dp">
+
+                <LinearLayout
+                    android:id="@+id/logContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </ScrollView>
+
+            <TextView
+                android:id="@+id/logEmptyTv"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center"
+                android:text="还没有吃药记录哦～点上面按钮记一笔吧"
+                android:textColor="#FFA8B3CC"
+                android:textSize="13sp" />
+        </LinearLayout>
     </LinearLayout>
+
+    </ScrollView>
 
 </FrameLayout>
