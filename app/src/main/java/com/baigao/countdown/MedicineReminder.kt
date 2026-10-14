@@ -310,6 +310,80 @@ object MedicineReminder {
         prefs(ctx).edit().putStringSet(KEY_TAKEN, set).apply()
     }
 
+    // ---------------- 吃药记录（精确到「秒」的每次事件） ----------------
+
+    /** 每次「吃药」事件的精确时刻（毫秒）日志：逗号分隔的字符串，按时间升序保存。 */
+    private const val KEY_TAKE_LOG = "take_log"
+
+    /**
+     * 记录一次吃药事件：写入精确时刻（默认现在），并确保当天标记为已吃。
+     * @param whenMillis 吃药时刻（默认当前），补记历史时传入
+     * @param dayKey 对应的日期键（默认按 whenMillis 当日），给过去某天补记时传入
+     * @return 实际写入日志的时刻毫秒值
+     */
+    fun recordTakeEvent(ctx: Context, whenMillis: Long = System.currentTimeMillis(),
+                         dayKey: String = keyFormat().format(Date(whenMillis))): Long {
+        val list = takeLog(ctx).toMutableList()
+        list.add(whenMillis)
+        list.sort()
+        prefs(ctx).edit().putString(KEY_TAKE_LOG, list.joinToString(",")).apply()
+        setTaken(ctx, true, dayKey)
+        return whenMillis
+    }
+
+    /** 全部吃药事件时刻（升序）。 */
+    fun takeLog(ctx: Context): List<Long> {
+        val raw = prefs(ctx).getString(KEY_TAKE_LOG, "") ?: ""
+        if (raw.isBlank()) return emptyList()
+        return raw.split(",").mapNotNull { it.toLongOrNull() }.sorted()
+    }
+
+    fun takeLogCount(ctx: Context): Int = takeLog(ctx).size
+
+    /** 按「yyyy-MM-dd」分组（同 takeLog 升序），返回 LinkedHashMap 保序（展示时再倒序）。 */
+    fun takeLogGroupedByDay(ctx: Context): LinkedHashMap<String, List<Long>> {
+        val map = LinkedHashMap<String, MutableList<Long>>()
+        for (ts in takeLog(ctx)) {
+            val key = keyFormat().format(Date(ts))
+            map.getOrPut(key) { mutableListOf() }.add(ts)
+        }
+        val out = LinkedHashMap<String, List<Long>>()
+        // 日期降序展示（最近的在最上面）
+        map.entries.sortedByDescending { it.key }.forEach { (k, v) -> out[k] = v }
+        return out
+    }
+
+    /** 删除某一条吃药记录（精确时刻）。若该日再无记录，顺手把当天「已吃」取消。 */
+    fun removeTakeEvent(ctx: Context, whenMillis: Long) {
+        val list = takeLog(ctx).toMutableList()
+        list.remove(whenMillis)
+        prefs(ctx).edit().putString(KEY_TAKE_LOG, list.joinToString(",")).apply()
+        val key = keyFormat().format(Date(whenMillis))
+        if (list.none { keyFormat().format(Date(it)) == key }) {
+            setTaken(ctx, false, key)
+        }
+    }
+
+    /** 清空全部吃药记录（当天「已吃」也会一并去掉）。 */
+    fun clearTakeLog(ctx: Context) {
+        prefs(ctx).edit().remove(KEY_TAKE_LOG).apply()
+    }
+
+    /** 单条记录格式：yyyy-MM-dd HH:mm:ss（含秒）。 */
+    fun formatTakeEvent(ts: Long): String =
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(ts))
+
+    /** 日期键对应的星期汉字（用于日志分组头）。 */
+    fun dayWeekday(key: String): String {
+        return try {
+            val cal = Calendar.getInstance()
+            cal.time = keyFormat().parse(key) ?: return ""
+            arrayOf("周日", "周一", "周二", "周三", "周四", "周五", "周六")[cal.get(Calendar.DAY_OF_WEEK) - 1]
+        } catch (e: Throwable) {
+            ""
+        }
+    }
+
     private fun notifiedDoses(ctx: Context): MutableSet<String> =
         LinkedHashSet(prefs(ctx).getStringSet(KEY_NOTIFIED_DOSES, emptySet()) ?: emptySet())
 
@@ -890,11 +964,11 @@ object MedicineReminder {
     /** 「关于」页状态行：一眼看出提醒到底挂上没有、卡在哪一环。 */
     fun statusText(ctx: Context): String {
         val on = isEnabled(ctx)
-        if (!on) return "提醒关啦 · 已记录 ${takenCount(ctx)} 天"
+        if (!on) return "提醒关啦 · 已记录 ${takenCount(ctx)} 天 · 共吃药 ${takeLogCount(ctx)} 次"
         val today = if (isTaken(ctx)) "吃过啦 ✓" else "还没吃"
         val n = timesPerDay(ctx)
         val sched = if (n > 1) "\n每天 $n 次哦：${doseScheduleText(ctx)}" else ""
         val tail = if (nextIsCustom(ctx)) "（手动改过啦）" else ""
-        return "今天：$today · 已记录 ${takenCount(ctx)} 天\n下次提醒 ${nextTriggerText(ctx)}$tail$sched"
+        return "今天：$today · 已记录 ${takenCount(ctx)} 天 · 共吃药 ${takeLogCount(ctx)} 次\n下次提醒 ${nextTriggerText(ctx)}$tail$sched"
     }
 }
