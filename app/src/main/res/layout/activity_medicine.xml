@@ -206,7 +206,7 @@
             android:lineSpacingExtra="3dp"
             android:textColor="#FFA8B3CC"
             android:textSize="12sp"
-            android:text="点过去的或今天的日期可以补记 / 撤销，未来的日期不能记哦。\n提醒时间、次数和服药时机可以在「关于」页或上面按钮设置。" />
+            android:text="点过去的或今天的日期可以补记 / 撤销，未来的日期不能记哦。\n每天可记多次（按上面「每天次数」设定），重复记录会提醒「今天已吃药了，不要重复吃药哦！」。\n提醒时间、次数和服药时机可以在「关于」页或上面按钮设置。" />
 
         <!-- 吃药记录日志：每次吃药的时间（年月日时分秒） -->
         <LinearLayout
@@ -225,7 +225,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="吃药记录（每次时间）"
+                    android:text="吃药记录（每天次数）"
                     android:textColor="#00FFFF"
                     android:textSize="16sp"
                     android:textStyle="bold" />
