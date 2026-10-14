@@ -93,6 +93,9 @@ class MainActivity : Activity() {
         BuiltIn.HUADU_26,  // 华都云境悦府26日倒计时（2026-10-26 00:00）
         BuiltIn.HUADU_27,  // 华都云境悦府27日倒计时（2026-10-27 00:00）
         BuiltIn.HUADU_28,  // 华都云境悦府28日星期三倒计时（2026-10-28 00:00）
+        BuiltIn.HUADU_29,  // 华都云境悦府29日倒计时（2026-10-29 00:00）
+        BuiltIn.HUADU_30,  // 华都云境悦府30日倒计时（2026-10-30 00:00）
+        BuiltIn.HUADU_31,  // 华都云境悦府31日倒计时（2026-10-31 00:00）
         BuiltIn.HUADU, BuiltIn.GTA6,
         BuiltIn.HUADU_BUY,  // v177：华都云境悦府购买正计时（正计时）
         BuiltIn.YEAR  // v165：今年倒计时
@@ -122,6 +125,9 @@ class MainActivity : Activity() {
         BuiltIn.HUADU_26 to "距离华都云境悦府26日（2026-10-26 00:00）",
         BuiltIn.HUADU_27 to "距离华都云境悦府27日（2026-10-27 00:00）",
         BuiltIn.HUADU_28 to "距离华都云境悦府28日（2026-10-28 00:00）",
+        BuiltIn.HUADU_29 to "距离华都云境悦府29日（2026-10-29 00:00）",
+        BuiltIn.HUADU_30 to "距离华都云境悦府30日（2026-10-30 00:00）",
+        BuiltIn.HUADU_31 to "距离华都云境悦府31日（2026-10-31 00:00）",
         BuiltIn.HUADU_12 to "距离华都云境悦府12日（2026-10-12 00:00）",
         BuiltIn.HUADU_13 to "距离华都云境悦府13日（2026-10-13 00:00）",
         BuiltIn.HUADU_14 to "距离华都云境悦府14日（2026-10-14 00:00）",
@@ -369,7 +375,7 @@ class MainActivity : Activity() {
                 remark = remark,
                 builtIn = type,
                 // 当月 / 华都云境悦府 / GTA6 的「标准模式」就是「天时分秒模式」（与记录读取时的数据升级保持一致）
-                displayMode = if (type in intArrayOf(BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.HUADU_20, BuiltIn.HUADU_21, BuiltIn.HUADU_28, BuiltIn.HUADU_15, BuiltIn.HUADU_16, BuiltIn.HUADU_17, BuiltIn.HUADU_18, BuiltIn.HUADU_19, BuiltIn.HUADU_12, BuiltIn.HUADU_13, BuiltIn.HUADU_14, BuiltIn.HUADU_22, BuiltIn.HUADU_23, BuiltIn.HUADU_24, BuiltIn.HUADU_25, BuiltIn.HUADU_26, BuiltIn.HUADU_27, BuiltIn.HUADU_BUY)) {
+                displayMode = if (type in intArrayOf(BuiltIn.MONTH, BuiltIn.HUADU, BuiltIn.GTA6, BuiltIn.HUADU_20, BuiltIn.HUADU_21, BuiltIn.HUADU_28, BuiltIn.HUADU_15, BuiltIn.HUADU_16, BuiltIn.HUADU_17, BuiltIn.HUADU_18, BuiltIn.HUADU_19, BuiltIn.HUADU_12, BuiltIn.HUADU_13, BuiltIn.HUADU_14, BuiltIn.HUADU_22, BuiltIn.HUADU_23, BuiltIn.HUADU_24, BuiltIn.HUADU_25, BuiltIn.HUADU_26, BuiltIn.HUADU_27, BuiltIn.HUADU_29, BuiltIn.HUADU_30, BuiltIn.HUADU_31, BuiltIn.HUADU_BUY)) {
                     CountdownFormatter.MODE_DAY_HMS
                 } else 0,
                 isVisible = false   // 默认不强制弹出悬浮窗，可在列表中点「显示」
