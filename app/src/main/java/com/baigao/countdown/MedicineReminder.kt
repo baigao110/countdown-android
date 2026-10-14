@@ -384,6 +384,20 @@ object MedicineReminder {
         }
     }
 
+    /** 某一天吃了几次（事件日志的条数）。 */
+    fun takeCountForDay(ctx: Context, dayKey: String): Int =
+        takeLog(ctx).count { keyFormat().format(Date(it)) == dayKey }
+
+    /** 今天吃了几次。 */
+    fun takeCountToday(ctx: Context): Int = takeCountForDay(ctx, todayKey())
+
+    /** 删除某一天的全部吃药记录（撤销当天），并取消当天「已吃」标记。 */
+    fun removeTakeDay(ctx: Context, dayKey: String) {
+        val list = takeLog(ctx).filter { keyFormat().format(Date(it)) != dayKey }
+        prefs(ctx).edit().putString(KEY_TAKE_LOG, list.joinToString(",")).apply()
+        setTaken(ctx, false, dayKey)
+    }
+
     private fun notifiedDoses(ctx: Context): MutableSet<String> =
         LinkedHashSet(prefs(ctx).getStringSet(KEY_NOTIFIED_DOSES, emptySet()) ?: emptySet())
 
