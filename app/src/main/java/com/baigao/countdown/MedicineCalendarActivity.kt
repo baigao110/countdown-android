@@ -11,7 +11,9 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.SpannableStringBuilder
 import android.text.TextWatcher
+import android.icu.text.Transliterator
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -644,16 +646,101 @@ class MedicineCalendarActivity : Activity() {
     private fun showMedLibraryDialog() {
         if (isFinishing) return
         val act = this
+        // 列表区给一个固定可见高度（屏幕约一半），多出的药名在列表内滚动。
+        // 不用 weight，避免在弹窗 wrap_content 链里被压成 0 高度、整列药名看不到。
+        val listH = (act.resources.displayMetrics.heightPixels * 0.5).toInt()
         val listContainer = LinearLayout(act).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, 0, 0, dp(6))
         }
         val scroll = ScrollView(act).apply {
-            // 列表区填满弹窗剩余高度（weight=1），多出的药名在列表内滚动查看，按钮固定不滚。
-            layoutParams = LinearLayout.LayoutParams(0, 0, 1f)
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT
+            )
             clipToPadding = false
             addView(listContainer)
         }
+        // 滑动检索时居中弹出当前字母
+        val bubble = TextView(act).apply {
+            textSize = 34f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(0xFF001018.toInt())
+            gravity = Gravity.CENTER
+            visibility = View.GONE
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(0xFF00E5FF.toInt())
+            }
+            layoutParams = FrameLayout.LayoutParams(dp(64), dp(64), Gravity.CENTER)
+        }
+        val listFrame = FrameLayout(act).apply {
+            layoutParams = LinearLayout.LayoutParams(0, listH, 1f)
+            addView(scroll)
+            addView(bubble)
+        }
+        // 右侧 A-Z（拼音首字母）索引条：点按 / 手指滑动即可跳到对应字母分组
+        val letters = ('A'..'Z').map { it.toString() } + listOf("#")
+        val indexLetterViews = mutableMapOf<String, TextView>()
+        val indexStrip = LinearLayout(act).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, listH
+            )
+        }
+        letters.forEach { L ->
+            val tv = TextView(act).apply {
+                text = L
+                textSize = 11f
+                setTextColor(0xFF55607A.toInt())
+                gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
+                )
+            }
+            indexLetterViews[L] = tv
+            indexStrip.addView(tv)
+        }
+        val listRow = LinearLayout(act).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, listH
+            )
+            addView(listFrame)
+            addView(indexStrip)
+        }
+        // 字母 -> 该分组首行视图，用于索引跳转
+        val sectionViews = mutableMapOf<String, View>()
+
+        fun jumpToSection(letter: String) {
+            if (sectionViews.isEmpty()) return
+            val present = sectionViews.keys
+            var target = letter
+            if (!present.contains(target)) {
+                target = letters.filter { present.contains(it) }
+                    .minByOrNull { Math.abs(letters.indexOf(it) - letters.indexOf(letter)) } ?: letter
+            }
+            sectionViews[target]?.let { header ->
+                scroll.scrollTo(0, header.top)
+            }
+        }
+        fun showBubble(letter: String) {
+            bubble.text = letter
+            bubble.visibility = View.VISIBLE
+        }
+        indexStrip.setOnTouchListener { _, ev ->
+            val h = indexStrip.height
+            if (h <= 0) return@setOnTouchListener true
+            val idx = ((ev.y / h) * letters.size).toInt().coerceIn(0, letters.size - 1)
+            val letter = letters[idx]
+            jumpToSection(letter)
+            showBubble(letter)
+            if (ev.action == MotionEvent.ACTION_UP || ev.action == MotionEvent.ACTION_CANCEL) {
+                bubble.postDelayed({ bubble.visibility = View.GONE }, 450)
+            }
+            true
+        }
+
         val batchBar = LinearLayout(act).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -701,12 +788,11 @@ class MedicineCalendarActivity : Activity() {
         val root = LinearLayout(act).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(4), 0, 0)
-            // 弹窗内容容器固定占屏幕约 66% 高，列表区再在其中按 weight=1 填满剩余空间。
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                (act.resources.displayMetrics.heightPixels * 0.66).toInt()
+                LinearLayout.LayoutParams.WRAP_CONTENT
             )
-            addView(scroll)
+            addView(listRow)
             addView(batchBar)
             addView(syncRow)
             addView(btnRow)
@@ -722,6 +808,7 @@ class MedicineCalendarActivity : Activity() {
 
         fun renderList() {
             listContainer.removeAllViews()
+            sectionViews.clear()
             val names = MedicineReminder.getMedNames(act)
             if (names.isEmpty()) {
                 val t = TextView(act).apply {
@@ -730,9 +817,26 @@ class MedicineCalendarActivity : Activity() {
                     setPadding(0, dp(8), 0, dp(8))
                 }
                 listContainer.addView(t)
+                letters.forEach { L -> indexLetterViews[L]?.setTextColor(0xFF55607A.toInt()) }
                 return
             }
-            names.forEach { name ->
+            // 按拼音（去声调）升序排列，分组首字母 A-Z 与右侧索引条对应
+            val sorted = names.sortedWith(compareBy { medPinyin(it) })
+            var lastInitial = ""
+            sorted.forEach { name ->
+                val ini = medInitial(name)
+                if (ini != lastInitial) {
+                    lastInitial = ini
+                    val header = TextView(act).apply {
+                        text = ini
+                        setTextColor(0xFF00E5FF.toInt())
+                        textSize = 13f
+                        setTypeface(null, Typeface.BOLD)
+                        setPadding(dp(6), dp(6), 0, dp(2))
+                    }
+                    sectionViews[ini] = header
+                    listContainer.addView(header)
+                }
                 val row = LinearLayout(act)
                 row.orientation = LinearLayout.HORIZONTAL
                 row.gravity = Gravity.CENTER_VERTICAL
@@ -774,6 +878,12 @@ class MedicineCalendarActivity : Activity() {
                     }
                 }
                 listContainer.addView(row)
+            }
+            // 索引条：有该字母分组的亮起，没有的变暗
+            letters.forEach { L ->
+                indexLetterViews[L]?.setTextColor(
+                    if (sectionViews.containsKey(L)) 0xFF00E5FF.toInt() else 0xFF55607A.toInt()
+                )
             }
         }
 
@@ -884,6 +994,33 @@ class MedicineCalendarActivity : Activity() {
         updateSyncInfo()
         syncFromNMPA(manual = false)
         renderList()
+    }
+
+    private val pinyinTransliterator by lazy {
+        try { Transliterator.getInstance("Han-Latin") }
+        catch (e: Throwable) { null }
+    }
+
+    /** 把药名转成拼音（去声调、只保留字母数字），用于按首字母 A-Z 排序与分组。 */
+    private fun medPinyin(name: String): String {
+        if (name.isEmpty()) return "#"
+        val tr = pinyinTransliterator
+        val raw = if (tr != null) { try { tr.transliterate(name) } catch (e: Throwable) { name } } else name
+        return try {
+            java.text.Normalizer.normalize(raw, java.text.Normalizer.Form.NFD)
+                .filter { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' }
+                .lowercase()
+        } catch (e: Throwable) { raw.lowercase() }
+    }
+
+    /** 取药名首字母（拼音首字母；以英文字母开头直接用该字母；其余归 #）。 */
+    private fun medInitial(name: String): String {
+        if (name.isEmpty()) return "#"
+        val c = name[0]
+        if (c in 'a'..'z' || c in 'A'..'Z') return c.uppercaseChar().toString()
+        val py = medPinyin(name)
+        val first = py.firstOrNull { it in 'a'..'z' || it in 'A'..'Z' }
+        return if (first != null) first.uppercaseChar().toString() else "#"
     }
 
     @Suppress("DEPRECATION")
