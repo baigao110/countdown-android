@@ -439,6 +439,29 @@ object MedicineReminder {
     }
 
     /**
+     * 打开药名库时立即保证内置的官方药名（372 条，随 App 打包在 assets/nmpa_med_names.json）
+     * 已并入本地药名库。离线、未联网、未手动同步都能用：直接读内置 JSON 与现有库合并
+     * （忽略大小写去重），幂等。这样用户一打开药名库就能看到全部 372 条官方药名，
+     * 不必依赖网络或 7 天静默同步定时器。
+     * @return 本次新增条数。
+     */
+    fun ensureOfficialMedNames(ctx: Context): Int {
+        val bundled = getBundledMedNames(ctx)
+        if (bundled.isEmpty()) return 0
+        val cur = getMedNames(ctx).toMutableList()
+        var added = 0
+        for (s in bundled) {
+            if (cur.any { it.equals(s, true) }) continue
+            cur.add(s); added++
+        }
+        if (added > 0) {
+            saveMedNames(ctx, cur)
+            setMedBundledTime(ctx, System.currentTimeMillis())
+        }
+        return added
+    }
+
+    /**
      * 从国家药监局上市药品数据库（官方药名镜像）同步药名库：
      * 优先拉取云端最新镜像并合并；若云端不可达（404/网络异常/格式错误），自动回退到 App 内置的官方药名库，保证离线可用。
      * 必须在后台线程调用（内部做网络请求）。
