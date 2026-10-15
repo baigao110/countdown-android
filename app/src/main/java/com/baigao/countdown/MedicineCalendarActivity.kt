@@ -19,6 +19,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ListView
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -647,18 +648,28 @@ class MedicineCalendarActivity : Activity() {
         if (isFinishing) return
         val act = this
         // 列表区给一个固定可见高度（屏幕约一半），多出的药名在列表内滚动。
-        // 不用 weight，避免在弹窗 wrap_content 链里被压成 0 高度、整列药名看不到。
+        // 关键：用 ListView 而不是 ScrollView 嵌套 —— ListView 自己处理滚动并
+        // requestDisallowInterceptTouchEvent，避免和外层弹窗 ScrollView 抢手势导致滚不动、
+        // 只剩视口里那几个药名能看到。
         val listH = (act.resources.displayMetrics.heightPixels * 0.5).toInt()
-        val listContainer = LinearLayout(act).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(0, 0, 0, dp(6))
-        }
-        val scroll = ScrollView(act).apply {
+        // 空状态提示（药名库为空时显示）
+        val emptyTv = TextView(act).apply {
+            text = "药名库还是空的，点下面「＋ 添加药名」加几个吧"
+            setTextColor(0xFFA8B3CC.toInt()); textSize = 13f
+            gravity = Gravity.CENTER
+            visibility = View.GONE
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT
             )
+        }
+        // 药名列表用 ListView：自带滚动，外层弹窗再怎么滚也不会把它挤没
+        val listView = ListView(act).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            isVerticalScrollBarEnabled = true
+            setPadding(0, 0, dp(2), 0)
             clipToPadding = false
-            addView(listContainer)
         }
         // 滑动检索时居中弹出当前字母
         val bubble = TextView(act).apply {
@@ -675,9 +686,14 @@ class MedicineCalendarActivity : Activity() {
         }
         val listFrame = FrameLayout(act).apply {
             layoutParams = LinearLayout.LayoutParams(0, listH, 1f)
-            addView(scroll)
+            addView(listView)
+            addView(emptyTv)
             addView(bubble)
         }
+        // 列表数据模型：kind=0 是字母分组标题，kind=1 是药名行
+        data class MedItem(val kind: Int, val letter: String, val name: String)
+        val items = mutableListOf<MedItem>()
+        val sectionPositions = mutableMapOf<String, Int>()
         // 右侧 A-Z（拼音首字母）索引条：点按 / 手指滑动即可跳到对应字母分组
         val letters = ('A'..'Z').map { it.toString() } + listOf("#")
         val indexLetterViews = mutableMapOf<String, TextView>()
@@ -709,19 +725,17 @@ class MedicineCalendarActivity : Activity() {
             addView(listFrame)
             addView(indexStrip)
         }
-        // 字母 -> 该分组首行视图，用于索引跳转
-        val sectionViews = mutableMapOf<String, View>()
 
         fun jumpToSection(letter: String) {
-            if (sectionViews.isEmpty()) return
-            val present = sectionViews.keys
+            if (sectionPositions.isEmpty()) return
+            val present = sectionPositions.keys
             var target = letter
             if (!present.contains(target)) {
                 target = letters.filter { present.contains(it) }
                     .minByOrNull { Math.abs(letters.indexOf(it) - letters.indexOf(letter)) } ?: letter
             }
-            sectionViews[target]?.let { header ->
-                scroll.scrollTo(0, header.top)
+            sectionPositions[target]?.let { pos ->
+                listView.setSelection(pos)
             }
         }
         fun showBubble(letter: String) {
@@ -806,20 +820,20 @@ class MedicineCalendarActivity : Activity() {
             delSelBtn.text = "删除选中(${selected.size})"
         }
 
+        // 列表适配器：标题行 + 药名行。ListView 自己滚动，不和弹窗外层 ScrollView 抢手势。
+        lateinit var adapter: android.widget.BaseAdapter
         fun renderList() {
-            listContainer.removeAllViews()
-            sectionViews.clear()
+            items.clear()
+            sectionPositions.clear()
             val names = MedicineReminder.getMedNames(act)
             if (names.isEmpty()) {
-                val t = TextView(act).apply {
-                    text = "药名库还是空的，点下面「＋ 添加药名」加几个吧"
-                    setTextColor(0xFFA8B3CC.toInt()); textSize = 13f
-                    setPadding(0, dp(8), 0, dp(8))
-                }
-                listContainer.addView(t)
+                listView.visibility = View.GONE
+                emptyTv.visibility = View.VISIBLE
                 letters.forEach { L -> indexLetterViews[L]?.setTextColor(0xFF55607A.toInt()) }
                 return
             }
+            listView.visibility = View.VISIBLE
+            emptyTv.visibility = View.GONE
             // 按拼音（去声调）升序排列，分组首字母 A-Z 与右侧索引条对应
             val sorted = names.sortedWith(compareBy { medPinyin(it) })
             var lastInitial = ""
@@ -827,25 +841,47 @@ class MedicineCalendarActivity : Activity() {
                 val ini = medInitial(name)
                 if (ini != lastInitial) {
                     lastInitial = ini
-                    val header = TextView(act).apply {
-                        text = ini
+                    sectionPositions[ini] = items.size
+                    items.add(MedItem(0, ini, ini))
+                }
+                items.add(MedItem(1, ini, name))
+            }
+            // 索引条：有该字母分组的亮起，没有的变暗
+            letters.forEach { L ->
+                indexLetterViews[L]?.setTextColor(
+                    if (sectionPositions.containsKey(L)) 0xFF00E5FF.toInt() else 0xFF55607A.toInt()
+                )
+            }
+            adapter.notifyDataSetChanged()
+        }
+        adapter = object : android.widget.BaseAdapter() {
+            override fun getCount(): Int = items.size
+            override fun getItem(i: Int): Any = items[i]
+            override fun getItemId(i: Int): Long = i.toLong()
+
+            override fun getView(i: Int, convertView: android.view.View?, parent: android.view.ViewGroup): android.view.View {
+                val it = items[i]
+                if (it.kind == 0) {
+                    // 字母分组标题
+                    return TextView(act).apply {
+                        text = it.letter
                         setTextColor(0xFF00E5FF.toInt())
                         textSize = 13f
                         setTypeface(null, Typeface.BOLD)
                         setPadding(dp(6), dp(6), 0, dp(2))
                     }
-                    sectionViews[ini] = header
-                    listContainer.addView(header)
                 }
+                // 药名行：先把药名存进局部变量，避免被 setOnClickListener 的隐式 it（按钮本身）遮蔽
+                val medName = it.name
                 val row = LinearLayout(act)
                 row.orientation = LinearLayout.HORIZONTAL
                 row.gravity = Gravity.CENTER_VERTICAL
                 row.setPadding(dp(6), dp(8), dp(6), dp(8))
                 if (selecting) row.background = pressBg()
-                if (selected.contains(name)) row.setBackgroundColor(0x335AC8FA.toInt())
+                if (selected.contains(medName)) row.setBackgroundColor(0x335AC8FA.toInt())
 
                 val nameTv = TextView(act).apply {
-                    text = name
+                    text = medName
                     setTextColor(0xFFEAF6FF.toInt()); textSize = 15f
                     layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                 }
@@ -866,26 +902,21 @@ class MedicineCalendarActivity : Activity() {
                     layoutParams = dlp
                 }
                 del.setOnClickListener {
-                    MedicineReminder.removeMedName(act, name)
-                    selected.remove(name)
+                    MedicineReminder.removeMedName(act, medName)
+                    selected.remove(medName)
                     renderList()
                 }
                 row.addView(nameTv); row.addView(del)
                 if (selecting) {
                     row.setOnClickListener {
-                        if (selected.contains(name)) selected.remove(name) else selected.add(name)
+                        if (selected.contains(medName)) selected.remove(medName) else selected.add(medName)
                         renderList()
                     }
                 }
-                listContainer.addView(row)
-            }
-            // 索引条：有该字母分组的亮起，没有的变暗
-            letters.forEach { L ->
-                indexLetterViews[L]?.setTextColor(
-                    if (sectionViews.containsKey(L)) 0xFF00E5FF.toInt() else 0xFF55607A.toInt()
-                )
+                return row
             }
         }
+        listView.adapter = adapter
 
         fun updateSyncInfo() {
             val t = MedicineReminder.getMedSyncTime(act)
