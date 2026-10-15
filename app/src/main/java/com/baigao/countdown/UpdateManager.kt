@@ -441,6 +441,7 @@ object UpdateManager {
         negativeText: String? = null,
         onPositive: (() -> Unit)? = null,
         onNegative: (() -> Unit)? = null,
+        maxContentFraction: Float = 0.45f,
         content: (LinearLayout) -> Unit
     ): StyledCard {
         val root = activity.layoutInflater.inflate(R.layout.dialog_styled, null)
@@ -465,7 +466,7 @@ object UpdateManager {
                 winW - padH, android.view.View.MeasureSpec.EXACTLY),
             android.view.View.MeasureSpec.makeMeasureSpec(0, android.view.View.MeasureSpec.UNSPECIFIED)
         )
-        val maxScrollH = (dm.heightPixels * 0.45).toInt()
+        val maxScrollH = (dm.heightPixels * maxContentFraction).toInt()
         if (host.measuredHeight > maxScrollH) {
             scroll.layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, maxScrollH
@@ -507,6 +508,7 @@ object UpdateManager {
         positiveText: String,
         negativeText: String? = null,
         cancelable: Boolean = true,
+        maxContentFraction: Float = 0.45f,
         onPositive: (() -> Unit)? = null,
         content: (LinearLayout) -> Unit
     ): AlertDialog {
@@ -518,6 +520,7 @@ object UpdateManager {
             negativeText = negativeText,
             onPositive = { ref?.dismiss(); onPositive?.invoke() },
             onNegative = { ref?.dismiss() },
+            maxContentFraction = maxContentFraction,
             content = content
         )
         val root = card.root
