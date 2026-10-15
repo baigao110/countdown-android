@@ -17,6 +17,9 @@ import android.text.SpannableString
 import android.text.SpannableStringBuilder
 import android.text.style.ForegroundColorSpan
 import org.json.JSONArray
+import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URL
 
 /**
  * 每日吃药提醒（纯框架实现，零第三方依赖）。
@@ -400,6 +403,119 @@ object MedicineReminder {
         list.forEach { arr.put(it) }
         prefs(ctx).edit().putString(KEY_MED_NAMES, arr.toString()).apply()
     }
+
+    // ---------------- 药名库：与国家药监局上市药品数据库同步 ----------------
+    /** 官方药名来源：国家药监局上市药品数据库（由维护者整理后随仓库发布，App 内「同步药监局」拉取合并）。 */
+    const val NMPA_SYNC_URL = "https://raw.githubusercontent.com/baigao110/daojishi/main/nmpa_med_names.json"
+    private const val KEY_MED_SYNC_TIME = "med_sync_time"
+    private const val KEY_MED_BUNDLED_TIME = "med_bundled_time"
+
+    /** 上次成功从云端同步药名库的时间戳（毫秒）；0 表示从未云端同步（可能只用了内置官方药名库）。 */
+    fun getMedSyncTime(ctx: Context): Long = prefs(ctx).getLong(KEY_MED_SYNC_TIME, 0L)
+
+    /** 上次使用内置官方药名库的时间戳（毫秒）；0 表示从未使用。 */
+    fun getMedBundledTime(ctx: Context): Long = prefs(ctx).getLong(KEY_MED_BUNDLED_TIME, 0L)
+
+    private fun setMedSyncTime(ctx: Context, t: Long) =
+        prefs(ctx).edit().putLong(KEY_MED_SYNC_TIME, t).apply()
+
+    private fun setMedBundledTime(ctx: Context, t: Long) =
+        prefs(ctx).edit().putLong(KEY_MED_BUNDLED_TIME, t).apply()
+
+    /** 读取 App 内置的官方药名库（assets/nmpa_med_names.json，国家药监局上市药品数据库整理版），解析失败返回空列表。 */
+    fun getBundledMedNames(ctx: Context): List<String> {
+        return try {
+            val text = InputStreamReader(ctx.assets.open("nmpa_med_names.json"), "UTF-8").use { it.readText() }
+            val arr = JSONArray(text)
+            val out = ArrayList<String>()
+            for (i in 0 until arr.length()) {
+                val s = arr.optString(i, "").trim()
+                if (s.isNotEmpty()) out.add(s)
+            }
+            out
+        } catch (e: Throwable) {
+            emptyList()
+        }
+    }
+
+    /**
+     * 从国家药监局上市药品数据库（官方药名镜像）同步药名库：
+     * 优先拉取云端最新镜像并合并；若云端不可达（404/网络异常/格式错误），自动回退到 App 内置的官方药名库，保证离线可用。
+     * 必须在后台线程调用（内部做网络请求）。
+     */
+    fun syncMedNamesFromNMPA(ctx: Context): MedSyncResult {
+        // 1) 先尝试云端镜像
+        val cloud = try {
+            val conn = URL(NMPA_SYNC_URL).openConnection() as HttpURLConnection
+            conn.connectTimeout = 15000
+            conn.readTimeout = 20000
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("User-Agent", "countdown-android")
+            conn.setRequestProperty("Accept", "application/json")
+            val code = conn.responseCode
+            if (code < 200 || code >= 300) {
+                conn.disconnect()
+                null
+            } else {
+                val text = conn.inputStream.bufferedReader().use { it.readText() }
+                conn.disconnect()
+                text
+            }
+        } catch (e: Throwable) {
+            null
+        }
+
+        if (cloud != null) {
+            val arr = try {
+                JSONArray(cloud)
+            } catch (e: Throwable) {
+                null
+            }
+            if (arr != null) {
+                var added = 0
+                val cur = getMedNames(ctx).toMutableList()
+                for (i in 0 until arr.length()) {
+                    val s = arr.optString(i, "").trim()
+                    if (s.isEmpty()) continue
+                    if (cur.any { it.equals(s, true) }) continue
+                    cur.add(s); added++
+                }
+                if (added > 0) saveMedNames(ctx, cur)
+                setMedSyncTime(ctx, System.currentTimeMillis())
+                return MedSyncResult(true, added, cur.size, "", "github")
+            }
+        }
+
+        // 2) 云端不可达 → 回退到内置官方药名库（保证离线也能用）
+        val bundled = getBundledMedNames(ctx)
+        if (bundled.isNotEmpty()) {
+            var added = 0
+            val cur = getMedNames(ctx).toMutableList()
+            for (s in bundled) {
+                if (cur.any { it.equals(s, true) }) continue
+                cur.add(s); added++
+            }
+            if (added > 0) saveMedNames(ctx, cur)
+            setMedBundledTime(ctx, System.currentTimeMillis())
+            return MedSyncResult(true, added, cur.size, "", "bundled")
+        }
+
+        // 3) 云端与内置均不可用（极少见）
+        return MedSyncResult(false, 0, getMedNames(ctx).size, "无法读取官方药名库", "error")
+    }
+
+    /**
+     * 同步结果。
+     * @param ok     是否成功（含成功回退到内置官方药名库）
+     * @param added  本次新增药名数
+     * @param total  同步后药名库总数
+     * @param msg    失败时的错误信息
+     * @param source 数据来源："github"（云端最新）/ "bundled"（内置官方药名库回退）/ "error"（彻底失败）
+     */
+    data class MedSyncResult(
+        val ok: Boolean, val added: Int, val total: Int,
+        val msg: String, val source: String = "github"
+    )
 
     /** 一条吃药记录：精确时刻 + 药名（空串表示旧记录或未指定药名）。 */
     data class TakeEvent(val ts: Long, val medName: String)
