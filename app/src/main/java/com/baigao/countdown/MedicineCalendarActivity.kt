@@ -649,10 +649,8 @@ class MedicineCalendarActivity : Activity() {
             setPadding(0, 0, 0, dp(6))
         }
         val scroll = ScrollView(act).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                (act.resources.displayMetrics.heightPixels * 0.38).toInt()
-            )
+            // 列表区填满弹窗剩余高度（weight=1），多出的药名在列表内滚动查看，按钮固定不滚。
+            layoutParams = LinearLayout.LayoutParams(0, 0, 1f)
             clipToPadding = false
             addView(listContainer)
         }
@@ -703,6 +701,11 @@ class MedicineCalendarActivity : Activity() {
         val root = LinearLayout(act).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(4), 0, 0)
+            // 弹窗内容容器固定占屏幕约 66% 高，列表区再在其中按 weight=1 填满剩余空间。
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                (act.resources.displayMetrics.heightPixels * 0.66).toInt()
+            )
             addView(scroll)
             addView(batchBar)
             addView(syncRow)
@@ -875,6 +878,7 @@ class MedicineCalendarActivity : Activity() {
             title = "药名库",
             positiveText = "关闭",
             negativeText = null,
+            maxContentFraction = 0.85f,
             onPositive = {}
         ) { host -> host.addView(root) }
         updateSyncInfo()
