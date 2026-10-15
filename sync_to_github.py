@@ -239,7 +239,7 @@ def main():
     if counts["UPDATED"] == 0 and counts["NEW"] == 0 and counts["FAILED"] == 0:
         print("  => 源码已与 GitHub 完全同步")
 
-    note_line = """🔧 「药名库」列表滚动彻底修好（ListView 重构）：之前药名列表嵌在弹窗的滚动层里，内外两层 ScrollView 互相抢手势，结果只剩视口里约 8 个药名、剩下的怎么滑都滑不出来。现已把列表换成 ListView——它自己处理滚动、不与弹窗外层滚动打架，药名再多都能在框内顺畅上下滑动查看；右侧 A-Z 拼音首字母索引条照常可用。版本 v1.0.0.62。"""
+    note_line = """🔧 「药名库」保证载入全部 372 条官方药名 + 显示总数：打开药名库立即把随 App 打包的 372 条国家药监局官方药名并入本地药名库（离线可用、幂等去重），一进来就能看到全部 372 条；顶部新增「共 N 个药名」计数一目了然。另给列表加触摸拦截保护，药名再多也能顺畅滚到底。版本 v1.0.0.62。"""
     print(f"=== 2. 上传 APK 到 Release {tag} ===")
     create_release_if_missing(tag, note_line)
     upload_apk(tag, apk_name)
