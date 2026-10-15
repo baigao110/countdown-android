@@ -527,7 +527,14 @@ class MainActivity : Activity() {
 
     /** 一行文字的提示对话框（风格与「关于」页一致）。 */
     private fun showNotice(title: String, message: String, positive: String, onOk: () -> Unit) {
-        UpdateManager.showStyledDialog(this, title, positive, "先不了", true, onOk) { host ->
+        UpdateManager.showStyledDialog(
+            activity = this,
+            title = title,
+            positiveText = positive,
+            negativeText = "先不了",
+            cancelable = true,
+            onPositive = onOk
+        ) { host ->
             val tv = TextView(this)
             tv.text = message
             tv.setTextColor(Color.WHITE)
