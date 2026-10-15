@@ -651,7 +651,7 @@ class MedicineCalendarActivity : Activity() {
         // 关键：用 ListView 而不是 ScrollView 嵌套 —— ListView 自己处理滚动并
         // requestDisallowInterceptTouchEvent，避免和外层弹窗 ScrollView 抢手势导致滚不动、
         // 只剩视口里那几个药名能看到。
-        val listH = (act.resources.displayMetrics.heightPixels * 0.5).toInt()
+        val listH = (act.resources.displayMetrics.heightPixels * 0.55).toInt()
         // 空状态提示（药名库为空时显示）
         val emptyTv = TextView(act).apply {
             text = "药名库还是空的，点下面「＋ 添加药名」加几个吧"
@@ -670,6 +670,14 @@ class MedicineCalendarActivity : Activity() {
             isVerticalScrollBarEnabled = true
             setPadding(0, 0, dp(2), 0)
             clipToPadding = false
+        }
+        // 防御：药名列表嵌在弹窗的 ScrollView 里，手指在列表上滑动时主动禁止所有祖先拦截触摸，
+        // 保证 ListView 自己顺畅滚动到底、看到全部药名（避免被外层滚动抢手势只剩半屏）。
+        listView.setOnTouchListener { v, ev ->
+            val disallow = ev.action == MotionEvent.ACTION_DOWN || ev.action == MotionEvent.ACTION_MOVE
+            var p: android.view.ViewParent? = v.parent
+            while (p != null) { p.requestDisallowInterceptTouchEvent(disallow); p = p.parent }
+            false
         }
         // 滑动检索时居中弹出当前字母
         val bubble = TextView(act).apply {
@@ -799,6 +807,12 @@ class MedicineCalendarActivity : Activity() {
         }
         syncRow.addView(syncBtn); syncRow.addView(syncInfo)
 
+        // 顶部总数提示：让用户一眼看到药名库当前一共载入了多少个药名（默认应显示「共 372 个药名」）
+        val countTv = TextView(act).apply {
+            textSize = 12f
+            setTextColor(0xFF00E5FF.toInt())
+            setPadding(0, 0, 0, dp(4))
+        }
         val root = LinearLayout(act).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(4), 0, 0)
@@ -806,6 +820,7 @@ class MedicineCalendarActivity : Activity() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
+            addView(countTv)
             addView(listRow)
             addView(batchBar)
             addView(syncRow)
@@ -826,6 +841,7 @@ class MedicineCalendarActivity : Activity() {
             items.clear()
             sectionPositions.clear()
             val names = MedicineReminder.getMedNames(act)
+            countTv.text = if (names.isEmpty()) "药名库还是空的" else "共 ${names.size} 个药名"
             if (names.isEmpty()) {
                 listView.visibility = View.GONE
                 emptyTv.visibility = View.VISIBLE
@@ -1023,6 +1039,8 @@ class MedicineCalendarActivity : Activity() {
             onPositive = {}
         ) { host -> host.addView(root) }
         updateSyncInfo()
+        // 打开药名库立即把内置的 372 条官方药名并入本地库（离线可用、幂等），保证一进来就能看到全部
+        MedicineReminder.ensureOfficialMedNames(act)
         syncFromNMPA(manual = false)
         renderList()
     }
