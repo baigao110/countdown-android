@@ -424,6 +424,20 @@ class MedicineCalendarActivity : Activity() {
         addState(intArrayOf(), GradientDrawable().apply { setColor(0x00000000) })
     }
 
+    /** 统一的「提示框」（同款玻璃风）。 */
+    private fun showMsg(title: String, msg: String) {
+        UpdateManager.showStyledDialog(
+            activity = this, title = title, positiveText = "好的", negativeText = null, onPositive = null
+        ) { host ->
+            val tv = TextView(this).apply {
+                text = msg
+                setTextColor(0xFFEAF6FF.toInt()); textSize = 14f
+                setPadding(dp(4), dp(2), dp(4), dp(2))
+            }
+            host.addView(tv)
+        }
+    }
+
     /** 两个 Calendar 是否同一天。 */
     private fun sameDay(a: Calendar, b: Calendar): Boolean =
         a.get(Calendar.YEAR) == b.get(Calendar.YEAR) &&
@@ -434,12 +448,17 @@ class MedicineCalendarActivity : Activity() {
         if (isFinishing) return
         val act = this
         val all = MedicineReminder.getMedNames(act).toMutableList()
-        val listContainer = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+        val listContainer = LinearLayout(act).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+        }
         val scroll = ScrollView(act).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 (act.resources.displayMetrics.heightPixels * 0.38).toInt()
             )
+            setBackgroundResource(R.drawable.field_bg)
+            setPadding(dp(4), dp(4), dp(4), dp(4))
             addView(listContainer)
         }
         val edit = EditText(act).apply {
@@ -649,11 +668,26 @@ class MedicineCalendarActivity : Activity() {
         btnRow.addView(addBtn); btnRow.addView(importBtn)
         btnRow.addView(exportBtn); btnRow.addView(batchBtn)
 
+        val syncRow = LinearLayout(act).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(2), 0, dp(2))
+        }
+        val syncBtn = makeCircleButton("同步药监局", 1f)
+        val syncInfo = TextView(act).apply {
+            textSize = 12f
+            setTextColor(0xFFA8B3CC.toInt())
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            setPadding(dp(8), 0, 0, 0)
+        }
+        syncRow.addView(syncBtn); syncRow.addView(syncInfo)
+
         val root = LinearLayout(act).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(4), 0, 0)
             addView(scroll)
             addView(batchBar)
+            addView(syncRow)
             addView(btnRow)
         }
 
@@ -713,7 +747,61 @@ class MedicineCalendarActivity : Activity() {
             }
         }
 
+        fun updateSyncInfo() {
+            val t = MedicineReminder.getMedSyncTime(act)
+            val bt = MedicineReminder.getMedBundledTime(act)
+            syncInfo.text = when {
+                t != 0L -> "上次云端同步：" + android.text.format.DateFormat.format("yyyy-MM-dd HH:mm", t).toString()
+                bt != 0L -> "已使用内置官方药名库（" + android.text.format.DateFormat.format("yyyy-MM-dd HH:mm", bt).toString() + "）"
+                else -> "尚未从药监局同步"
+            }
+        }
+
+        fun syncFromNMPA(manual: Boolean) {
+            if (!manual) {
+                val last = MedicineReminder.getMedSyncTime(act)
+                // 后台自动同步：仅在从未同步或距上次超过 7 天才执行一次
+                if (last != 0L && System.currentTimeMillis() - last < 7L * 24 * 3600 * 1000) return
+            }
+            val progress = if (manual) UpdateManager.showStyledDialog(
+                activity = act, title = "同步中", positiveText = "", negativeText = null, onPositive = null
+            ) { host ->
+                val tv = TextView(act).apply {
+                    text = "正在从国家药监局同步药名库…"
+                    setTextColor(0xFFEAF6FF.toInt()); textSize = 14f
+                    setPadding(dp(4), dp(2), dp(4), dp(2))
+                }
+                host.addView(tv)
+            } else null
+            Thread {
+                val res = MedicineReminder.syncMedNamesFromNMPA(act)
+                runOnUiThread {
+                    progress?.dismiss()
+                    updateSyncInfo()
+                    if (res.ok) {
+                        if (manual || res.added > 0) {
+                            val msg = when {
+                                res.source == "github" && res.added > 0 ->
+                                    "已从国家药监局同步：新增 ${res.added} 个药名（共 ${res.total} 个）"
+                                res.source == "github" ->
+                                    "药名库已是最新（共 ${res.total} 个）"
+                                res.added > 0 ->
+                                    "已从内置官方药名库载入：新增 ${res.added} 个药名（共 ${res.total} 个）\n联网后可同步最新版本"
+                                else ->
+                                    "药名库已包含内置官方药名库（共 ${res.total} 个）\n联网后可同步最新版本"
+                            }
+                            showMsg("同步完成", msg)
+                        }
+                        if (res.added > 0) renderList()
+                    } else if (manual) {
+                        showMsg("同步失败", "无法从国家药监局获取药名库：${res.msg}\n请检查网络或稍后重试。")
+                    }
+                }
+            }.start()
+        }
+
         addBtn.setOnClickListener { showAddMedDialog { renderList() } }
+        syncBtn.setOnClickListener { syncFromNMPA(manual = true) }
         importBtn.setOnClickListener {
             medLibDialog?.dismiss()
             val i = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
@@ -762,6 +850,8 @@ class MedicineCalendarActivity : Activity() {
             negativeText = null,
             onPositive = {}
         ) { host -> host.addView(root) }
+        updateSyncInfo()
+        syncFromNMPA(manual = false)
         renderList()
     }
 
