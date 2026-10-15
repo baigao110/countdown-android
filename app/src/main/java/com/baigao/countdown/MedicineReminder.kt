@@ -16,6 +16,7 @@ import java.util.Locale
 import android.text.SpannableString
 import android.text.SpannableStringBuilder
 import android.text.style.ForegroundColorSpan
+import org.json.JSONArray
 
 /**
  * 每日吃药提醒（纯框架实现，零第三方依赖）。
@@ -315,39 +316,143 @@ object MedicineReminder {
     /** 每次「吃药」事件的精确时刻（毫秒）日志：逗号分隔的字符串，按时间升序保存。 */
     private const val KEY_TAKE_LOG = "take_log"
 
+    /** 药名库：JSON 数组字符串，按添加顺序保存（如 ["阿司匹林","布洛芬"]）。 */
+    private const val KEY_MED_NAMES = "med_names"
+
+    // ---------------- 药名库（每次吃什么药从这里选） ----------------
+
+    /** 药名库全部药名（按添加顺序）。 */
+    fun getMedNames(ctx: Context): List<String> {
+        val raw = prefs(ctx).getString(KEY_MED_NAMES, "") ?: ""
+        if (raw.isBlank()) return emptyList()
+        val out = ArrayList<String>()
+        try {
+            val arr = JSONArray(raw)
+            for (i in 0 until arr.length()) {
+                val s = arr.optString(i, "").trim()
+                if (s.isNotEmpty()) out.add(s)
+            }
+        } catch (e: Throwable) {
+            // 解析失败就当空库，不让脏数据卡死
+        }
+        return out
+    }
+
+    /** 加一个药名：空或已存在（忽略大小写与空白）→ 返回 false（调用方弹「该药已添加」）。 */
+    fun addMedName(ctx: Context, name: String): Boolean {
+        val n = name.trim()
+        if (n.isEmpty()) return false
+        val cur = getMedNames(ctx).toMutableList()
+        if (cur.any { it.equals(n, true) }) return false
+        cur.add(n)
+        saveMedNames(ctx, cur)
+        return true
+    }
+
+    /** 删除一个药名（忽略大小写）。返回是否真的删了。 */
+    fun removeMedName(ctx: Context, name: String): Boolean {
+        val cur = getMedNames(ctx).toMutableList()
+        val before = cur.size
+        cur.removeAll { it.equals(name, true) }
+        return if (cur.size != before) {
+            saveMedNames(ctx, cur)
+            true
+        } else false
+    }
+
+    /** 清空整个药名库。 */
+    fun clearMedNames(ctx: Context) {
+        prefs(ctx).edit().remove(KEY_MED_NAMES).apply()
+    }
+
     /**
-     * 记录一次吃药事件：写入精确时刻（默认现在），并确保当天标记为已吃。
+     * 导入药名：把 json 数组里的药名合并进药名库，跳过空串与已存在的（忽略大小写）。
+     * @return 实际新增条数。
+     */
+    fun importMedNames(ctx: Context, json: String): Int {
+        val arr = try {
+            JSONArray(json)
+        } catch (e: Throwable) {
+            return 0
+        }
+        val cur = getMedNames(ctx).toMutableList()
+        var added = 0
+        for (i in 0 until arr.length()) {
+            val s = arr.optString(i, "").trim()
+            if (s.isEmpty()) continue
+            if (cur.any { it.equals(s, true) }) continue
+            cur.add(s)
+            added++
+        }
+        if (added > 0) saveMedNames(ctx, cur)
+        return added
+    }
+
+    /** 导出药名库为 JSON 数组字符串。 */
+    fun exportMedNamesJson(ctx: Context): String {
+        val arr = JSONArray()
+        getMedNames(ctx).forEach { arr.put(it) }
+        return arr.toString()
+    }
+
+    private fun saveMedNames(ctx: Context, list: List<String>) {
+        val arr = JSONArray()
+        list.forEach { arr.put(it) }
+        prefs(ctx).edit().putString(KEY_MED_NAMES, arr.toString()).apply()
+    }
+
+    /** 一条吃药记录：精确时刻 + 药名（空串表示旧记录或未指定药名）。 */
+    data class TakeEvent(val ts: Long, val medName: String)
+
+    /**
+     * 记录一次吃药事件：写入精确时刻与药名（默认现在），并确保当天标记为已吃。
      * @param whenMillis 吃药时刻（默认当前），补记历史时传入
      * @param dayKey 对应的日期键（默认按 whenMillis 当日），给过去某天补记时传入
+     * @param medName 这次吃的药名（从药名库选；空串 = 旧记录 / 未指定）
      * @return 实际写入日志的时刻毫秒值
      */
     fun recordTakeEvent(ctx: Context, whenMillis: Long = System.currentTimeMillis(),
-                         dayKey: String = keyFormat().format(Date(whenMillis))): Long {
+                         dayKey: String = keyFormat().format(Date(whenMillis)),
+                         medName: String = ""): Long {
         val list = takeLog(ctx).toMutableList()
-        list.add(whenMillis)
-        list.sort()
-        prefs(ctx).edit().putString(KEY_TAKE_LOG, list.joinToString(",")).apply()
+        list.add(TakeEvent(whenMillis, medName))
+        list.sortBy { it.ts }
+        prefs(ctx).edit()
+            .putString(KEY_TAKE_LOG, list.joinToString(",") { "${it.ts}|${it.medName}" })
+            .apply()
         setTaken(ctx, true, dayKey)
         return whenMillis
     }
 
-    /** 全部吃药事件时刻（升序）。 */
-    fun takeLog(ctx: Context): List<Long> {
+    /** 全部吃药事件（升序）。老格式（纯毫秒）自动补成 medName=""。 */
+    fun takeLog(ctx: Context): List<TakeEvent> {
         val raw = prefs(ctx).getString(KEY_TAKE_LOG, "") ?: ""
         if (raw.isBlank()) return emptyList()
-        return raw.split(",").mapNotNull { it.toLongOrNull() }.sorted()
+        val out = ArrayList<TakeEvent>()
+        for (seg in raw.split(",")) {
+            if (seg.isBlank()) continue
+            val idx = seg.indexOf('|')
+            if (idx < 0) {
+                seg.toLongOrNull()?.let { out.add(TakeEvent(it, "")) }
+            } else {
+                val ts = seg.substring(0, idx).toLongOrNull() ?: continue
+                out.add(TakeEvent(ts, seg.substring(idx + 1)))
+            }
+        }
+        out.sortBy { it.ts }
+        return out
     }
 
     fun takeLogCount(ctx: Context): Int = takeLog(ctx).size
 
     /** 按「yyyy-MM-dd」分组（同 takeLog 升序），返回 LinkedHashMap 保序（展示时再倒序）。 */
-    fun takeLogGroupedByDay(ctx: Context): LinkedHashMap<String, List<Long>> {
-        val map = LinkedHashMap<String, MutableList<Long>>()
-        for (ts in takeLog(ctx)) {
-            val key = keyFormat().format(Date(ts))
-            map.getOrPut(key) { mutableListOf() }.add(ts)
+    fun takeLogGroupedByDay(ctx: Context): LinkedHashMap<String, List<TakeEvent>> {
+        val map = LinkedHashMap<String, MutableList<TakeEvent>>()
+        for (ev in takeLog(ctx)) {
+            val key = keyFormat().format(Date(ev.ts))
+            map.getOrPut(key) { mutableListOf() }.add(ev)
         }
-        val out = LinkedHashMap<String, List<Long>>()
+        val out = LinkedHashMap<String, List<TakeEvent>>()
         // 日期降序展示（最近的在最上面）
         map.entries.sortedByDescending { it.key }.forEach { (k, v) -> out[k] = v }
         return out
@@ -356,10 +461,13 @@ object MedicineReminder {
     /** 删除某一条吃药记录（精确时刻）。若该日再无记录，顺手把当天「已吃」取消。 */
     fun removeTakeEvent(ctx: Context, whenMillis: Long) {
         val list = takeLog(ctx).toMutableList()
-        list.remove(whenMillis)
-        prefs(ctx).edit().putString(KEY_TAKE_LOG, list.joinToString(",")).apply()
+        val idx = list.indexOfFirst { it.ts == whenMillis }
+        if (idx >= 0) list.removeAt(idx)
+        prefs(ctx).edit()
+            .putString(KEY_TAKE_LOG, list.joinToString(",") { "${it.ts}|${it.medName}" })
+            .apply()
         val key = keyFormat().format(Date(whenMillis))
-        if (list.none { keyFormat().format(Date(it)) == key }) {
+        if (list.none { keyFormat().format(Date(it.ts)) == key }) {
             setTaken(ctx, false, key)
         }
     }
@@ -386,15 +494,17 @@ object MedicineReminder {
 
     /** 某一天吃了几次（事件日志的条数）。 */
     fun takeCountForDay(ctx: Context, dayKey: String): Int =
-        takeLog(ctx).count { keyFormat().format(Date(it)) == dayKey }
+        takeLog(ctx).count { keyFormat().format(Date(it.ts)) == dayKey }
 
     /** 今天吃了几次。 */
     fun takeCountToday(ctx: Context): Int = takeCountForDay(ctx, todayKey())
 
     /** 删除某一天的全部吃药记录（撤销当天），并取消当天「已吃」标记。 */
     fun removeTakeDay(ctx: Context, dayKey: String) {
-        val list = takeLog(ctx).filter { keyFormat().format(Date(it)) != dayKey }
-        prefs(ctx).edit().putString(KEY_TAKE_LOG, list.joinToString(",")).apply()
+        val list = takeLog(ctx).filter { keyFormat().format(Date(it.ts)) != dayKey }
+        prefs(ctx).edit()
+            .putString(KEY_TAKE_LOG, list.joinToString(",") { "${it.ts}|${it.medName}" })
+            .apply()
         setTaken(ctx, false, dayKey)
     }
 
@@ -732,8 +842,21 @@ object MedicineReminder {
                 piFlags()
             )
             val doses = timesPerDay(ctx)
-            val doseLabel = if (doseIndex >= 0 && doses > 1) "（第 ${doseIndex + 1}/$doses 次）" else ""
-            val title = (if (late) "该吃药啦（补发提醒）" else "该吃药啦") + doseLabel
+            // 现在 x 点了，该吃 x 药了！（x = 当前服药时刻的小时 / 药名库里的药）
+            val cal = Calendar.getInstance()
+            val hh = if (doseIndex >= 0) {
+                val d = todayDoseMillis(ctx)
+                if (doseIndex in d.indices)
+                    cal.apply { timeInMillis = d[doseIndex] }.get(Calendar.HOUR_OF_DAY)
+                else cal.get(Calendar.HOUR_OF_DAY)
+            } else cal.get(Calendar.HOUR_OF_DAY)
+            val names = getMedNames(ctx)
+            val medLabel = when {
+                names.isEmpty() -> "药"
+                names.size == 1 -> names[0]
+                else -> "多种药"
+            }
+            val title = "现在${hh}点了，该吃${medLabel}了！" + if (late) "（补发提醒）" else ""
             val text = if (late) {
                 "刚才没按时弹出来，现在补上啦；点「已吃药」记一下今天"
             } else {
