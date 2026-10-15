@@ -3,6 +3,8 @@ package com.baigao.countdown
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
+import android.graphics.Canvas
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
@@ -647,11 +649,18 @@ class MedicineCalendarActivity : Activity() {
     private fun showMedLibraryDialog() {
         if (isFinishing) return
         val act = this
-        // 列表区给一个固定可见高度（屏幕约一半），多出的药名在列表内滚动。
-        // 关键：用 ListView 而不是 ScrollView 嵌套 —— ListView 自己处理滚动并
-        // requestDisallowInterceptTouchEvent，避免和外层弹窗 ScrollView 抢手势导致滚不动、
-        // 只剩视口里那几个药名能看到。
-        val listH = (act.resources.displayMetrics.heightPixels * 0.55).toInt()
+        // ---------- 高度预算：让整框稳稳落在一屏之内，所有按钮都露出来 ----------
+        // 弹窗自身的固定部分（标题 + 分隔线 + 「关闭」按钮 + 内外边距）≈ 155dp；
+        // 内容里的固定行（「共 N 个药名 / 上次同步」头 ≈ 44dp + 底部功能按钮行 ≈ 48dp）
+        // 合计 ≈ 247dp。列表只吃「0.76 屏 − 247dp」，整框总高正好压在 0.76 屏内 ——
+        // 外层弹窗因此不会再滚动，也就不会再出现「同步按钮被切掉一半 / 底部按钮看不见」。
+        // 列表本身用 ListView（自带滚动 + requestDisallowInterceptTouchEvent），
+        // 药名再多都能在框内顺畅上下滑动。
+        val dm = act.resources.displayMetrics
+        val screenH = dm.heightPixels
+        val density = dm.density
+        val listH = ((screenH * 0.78f).toInt() - (247f * density).toInt())
+            .coerceAtLeast((screenH * 0.22f).toInt())
         // 空状态提示（药名库为空时显示）
         val emptyTv = TextView(act).apply {
             text = "药名库还是空的，点下面「＋ 添加药名」加几个吧"
@@ -702,36 +711,44 @@ class MedicineCalendarActivity : Activity() {
         data class MedItem(val kind: Int, val letter: String, val name: String)
         val items = mutableListOf<MedItem>()
         val sectionPositions = mutableMapOf<String, Int>()
-        // 右侧 A-Z（拼音首字母）索引条：点按 / 手指滑动即可跳到对应字母分组
+        // 右侧 A-Z（拼音首字母）索引条：点按 / 手指滑动即可跳到对应字母分组。
+        // 这里用「自绘 View」而不是 27 个 TextView —— 27 个 TextView 靠 weight 平分高度，
+        // 真机截图里出现过 U、V 两个字母被挤没（索引条中间空掉一截）。自绘严格按
+        // 「列表高度 ÷ 字母个数」等分，27 个字母一个不少、位置精确，也省掉 27 个 View。
         val letters = ('A'..'Z').map { it.toString() } + listOf("#")
-        val indexLetterViews = mutableMapOf<String, TextView>()
-        val indexStrip = LinearLayout(act).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, listH
-            )
+        val presentLetters = HashSet<String>()
+        val indexPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textAlign = Paint.Align.CENTER
+            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
         }
-        letters.forEach { L ->
-            val tv = TextView(act).apply {
-                text = L
-                textSize = 11f
-                setTextColor(0xFF55607A.toInt())
-                gravity = Gravity.CENTER
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
-                )
+        val indexView = object : View(act) {
+            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+                setMeasuredDimension(dp(22), View.resolveSize(listH, heightMeasureSpec))
             }
-            indexLetterViews[L] = tv
-            indexStrip.addView(tv)
+
+            override fun onDraw(canvas: Canvas) {
+                val n = letters.size
+                if (n == 0 || height <= 0) return
+                val cell = height.toFloat() / n
+                indexPaint.textSize = (cell * 0.62f).coerceAtMost(dp(13).toFloat())
+                val baselineShift = -(indexPaint.ascent() + indexPaint.descent()) / 2f
+                letters.forEachIndexed { i, L ->
+                    indexPaint.color =
+                        if (presentLetters.contains(L)) 0xFF00E5FF.toInt() else 0xFF8A96B4.toInt()
+                    canvas.drawText(L, width / 2f, i * cell + cell / 2f + baselineShift, indexPaint)
+                }
+            }
         }
+        indexView.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, listH
+        )
         val listRow = LinearLayout(act).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, listH
             )
             addView(listFrame)
-            addView(indexStrip)
+            addView(indexView)
         }
 
         fun jumpToSection(letter: String) {
@@ -750,8 +767,8 @@ class MedicineCalendarActivity : Activity() {
             bubble.text = letter
             bubble.visibility = View.VISIBLE
         }
-        indexStrip.setOnTouchListener { _, ev ->
-            val h = indexStrip.height
+        indexView.setOnTouchListener { v, ev ->
+            val h = v.height
             if (h <= 0) return@setOnTouchListener true
             val idx = ((ev.y / h) * letters.size).toInt().coerceIn(0, letters.size - 1)
             val letter = letters[idx]
@@ -763,72 +780,102 @@ class MedicineCalendarActivity : Activity() {
             true
         }
 
-        val batchBar = LinearLayout(act).apply {
+        val selected = LinkedHashSet<String>()
+        var selecting = false
+
+        // 固定高度行里用的按钮：清掉 makeCircleButton 默认的 8dp 上边距，
+        // 否则 42dp 的按钮塞进 42~44dp 的行里会被切掉一截
+        fun rowBtn(text: String, weight: Float, ts: Float): Button {
+            val b = makeCircleButton(text, weight, ts)
+            val lp = b.layoutParams as LinearLayout.LayoutParams
+            lp.topMargin = 0
+            b.layoutParams = lp
+            return b
+        }
+
+        // ---------- 顶部一行：左边「共 N 个药名 / 上次云端同步」，右边「同步药监局」 ----------
+        // 合成一行，把省下的竖向空间全部让给药名列表
+        val countTv = TextView(act).apply {
+            textSize = 13f
+            setTextColor(0xFF00E5FF.toInt())
+            setTypeface(null, Typeface.BOLD)
+        }
+        val syncInfo = TextView(act).apply {
+            textSize = 11f
+            setTextColor(0xFFA8B3CC.toInt())
+            setPadding(0, dp(2), 0, 0)
+        }
+        val headCol = LinearLayout(act).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+            )
+            addView(countTv)
+            addView(syncInfo)
+        }
+        val syncBtn = rowBtn("同步药监局", 0f, 13f)
+        val headRow = LinearLayout(act).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            visibility = View.GONE
+            minimumHeight = dp(44)
+            setPadding(0, dp(2), 0, dp(2))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            addView(headCol)
+            addView(syncBtn)
         }
+
+        // ---------- 底部功能按钮行 ----------
+        // 常态 4 个按钮；进入「批量删除」时同一行换成「已选 N / 删除选中 / 取消选择」。
+        // 两态共用同一行，弹窗高度完全不变、切换时不会跳。
+        val actRow = LinearLayout(act).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(6) }
+        }
+        val addBtn = rowBtn("＋添加", 1f, 13f)
+        val importBtn = rowBtn("导入", 1f, 13f)
+        val exportBtn = rowBtn("导出", 1f, 13f)
+        val batchBtn = rowBtn("批量删除", 1f, 13f)
         val selCountTv = TextView(act).apply {
             text = "已选 0 个"
             setTextColor(0xFF00FFFF.toInt())
             textSize = 13f
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
-        val delSelBtn = makeCircleButton("删除选中")
-        val cancelSelBtn = makeCircleButton("取消选择")
-        batchBar.addView(selCountTv)
-        batchBar.addView(delSelBtn)
-        batchBar.addView(cancelSelBtn)
+        val delSelBtn = rowBtn("删除选中", 1.2f, 12f)
+        val cancelSelBtn = rowBtn("取消选择", 1.2f, 12f)
 
-        val btnRow = LinearLayout(act).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
+        fun showActionRow() {
+            actRow.removeAllViews()
+            if (selecting) {
+                selCountTv.layoutParams = LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+                )
+                actRow.addView(selCountTv)
+                actRow.addView(delSelBtn)
+                actRow.addView(cancelSelBtn)
+            } else {
+                actRow.addView(addBtn)
+                actRow.addView(importBtn)
+                actRow.addView(exportBtn)
+                actRow.addView(batchBtn)
+            }
         }
-        val addBtn = makeCircleButton("＋添加", 1f, 13f)
-        val importBtn = makeCircleButton("导入", 1f, 13f)
-        val exportBtn = makeCircleButton("导出", 1f, 13f)
-        val batchBtn = makeCircleButton("批量删除", 1f, 13f)
-        btnRow.addView(addBtn); btnRow.addView(importBtn)
-        btnRow.addView(exportBtn); btnRow.addView(batchBtn)
 
-        val syncRow = LinearLayout(act).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(2), 0, dp(2))
-        }
-        // 按钮按内容宽度、右侧信息占满剩余空间，避免把「上次云端同步：…」挤成两行
-        val syncBtn = makeCircleButton("同步药监局", 0f, 13f)
-        val syncInfo = TextView(act).apply {
-            textSize = 12f
-            setTextColor(0xFFA8B3CC.toInt())
-            gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            setPadding(dp(10), 0, 0, 0)
-        }
-        syncRow.addView(syncBtn); syncRow.addView(syncInfo)
-
-        // 顶部总数提示：让用户一眼看到药名库当前一共载入了多少个药名（默认应显示「共 372 个药名」）
-        val countTv = TextView(act).apply {
-            textSize = 12f
-            setTextColor(0xFF00E5FF.toInt())
-            setPadding(0, 0, 0, dp(4))
-        }
         val root = LinearLayout(act).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(0, dp(4), 0, 0)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
-            addView(countTv)
+            addView(headRow)
             addView(listRow)
-            addView(batchBar)
-            addView(syncRow)
-            addView(btnRow)
+            addView(actRow)
         }
-
-        val selected = LinkedHashSet<String>()
-        var selecting = false
+        showActionRow()
 
         fun updateSel() {
             selCountTv.text = "已选 ${selected.size} 个"
@@ -845,7 +892,8 @@ class MedicineCalendarActivity : Activity() {
             if (names.isEmpty()) {
                 listView.visibility = View.GONE
                 emptyTv.visibility = View.VISIBLE
-                letters.forEach { L -> indexLetterViews[L]?.setTextColor(0xFF55607A.toInt()) }
+                presentLetters.clear()
+                indexView.invalidate()
                 return
             }
             listView.visibility = View.VISIBLE
@@ -862,12 +910,12 @@ class MedicineCalendarActivity : Activity() {
                 }
                 items.add(MedItem(1, ini, name))
             }
+            // 末尾加一行「到底了」提示：让用户明确知道列表已经滑到底、一共载入了多少个药名
+            items.add(MedItem(2, "", names.size.toString()))
             // 索引条：有该字母分组的亮起，没有的变暗
-            letters.forEach { L ->
-                indexLetterViews[L]?.setTextColor(
-                    if (sectionPositions.containsKey(L)) 0xFF00E5FF.toInt() else 0xFF55607A.toInt()
-                )
-            }
+            presentLetters.clear()
+            presentLetters.addAll(sectionPositions.keys)
+            indexView.invalidate()
             adapter.notifyDataSetChanged()
         }
         adapter = object : android.widget.BaseAdapter() {
@@ -885,6 +933,16 @@ class MedicineCalendarActivity : Activity() {
                         textSize = 13f
                         setTypeface(null, Typeface.BOLD)
                         setPadding(dp(6), dp(6), 0, dp(2))
+                    }
+                }
+                if (it.kind == 2) {
+                    // 列表末尾的「到底了」提示行
+                    return TextView(act).apply {
+                        text = "— 已到底部 · 共 ${it.name} 个药名 —"
+                        setTextColor(0xFF7C88A6.toInt())
+                        textSize = 12f
+                        gravity = Gravity.CENTER
+                        setPadding(0, dp(10), 0, dp(12))
                     }
                 }
                 // 药名行：先把药名存进局部变量，避免被 setOnClickListener 的隐式 it（按钮本身）遮蔽
@@ -1008,8 +1066,7 @@ class MedicineCalendarActivity : Activity() {
         batchBtn.setOnClickListener {
             selecting = !selecting
             if (!selecting) selected.clear()
-            batchBar.visibility = if (selecting) View.VISIBLE else View.GONE
-            batchBtn.text = if (selecting) "退出选择" else "批量删除"
+            showActionRow()
             renderList(); updateSel()
         }
         delSelBtn.setOnClickListener {
@@ -1020,13 +1077,13 @@ class MedicineCalendarActivity : Activity() {
             val cnt = selected.size
             selected.toList().forEach { MedicineReminder.removeMedName(act, it) }
             selected.clear(); selecting = false
-            batchBar.visibility = View.GONE; batchBtn.text = "批量删除"
+            showActionRow()
             renderList(); updateSel()
             Toast.makeText(act, "已删除 $cnt 个药名", Toast.LENGTH_SHORT).show()
         }
         cancelSelBtn.setOnClickListener {
             selected.clear(); selecting = false
-            batchBar.visibility = View.GONE; batchBtn.text = "批量删除"
+            showActionRow()
             renderList(); updateSel()
         }
 
@@ -1035,7 +1092,9 @@ class MedicineCalendarActivity : Activity() {
             title = "药名库",
             positiveText = "关闭",
             negativeText = null,
-            maxContentFraction = 0.85f,
+            // 内容高度已按整屏预算算好（列表高度 = 0.76 屏 − 固定行），这里给 0.66 屏的上限，
+            // 保证不会触发外层滚动 —— 底部按钮和同步按钮始终完整可见。
+            maxContentFraction = 0.66f,
             onPositive = {}
         ) { host -> host.addView(root) }
         updateSyncInfo()
