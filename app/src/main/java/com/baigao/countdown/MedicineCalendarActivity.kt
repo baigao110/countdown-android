@@ -398,19 +398,31 @@ class MedicineCalendarActivity : Activity() {
     // ---------------- 药名库 / 选药 / 导入导出 ----------------
 
     /** 带按压缩放高亮的青色胶囊按钮。 */
-    private fun makeCircleButton(text: String, weight: Float = 0f): Button {
+    private fun makeCircleButton(text: String, weight: Float = 0f, textSize: Float = 14f): Button {
         val b = Button(this)
         b.text = text
-        b.textSize = 14f
+        b.textSize = textSize
         b.setTypeface(null, Typeface.BOLD)
         b.setTextColor(0xFF001018.toInt())
         b.setBackgroundResource(R.drawable.circle_btn)
+        // 自定义背景必须清掉系统 Button 默认的内边距 / 最小宽度，否则窄按钮里的文字会被裁掉。
+        b.isAllCaps = false
+        b.minWidth = 0
+        b.minimumWidth = 0
+        b.minHeight = 0
+        b.minimumHeight = 0
+        b.includeFontPadding = false
+        b.gravity = Gravity.CENTER
+        b.stateListAnimator = null
+        if (weight > 0f) b.isSingleLine = true
+        val hPad = if (weight > 0f) dp(2) else dp(16)
+        b.setPadding(hPad, 0, hPad, 0)
         val lp = LinearLayout.LayoutParams(
             if (weight > 0f) 0 else LinearLayout.LayoutParams.WRAP_CONTENT, dp(42)
         )
         if (weight > 0f) {
             lp.weight = weight
-            lp.marginEnd = dp(6)
+            lp.marginEnd = dp(4)
         }
         lp.topMargin = dp(8)
         b.layoutParams = lp
@@ -632,12 +644,16 @@ class MedicineCalendarActivity : Activity() {
     private fun showMedLibraryDialog() {
         if (isFinishing) return
         val act = this
-        val listContainer = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+        val listContainer = LinearLayout(act).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 0, 0, dp(6))
+        }
         val scroll = ScrollView(act).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 (act.resources.displayMetrics.heightPixels * 0.38).toInt()
             )
+            clipToPadding = false
             addView(listContainer)
         }
         val batchBar = LinearLayout(act).apply {
@@ -661,10 +677,10 @@ class MedicineCalendarActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        val addBtn = makeCircleButton("＋ 添加药名", 1f)
-        val importBtn = makeCircleButton("导入", 1f)
-        val exportBtn = makeCircleButton("导出", 1f)
-        val batchBtn = makeCircleButton("批量删除", 1f)
+        val addBtn = makeCircleButton("＋添加", 1f, 13f)
+        val importBtn = makeCircleButton("导入", 1f, 13f)
+        val exportBtn = makeCircleButton("导出", 1f, 13f)
+        val batchBtn = makeCircleButton("批量删除", 1f, 13f)
         btnRow.addView(addBtn); btnRow.addView(importBtn)
         btnRow.addView(exportBtn); btnRow.addView(batchBtn)
 
@@ -673,12 +689,14 @@ class MedicineCalendarActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, dp(2), 0, dp(2))
         }
-        val syncBtn = makeCircleButton("同步药监局", 1f)
+        // 按钮按内容宽度、右侧信息占满剩余空间，避免把「上次云端同步：…」挤成两行
+        val syncBtn = makeCircleButton("同步药监局", 0f, 13f)
         val syncInfo = TextView(act).apply {
             textSize = 12f
             setTextColor(0xFFA8B3CC.toInt())
+            gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            setPadding(dp(8), 0, 0, 0)
+            setPadding(dp(10), 0, 0, 0)
         }
         syncRow.addView(syncBtn); syncRow.addView(syncInfo)
 
@@ -725,10 +743,19 @@ class MedicineCalendarActivity : Activity() {
                     layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                 }
                 val del = Button(act).apply {
-                    text = "×"; textSize = 16f
+                    text = "×"
+                    textSize = 18f
+                    setTypeface(null, Typeface.BOLD)
                     setTextColor(0xFF001018.toInt())
                     setBackgroundResource(R.drawable.circle_btn)
-                    val dlp = LinearLayout.LayoutParams(dp(30), dp(30)); dlp.leftMargin = dp(6)
+                    // 清掉系统 Button 默认内边距 / 最小宽度，否则 30dp 小圆钮里的「×」会被挤没。
+                    isAllCaps = false
+                    minWidth = 0; minimumWidth = 0; minHeight = 0; minimumHeight = 0
+                    includeFontPadding = false
+                    gravity = Gravity.CENTER
+                    setPadding(0, 0, 0, 0)
+                    stateListAnimator = null
+                    val dlp = LinearLayout.LayoutParams(dp(32), dp(32)); dlp.leftMargin = dp(8)
                     layoutParams = dlp
                 }
                 del.setOnClickListener {
