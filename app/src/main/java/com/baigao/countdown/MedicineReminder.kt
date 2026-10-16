@@ -18,6 +18,7 @@ import android.text.SpannableStringBuilder
 import android.text.style.ForegroundColorSpan
 import org.json.JSONArray
 import java.io.InputStreamReader
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -319,26 +320,68 @@ object MedicineReminder {
     /** 每次「吃药」事件的精确时刻（毫秒）日志：逗号分隔的字符串，按时间升序保存。 */
     private const val KEY_TAKE_LOG = "take_log"
 
-    /** 药名库：JSON 数组字符串，按添加顺序保存（如 ["阿司匹林","布洛芬"]）。 */
+    /** 药名库在 SharedPreferences 里的旧键（仅用于首次启动时迁移数据，之后不再使用，避免超大值撑坏 preference 文件）。 */
     private const val KEY_MED_NAMES = "med_names"
+    /** 药名库存放文件（应用私有 filesDir 下，独立文件，不进 SharedPreferences —— 约 2 万条 ~2MB，SharedPreferences 单键有体积上限，超大值会被静默丢弃导致每次打开都为空）。 */
+    private const val MED_NAMES_FILE = "med_names.json"
+    /** 药名库内存缓存锁与缓存。 */
+    private val medNamesLock = Any()
+    private var medNamesCache: List<String>? = null
 
     // ---------------- 药名库（每次吃什么药从这里选） ----------------
 
-    /** 药名库全部药名（按添加顺序）。 */
+    /**
+     * 药名库全部药名（按添加顺序）。
+     * 数据存放在 filesDir/med_names.json（独立文件，避免塞进 SharedPreferences 单键被静默丢弃）；
+     * 首次访问会读文件，若文件不存在则尝试从旧 SharedPreferences 键迁移（最佳努力），并写入内存缓存。
+     */
     fun getMedNames(ctx: Context): List<String> {
-        val raw = prefs(ctx).getString(KEY_MED_NAMES, "") ?: ""
-        if (raw.isBlank()) return emptyList()
-        val out = ArrayList<String>()
-        try {
-            val arr = JSONArray(raw)
-            for (i in 0 until arr.length()) {
-                val s = arr.optString(i, "").trim()
-                if (s.isNotEmpty()) out.add(s)
+        synchronized(medNamesLock) {
+            medNamesCache?.let { return it }
+            val file = File(ctx.filesDir, MED_NAMES_FILE)
+            val loaded = if (file.exists()) {
+                try {
+                    val arr = JSONArray(file.readText())
+                    val out = ArrayList<String>()
+                    for (i in 0 until arr.length()) {
+                        val s = arr.optString(i, "").trim()
+                        if (s.isNotEmpty()) out.add(s)
+                    }
+                    out
+                } catch (e: Throwable) {
+                    ArrayList<String>()
+                }
+            } else {
+                // 首次：从旧的 SharedPreferences 键迁移（若用户之前已有数据）
+                val raw = try { prefs(ctx).getString(KEY_MED_NAMES, "") ?: "" } catch (e: Throwable) { "" }
+                if (raw.isNotBlank()) {
+                    try {
+                        val arr = JSONArray(raw)
+                        val out = ArrayList<String>()
+                        for (i in 0 until arr.length()) {
+                            val s = arr.optString(i, "").trim()
+                            if (s.isNotEmpty()) out.add(s)
+                        }
+                        writeMedNamesFile(ctx, out)  // 迁到文件，清掉旧键
+                        try { prefs(ctx).edit().remove(KEY_MED_NAMES).apply() } catch (e: Throwable) {}
+                        out
+                    } catch (e: Throwable) {
+                        ArrayList<String>()
+                    }
+                } else {
+                    ArrayList<String>()
+                }
             }
-        } catch (e: Throwable) {
-            // 解析失败就当空库，不让脏数据卡死
+            medNamesCache = loaded
+            return loaded
         }
-        return out
+    }
+
+    /** 把药名列表写入 filesDir/med_names.json（UTF-8）。 */
+    private fun writeMedNamesFile(ctx: Context, list: List<String>) {
+        val arr = JSONArray()
+        list.forEach { arr.put(it) }
+        File(ctx.filesDir, MED_NAMES_FILE).writeText(arr.toString())
     }
 
     /** 加一个药名：空或已存在（忽略大小写与空白）→ 返回 false（调用方弹「该药已添加」）。 */
@@ -381,9 +424,13 @@ object MedicineReminder {
         return removed
     }
 
-    /** 清空整个药名库。 */
+    /** 清空整个药名库（删除文件 + 清缓存 + 清旧 SharedPreferences 键）。 */
     fun clearMedNames(ctx: Context) {
-        prefs(ctx).edit().remove(KEY_MED_NAMES).apply()
+        synchronized(medNamesLock) {
+            try { File(ctx.filesDir, MED_NAMES_FILE).delete() } catch (e: Throwable) {}
+            medNamesCache = ArrayList()
+            try { prefs(ctx).edit().remove(KEY_MED_NAMES).apply() } catch (e: Throwable) {}
+        }
     }
 
     // ---------------- 选药「快速选择」常用项（记录吃药后自动收集，可单个删除） ----------------
@@ -483,10 +530,14 @@ object MedicineReminder {
         return arr.toString()
     }
 
+    /** 写回药名库：写入 filesDir/med_names.json 独立文件（避免 SharedPreferences 单键体积上限导致静默丢失），并更新内存缓存。 */
     private fun saveMedNames(ctx: Context, list: List<String>) {
-        val arr = JSONArray()
-        list.forEach { arr.put(it) }
-        prefs(ctx).edit().putString(KEY_MED_NAMES, arr.toString()).apply()
+        synchronized(medNamesLock) {
+            writeMedNamesFile(ctx, list)
+            medNamesCache = ArrayList(list)
+            // 清掉旧的超大 SharedPreferences 键，避免它继续撑坏 preference 文件、连同步时间之类的小键都写不进
+            try { prefs(ctx).edit().remove(KEY_MED_NAMES).apply() } catch (e: Throwable) {}
+        }
     }
 
     // ---------------- 药名库：官方药名库（国家药监局药品编码本位码·全量 + 2024 医保目录）同步 ----------------
