@@ -23,6 +23,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.ScrollView
+import android.widget.HorizontalScrollView
 import android.widget.TextView
 import android.widget.Toast
 import java.io.BufferedReader
@@ -465,6 +466,31 @@ class MedicineCalendarActivity : Activity() {
         if (isFinishing) return
         val act = this
         val all = MedicineReminder.getMedNames(act).toMutableList()
+
+        // —— 快速选择：记录吃药后自动收集常用项，可单个删除 ——
+        val quickRow = LinearLayout(act).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(2), dp(2), dp(2), dp(2))
+        }
+        val quickScroll = HorizontalScrollView(act).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            setPadding(dp(4), dp(2), dp(4), dp(2))
+            addView(quickRow)
+        }
+        val quickTitle = TextView(act).apply {
+            text = "🕒 快速选择（点药名即选，× 可单个删除）"
+            setTextColor(0xFF8FB6E0.toInt()); textSize = 12f
+            setPadding(dp(6), dp(8), dp(4), dp(2))
+        }
+        val quickHint = TextView(act).apply {
+            text = "还没有常用项——选过药会自动出现在这里，方便下次快速点选"
+            setTextColor(0xFFA8B3CC.toInt()); textSize = 12f
+            setPadding(dp(8), dp(4), dp(4), dp(4))
+        }
+
         val listContainer = LinearLayout(act).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(8), dp(8), dp(8), dp(8))
@@ -472,7 +498,7 @@ class MedicineCalendarActivity : Activity() {
         val scroll = ScrollView(act).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                (act.resources.displayMetrics.heightPixels * 0.38).toInt()
+                (act.resources.displayMetrics.heightPixels * 0.34).toInt()
             )
             setBackgroundResource(R.drawable.field_bg)
             setPadding(dp(4), dp(4), dp(4), dp(4))
@@ -492,11 +518,68 @@ class MedicineCalendarActivity : Activity() {
         val root = LinearLayout(act).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(4), 0, 0)
+            addView(quickTitle)
+            addView(quickScroll)
+            addView(quickHint)
             addView(edit)
             addView(scroll)
         }
 
         lateinit var dlg: AlertDialog
+
+        /** 选中一个药名：记进常用项（移到最前），再交给上层记录。 */
+        fun doPick(name: String) {
+            dlg.dismiss()
+            MedicineReminder.addQuickMed(act, name)
+            onPicked(name)
+        }
+
+        /** 重建顶部常用项药名条（每个药名后面带一个 × 可单个删除）。 */
+        fun renderQuick() {
+            quickRow.removeAllViews()
+            val quick = MedicineReminder.getQuickMeds(act)
+            quickHint.visibility = if (quick.isEmpty()) View.VISIBLE else View.GONE
+            quick.forEach { qn ->
+                val chip = LinearLayout(act).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setBackgroundResource(R.drawable.field_bg)
+                    setPadding(dp(10), dp(6), dp(6), dp(6))
+                }
+                val nameTv = TextView(act).apply {
+                    text = qn
+                    setTextColor(0xFFEAF6FF.toInt()); textSize = 14f
+                    setPadding(dp(2), 0, dp(6), 0)
+                }
+                val x = Button(act).apply {
+                    text = "×"
+                    textSize = 15f
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(0xFF001018.toInt())
+                    setBackgroundResource(R.drawable.circle_btn)
+                    isAllCaps = false
+                    minWidth = 0; minimumWidth = 0; minHeight = 0; minimumHeight = 0
+                    includeFontPadding = false
+                    gravity = Gravity.CENTER
+                    stateListAnimator = null
+                }
+                val xlp = LinearLayout.LayoutParams(dp(28), dp(28)); xlp.leftMargin = dp(4)
+                x.layoutParams = xlp
+                x.setOnClickListener {
+                    MedicineReminder.removeQuickMed(act, qn)
+                    renderQuick()
+                }
+                chip.setOnClickListener { doPick(qn) }
+                chip.addView(nameTv); chip.addView(x)
+                val clp = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                clp.rightMargin = dp(8); clp.topMargin = dp(4); clp.bottomMargin = dp(4)
+                chip.layoutParams = clp
+                quickRow.addView(chip)
+            }
+        }
+        renderQuick()
 
         fun refresh(q: String) {
             listContainer.removeAllViews()
@@ -536,10 +619,7 @@ class MedicineCalendarActivity : Activity() {
                             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
                         )
                     }
-                    item.setOnClickListener {
-                        dlg.dismiss()
-                        onPicked(name)
-                    }
+                    item.setOnClickListener { doPick(name) }
                     listContainer.addView(item)
                 }
             }
