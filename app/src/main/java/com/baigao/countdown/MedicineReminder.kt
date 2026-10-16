@@ -17,6 +17,7 @@ import android.text.SpannableString
 import android.text.SpannableStringBuilder
 import android.text.style.ForegroundColorSpan
 import org.json.JSONArray
+import org.json.JSONObject
 import java.io.InputStreamReader
 import java.io.File
 import java.net.HttpURLConnection
@@ -332,13 +333,18 @@ object MedicineReminder {
 
     /**
      * 药名库全部药名（按添加顺序）。
-     * 数据存放在 filesDir/med_names.json（独立文件，避免塞进 SharedPreferences 单键被静默丢弃）；
-     * 首次访问会读文件，若文件不存在则尝试从旧 SharedPreferences 键迁移（最佳努力），并写入内存缓存。
+     * 数据存放在 filesDir/med_names.json（独立文件，不进 SharedPreferences —— 约 2 万条 ~2MB，
+     * SharedPreferences 单键有体积上限，超大值会静默丢弃、甚至把整个 preference 文件撑坏，
+     * 导致连同步时间之类的小键都写不进去、每次打开都判定「从未同步」反复联网）。
+     *
+     * 永不返回空兜底：若文件缺失 / 损坏，则自动从内置官方药名库（assets）兜底并落盘，
+     * 保证列表永远不为空、离线也能用。仅当用户主动「清空」写下的空文件（[]）才返回空。
      */
     fun getMedNames(ctx: Context): List<String> {
         synchronized(medNamesLock) {
             medNamesCache?.let { return it }
             val file = File(ctx.filesDir, MED_NAMES_FILE)
+            // loaded == null 表示文件缺失或已损坏；loaded 为非空列表（可能为空，表示用户主动清空）则直接使用。
             val loaded = if (file.exists()) {
                 try {
                     val arr = JSONArray(file.readText())
@@ -349,31 +355,43 @@ object MedicineReminder {
                     }
                     out
                 } catch (e: Throwable) {
-                    ArrayList<String>()
+                    null
                 }
             } else {
-                // 首次：从旧的 SharedPreferences 键迁移（若用户之前已有数据）
-                val raw = try { prefs(ctx).getString(KEY_MED_NAMES, "") ?: "" } catch (e: Throwable) { "" }
-                if (raw.isNotBlank()) {
-                    try {
+                null
+            }
+
+            val result = if (loaded != null) {
+                loaded
+            } else {
+                // 文件缺失 / 损坏：先尝试把旧 SharedPreferences 数据迁过来（最佳努力）
+                val migrated = try {
+                    val raw = prefs(ctx).getString(KEY_MED_NAMES, "") ?: ""
+                    if (raw.isNotBlank()) {
                         val arr = JSONArray(raw)
                         val out = ArrayList<String>()
                         for (i in 0 until arr.length()) {
                             val s = arr.optString(i, "").trim()
                             if (s.isNotEmpty()) out.add(s)
                         }
-                        writeMedNamesFile(ctx, out)  // 迁到文件，清掉旧键
-                        try { prefs(ctx).edit().remove(KEY_MED_NAMES).apply() } catch (e: Throwable) {}
                         out
-                    } catch (e: Throwable) {
-                        ArrayList<String>()
-                    }
-                } else {
-                    ArrayList<String>()
+                    } else null
+                } catch (e: Throwable) { null }
+                if (migrated != null && migrated.isNotEmpty()) migrated
+                else {
+                    // 最终兜底：内置官方药名库（assets），保证界面永不为空
+                    val bundled = getBundledMedNames(ctx)
+                    if (bundled.isNotEmpty()) bundled else ArrayList()
                 }
             }
-            medNamesCache = loaded
-            return loaded
+
+            // 只有「文件缺失 / 损坏」时才回写落盘（首次初始化 / 迁移 / 内置兜底）；
+            // 文件存在（含用户主动清空的空文件）则保持原样，不覆盖。
+            if (loaded == null) {
+                try { writeMedNamesFile(ctx, result) } catch (e: Throwable) {}
+            }
+            medNamesCache = result
+            return result
         }
     }
 
@@ -424,10 +442,10 @@ object MedicineReminder {
         return removed
     }
 
-    /** 清空整个药名库（删除文件 + 清缓存 + 清旧 SharedPreferences 键）。 */
+    /** 清空整个药名库：写空数组文件（文件存在但为空，重开仍为空，保留「清空」语义）+ 清缓存 + 清旧 SharedPreferences 键。 */
     fun clearMedNames(ctx: Context) {
         synchronized(medNamesLock) {
-            try { File(ctx.filesDir, MED_NAMES_FILE).delete() } catch (e: Throwable) {}
+            try { writeMedNamesFile(ctx, ArrayList()) } catch (e: Throwable) {}
             medNamesCache = ArrayList()
             try { prefs(ctx).edit().remove(KEY_MED_NAMES).apply() } catch (e: Throwable) {}
         }
@@ -545,18 +563,31 @@ object MedicineReminder {
     const val NMPA_SYNC_URL = "https://raw.githubusercontent.com/baigao110/daojishi/main/nmpa_med_names.json"
     private const val KEY_MED_SYNC_TIME = "med_sync_time"
     private const val KEY_MED_BUNDLED_TIME = "med_bundled_time"
+    /** 药名库元数据（同步时间戳等）存放文件：独立小文件，不进 SharedPreferences —— 旧版把约 2 万条塞进 SharedPreferences 单键曾把整个 preference 文件撑坏，导致同步时间之类的小键也写不进、每次打开都判定「从未同步」反复联网；移到这里后彻底绕开该问题。 */
+    private const val MED_META_FILE = "med_meta.json"
+
+    private fun loadMedMeta(ctx: Context): JSONObject {
+        val f = File(ctx.filesDir, MED_META_FILE)
+        return try {
+            if (f.exists()) JSONObject(f.readText()) else JSONObject()
+        } catch (e: Throwable) { JSONObject() }
+    }
+
+    private fun saveMedMetaField(ctx: Context, key: String, value: Long) {
+        val j = loadMedMeta(ctx)
+        try { j.put(key, value) } catch (e: Throwable) {}
+        try { File(ctx.filesDir, MED_META_FILE).writeText(j.toString()) } catch (e: Throwable) {}
+    }
 
     /** 上次成功从云端同步药名库的时间戳（毫秒）；0 表示从未云端同步（可能只用了内置官方药名库）。 */
-    fun getMedSyncTime(ctx: Context): Long = prefs(ctx).getLong(KEY_MED_SYNC_TIME, 0L)
+    fun getMedSyncTime(ctx: Context): Long = try { loadMedMeta(ctx).optLong(KEY_MED_SYNC_TIME, 0L) } catch (e: Throwable) { 0L }
 
     /** 上次使用内置官方药名库的时间戳（毫秒）；0 表示从未使用。 */
-    fun getMedBundledTime(ctx: Context): Long = prefs(ctx).getLong(KEY_MED_BUNDLED_TIME, 0L)
+    fun getMedBundledTime(ctx: Context): Long = try { loadMedMeta(ctx).optLong(KEY_MED_BUNDLED_TIME, 0L) } catch (e: Throwable) { 0L }
 
-    private fun setMedSyncTime(ctx: Context, t: Long) =
-        prefs(ctx).edit().putLong(KEY_MED_SYNC_TIME, t).apply()
+    private fun setMedSyncTime(ctx: Context, t: Long) = saveMedMetaField(ctx, KEY_MED_SYNC_TIME, t)
 
-    private fun setMedBundledTime(ctx: Context, t: Long) =
-        prefs(ctx).edit().putLong(KEY_MED_BUNDLED_TIME, t).apply()
+    private fun setMedBundledTime(ctx: Context, t: Long) = saveMedMetaField(ctx, KEY_MED_BUNDLED_TIME, t)
 
     /** 读取 App 内置的官方药名库（assets/nmpa_med_names.json，国家药监局药品编码本位码全量 + 2024 医保目录并集，约 2.1 万种），解析失败返回空列表。 */
     fun getBundledMedNames(ctx: Context): List<String> {
