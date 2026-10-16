@@ -889,38 +889,59 @@ class MedicineCalendarActivity : Activity() {
         // 列表适配器：标题行 + 药名行。ListView 自己滚动，不和弹窗外层 ScrollView 抢手势。
         lateinit var adapter: android.widget.BaseAdapter
         fun renderList() {
-            items.clear()
-            sectionPositions.clear()
-            val names = MedicineReminder.getMedNames(act)
-            countTv.text = if (names.isEmpty()) "药名库还是空的" else "共 ${names.size} 个药名"
-            if (names.isEmpty()) {
-                listView.visibility = View.GONE
-                emptyTv.visibility = View.VISIBLE
-                presentLetters.clear()
-                indexView.invalidate()
-                return
+            /** 由已算好的拼音串取首字母（与 medInitial 等价，但复用拼音、避免重复 transliterate）。 */
+            fun medInitialFromPy(py: String, name: String): String {
+                if (name.isEmpty()) return "#"
+                val c = name[0]
+                if (c in 'a'..'z' || c in 'A'..'Z') return c.uppercaseChar().toString()
+                val first = py.firstOrNull { it in 'a'..'z' || it in 'A'..'Z' }
+                return if (first != null) first.uppercaseChar().toString() else "#"
             }
-            listView.visibility = View.VISIBLE
-            emptyTv.visibility = View.GONE
-            // 按拼音（去声调）升序排列，分组首字母 A-Z 与右侧索引条对应
-            val sorted = names.sortedWith(compareBy { medPinyin(it) })
-            var lastInitial = ""
-            sorted.forEach { name ->
-                val ini = medInitial(name)
-                if (ini != lastInitial) {
-                    lastInitial = ini
-                    sectionPositions[ini] = items.size
-                    items.add(MedItem(0, ini, ini))
+            // 数据量大（约 2 万条）：解析 + 拼音排序 + 构建列表都在后台线程完成，
+            // 结束后再切回主线程套用到 ListView，避免主线程被拖死（ANR / 卡死）。
+            Thread {
+                val names = MedicineReminder.getMedNames(act)
+                val newItems = ArrayList<MedItem>()
+                val newSections = LinkedHashMap<String, Int>()
+                val newPresent = LinkedHashSet<String>()
+                val countText = if (names.isEmpty()) "药名库还是空的" else "共 ${names.size} 个药名"
+                if (names.isNotEmpty()) {
+                    // 每个药名只算一次拼音，避免排序时反复 transliterate 拖慢速度
+                    val pyCache = HashMap<String, String>(names.size)
+                    val decorated = names.map { n ->
+                        val py = pyCache.getOrPut(n) { medPinyin(n) }
+                        n to py
+                    }.sortedBy { it.second }
+                    var lastInitial = ""
+                    decorated.forEach { (name, py) ->
+                        val ini = medInitialFromPy(py, name)
+                        if (ini != lastInitial) {
+                            lastInitial = ini
+                            newSections[ini] = newItems.size
+                            newItems.add(MedItem(0, ini, ini))
+                        }
+                        newItems.add(MedItem(1, ini, name))
+                    }
+                    // 末尾加一行「到底了」提示：让用户明确知道列表已经滑到底、一共载入了多少个药名
+                    newItems.add(MedItem(2, "", names.size.toString()))
+                    newPresent.addAll(newSections.keys)
                 }
-                items.add(MedItem(1, ini, name))
-            }
-            // 末尾加一行「到底了」提示：让用户明确知道列表已经滑到底、一共载入了多少个药名
-            items.add(MedItem(2, "", names.size.toString()))
-            // 索引条：有该字母分组的亮起，没有的变暗
-            presentLetters.clear()
-            presentLetters.addAll(sectionPositions.keys)
-            indexView.invalidate()
-            adapter.notifyDataSetChanged()
+                runOnUiThread {
+                    countTv.text = countText
+                    if (names.isEmpty()) {
+                        listView.visibility = View.GONE
+                        emptyTv.visibility = View.VISIBLE
+                    } else {
+                        listView.visibility = View.VISIBLE
+                        emptyTv.visibility = View.GONE
+                    }
+                    items.clear(); items.addAll(newItems)
+                    sectionPositions.clear(); sectionPositions.putAll(newSections)
+                    presentLetters.clear(); presentLetters.addAll(newPresent)
+                    indexView.invalidate()
+                    adapter.notifyDataSetChanged()
+                }
+            }.start()
         }
         adapter = object : android.widget.BaseAdapter() {
             override fun getCount(): Int = items.size
@@ -1109,10 +1130,14 @@ class MedicineCalendarActivity : Activity() {
             onPositive = {}
         ) { host -> host.addView(root) }
         updateSyncInfo()
-        // 打开药名库立即把内置的官方药名库（约 2.1 万种）并入本地库（离线可用、幂等），保证一进来就能看到全部
-        MedicineReminder.ensureOfficialMedNames(act)
+        // 数据量大（约 2 万条）：合并与首屏渲染都放到后台线程，避免主线程卡死（ANR）。
+        // 弹窗先出现并提示「正在载入」，合并完成后 renderList 自动填充列表。
+        countTv.text = "正在载入药名库…"
+        Thread {
+            MedicineReminder.ensureOfficialMedNames(act)   // 现已 O(n)，不再 O(n^2)
+            runOnUiThread { renderList() }                 // renderList 内部也会把重计算放到后台线程
+        }.start()
         syncFromNMPA(manual = false)
-        renderList()
     }
 
     private val pinyinTransliterator by lazy {
