@@ -363,6 +363,24 @@ object MedicineReminder {
         } else false
     }
 
+    /**
+     * 批量删除一批药名（忽略大小写）。一次读出、一次过滤、一次写回，时间复杂度 O(n)，
+     * 即使一次删 2 万条也不会卡死主线程（避免逐条 removeMedName 造成 O(n^2) 的 ANR）。
+     * 必须在后台线程调用（内部会读 / 写 SharedPreferences 大数据量）。
+     * @return 实际删除条数。
+     */
+    fun removeMedNames(ctx: Context, names: List<String>): Int {
+        if (names.isEmpty()) return 0
+        val cur = getMedNames(ctx).toMutableList()
+        val removeKeys = HashSet<String>(names.size)
+        names.forEach { removeKeys.add(it.lowercase().trim()) }
+        val before = cur.size
+        cur.removeIf { removeKeys.contains(it.lowercase().trim()) }
+        val removed = before - cur.size
+        if (removed > 0) saveMedNames(ctx, cur)
+        return removed
+    }
+
     /** 清空整个药名库。 */
     fun clearMedNames(ctx: Context) {
         prefs(ctx).edit().remove(KEY_MED_NAMES).apply()
