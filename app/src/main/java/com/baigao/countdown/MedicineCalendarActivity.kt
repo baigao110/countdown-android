@@ -1093,7 +1093,7 @@ class MedicineCalendarActivity : Activity() {
         allSelBtn.setOnClickListener {
             val names = MedicineReminder.getMedNames(act)
             if (names.isEmpty()) return@setOnClickListener
-            // 已全部选中则反转为「取消全选」，否则一键全选当前所有药名（含全部 372 条）
+            // 已全部选中则反转为「取消全选」，否则一键全选当前药名库里的全部药名
             if (selected.size >= names.size) selected.clear() else selected.addAll(names)
             renderList(); updateSel()
         }
@@ -1109,7 +1109,7 @@ class MedicineCalendarActivity : Activity() {
             onPositive = {}
         ) { host -> host.addView(root) }
         updateSyncInfo()
-        // 打开药名库立即把内置的 372 条官方药名并入本地库（离线可用、幂等），保证一进来就能看到全部
+        // 打开药名库立即把内置的官方药名库（约 3500 种）并入本地库（离线可用、幂等），保证一进来就能看到全部
         MedicineReminder.ensureOfficialMedNames(act)
         syncFromNMPA(manual = false)
         renderList()
