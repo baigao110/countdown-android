@@ -386,6 +386,73 @@ object MedicineReminder {
         prefs(ctx).edit().remove(KEY_MED_NAMES).apply()
     }
 
+    // ---------------- 选药「快速选择」常用项（记录吃药后自动收集，可单个删除） ----------------
+    /** 常用项列表（按最近使用排前面）。 */
+    private const val KEY_QUICK_MEDS = "med_quick"
+    /** 是否已用历史吃药记录初始化过常用项（避免之后用户删空又自动复活）。 */
+    private const val KEY_QUICK_SEEDED = "med_quick_seeded"
+
+    /** 常用项（最近使用的排最前）。首次访问会用历史吃药记录里出现过的药名初始化一次。 */
+    fun getQuickMeds(ctx: Context): List<String> {
+        ensureQuickSeeded(ctx)
+        val raw = prefs(ctx).getString(KEY_QUICK_MEDS, "") ?: ""
+        if (raw.isBlank()) return emptyList()
+        val out = ArrayList<String>()
+        try {
+            val arr = JSONArray(raw)
+            for (i in 0 until arr.length()) {
+                val s = arr.optString(i, "").trim()
+                if (s.isNotEmpty()) out.add(s)
+            }
+        } catch (e: Throwable) {
+        }
+        return out
+    }
+
+    /** 首次把历史吃药记录里出现过的药名灌进常用项；之后不再自动灌，用户删掉的就真的不回来了。 */
+    private fun ensureQuickSeeded(ctx: Context) {
+        if (prefs(ctx).getBoolean(KEY_QUICK_SEEDED, false)) return
+        val seen = LinkedHashSet<String>()
+        try {
+            takeLog(ctx).forEach { if (it.medName.isNotEmpty()) seen.add(it.medName) }
+        } catch (e: Throwable) {
+        }
+        if (seen.isNotEmpty()) {
+            val arr = JSONArray()
+            seen.forEach { arr.put(it) }
+            prefs(ctx).edit().putString(KEY_QUICK_MEDS, arr.toString()).apply()
+        }
+        prefs(ctx).edit().putBoolean(KEY_QUICK_SEEDED, true).apply()
+    }
+
+    /** 把一个药名加入常用项：忽略大小写去重，并移到最前（最近使用）。 */
+    fun addQuickMed(ctx: Context, name: String) {
+        val n = name.trim()
+        if (n.isEmpty()) return
+        val cur = getQuickMeds(ctx).toMutableList()
+        cur.removeAll { it.equals(n, true) }
+        cur.add(0, n)
+        saveQuickMeds(ctx, cur)
+    }
+
+    /** 从常用项里删除某一个药名（忽略大小写）。 */
+    fun removeQuickMed(ctx: Context, name: String) {
+        val cur = getQuickMeds(ctx).toMutableList()
+        cur.removeAll { it.equals(name, true) }
+        saveQuickMeds(ctx, cur)
+    }
+
+    /** 清空常用项。 */
+    fun clearQuickMeds(ctx: Context) {
+        prefs(ctx).edit().remove(KEY_QUICK_MEDS).apply()
+    }
+
+    private fun saveQuickMeds(ctx: Context, list: List<String>) {
+        val arr = JSONArray()
+        list.forEach { arr.put(it) }
+        prefs(ctx).edit().putString(KEY_QUICK_MEDS, arr.toString()).apply()
+    }
+
     /**
      * 导入药名：把 json 数组里的药名合并进药名库，跳过空串与已存在的（忽略大小写）。
      * @return 实际新增条数。
