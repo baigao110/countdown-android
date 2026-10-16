@@ -1109,7 +1109,7 @@ class MedicineCalendarActivity : Activity() {
             onPositive = {}
         ) { host -> host.addView(root) }
         updateSyncInfo()
-        // 打开药名库立即把内置的官方药名库（约 3500 种）并入本地库（离线可用、幂等），保证一进来就能看到全部
+        // 打开药名库立即把内置的官方药名库（约 2.1 万种）并入本地库（离线可用、幂等），保证一进来就能看到全部
         MedicineReminder.ensureOfficialMedNames(act)
         syncFromNMPA(manual = false)
         renderList()
