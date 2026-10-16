@@ -239,7 +239,7 @@ def main():
     if counts["UPDATED"] == 0 and counts["NEW"] == 0 and counts["FAILED"] == 0:
         print("  => 源码已与 GitHub 完全同步")
 
-    note_line = """🔧 「药名库」每次打开都为空、都要重新同步国家药监局（已修复）：之前药名库约 2 万条（约 2MB）直接塞进单个 SharedPreferences 键，Android 对超大单键的 apply() 写入会静默失败、甚至把整个 preference 文件撑坏，连带「上次同步时间」这种小键也写不进去——于是每次打开药名库都为空、自动同步又始终认为「从未同步」而反复联网同步药监局。现已改为：药名列表改存到应用私有目录 filesDir/med_names.json 独立文件（带内存缓存避免反复读盘，首次启动自动把旧 SharedPreferences 里的数据迁过来），SharedPreferences 只保留同步时间等小元数据；约 2 万条也能稳定落盘、离线即用、不再每开必联网同步。版本 v1.0.0.62。"""
+    note_line = """🔧 「药名库」每次打开都为空、每次都重新同步国家药监局（已彻底修复）：上一轮已把约 2 万条药名改存到 filesDir/med_names.json 独立文件，但「上次同步时间」仍写在那个被超大键值撑坏的 SharedPreferences 里——该文件一旦被撑坏，同步时间这类小键也写不进去，自动同步每次都判定「从未同步」而反复联网；且大文件写盘偶发失败时药名读不到就空。本轮彻底绕开 SharedPreferences：① 同步时间戳 / 内置库时间戳改存到独立小文件 med_meta.json（不再受 preference 文件损坏影响），自动同步 7 天内只跑一次、不再每开必同步；② 药名读取增加「终极兜底」——文件缺失 / 损坏时自动从 App 内置官方药名库（assets，约 2.1 万种）载入并落盘，列表永不为空、离线也能用，仅用户主动「清空」留下的空文件才返回空。版本 v1.0.0.62。"""
     print(f"=== 2. 上传 APK 到 Release {tag} ===")
     create_release_if_missing(tag, note_line)
     upload_apk(tag, apk_name)
