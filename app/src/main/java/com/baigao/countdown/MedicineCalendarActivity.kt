@@ -1001,9 +1001,15 @@ class MedicineCalendarActivity : Activity() {
                     layoutParams = dlp
                 }
                 del.setOnClickListener {
-                    MedicineReminder.removeMedName(act, medName)
-                    selected.remove(medName)
-                    renderList()
+                    val mn = medName
+                    // 单条删除也放后台，2 万条时单点删除同样不卡主线程。
+                    Thread {
+                        MedicineReminder.removeMedName(act, mn)
+                        runOnUiThread {
+                            selected.remove(mn)
+                            renderList()
+                        }
+                    }.start()
                 }
                 row.addView(nameTv); row.addView(del)
                 if (selecting) {
@@ -1099,12 +1105,29 @@ class MedicineCalendarActivity : Activity() {
                 Toast.makeText(act, "还没选要删的药名", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            val cnt = selected.size
-            selected.toList().forEach { MedicineReminder.removeMedName(act, it) }
-            selected.clear(); selecting = false
-            showActionRow()
-            renderList(); updateSel()
-            Toast.makeText(act, "已删除 $cnt 个药名", Toast.LENGTH_SHORT).show()
+            val toDel = selected.toList()
+            val cnt = toDel.size
+            // 删除量大（可能上万条）：放到后台线程批量删，避免主线程 O(n^2) 卡死（ANR）。
+            val progress = UpdateManager.showStyledDialog(
+                activity = act, title = "删除中", positiveText = "", negativeText = null, onPositive = null
+            ) { host ->
+                val tv = TextView(act).apply {
+                    text = "正在删除 $cnt 个药名…"
+                    setTextColor(0xFFEAF6FF.toInt()); textSize = 14f
+                    setPadding(dp(4), dp(2), dp(4), dp(2))
+                }
+                host.addView(tv)
+            }
+            Thread {
+                MedicineReminder.removeMedNames(act, toDel)   // 后台线程：一次读 + 一次写，O(n)
+                runOnUiThread {
+                    progress?.dismiss()
+                    selected.clear(); selecting = false
+                    showActionRow()
+                    renderList(); updateSel()
+                    Toast.makeText(act, "已删除 $cnt 个药名", Toast.LENGTH_SHORT).show()
+                }
+            }.start()
         }
         cancelSelBtn.setOnClickListener {
             selected.clear(); selecting = false
