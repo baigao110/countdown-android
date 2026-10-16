@@ -404,8 +404,8 @@ object MedicineReminder {
         prefs(ctx).edit().putString(KEY_MED_NAMES, arr.toString()).apply()
     }
 
-    // ---------------- 药名库：与国家药监局上市药品数据库同步 ----------------
-    /** 官方药名来源：国家药监局上市药品数据库（由维护者整理后随仓库发布，App 内「同步药监局」拉取合并）。 */
+    // ---------------- 药名库：官方药名库（2024 国家医保药品目录）同步 ----------------
+    /** 官方药名来源：2024 年版《国家基本医疗保险、工伤保险和生育保险药品目录》（国家医保药品目录，约 3500 种上市药品），由维护者整理为药名清单后随仓库发布，App 内「同步药监局」拉取合并。 */
     const val NMPA_SYNC_URL = "https://raw.githubusercontent.com/baigao110/daojishi/main/nmpa_med_names.json"
     private const val KEY_MED_SYNC_TIME = "med_sync_time"
     private const val KEY_MED_BUNDLED_TIME = "med_bundled_time"
@@ -422,7 +422,7 @@ object MedicineReminder {
     private fun setMedBundledTime(ctx: Context, t: Long) =
         prefs(ctx).edit().putLong(KEY_MED_BUNDLED_TIME, t).apply()
 
-    /** 读取 App 内置的官方药名库（assets/nmpa_med_names.json，国家药监局上市药品数据库整理版），解析失败返回空列表。 */
+    /** 读取 App 内置的官方药名库（assets/nmpa_med_names.json，2024 国家医保药品目录整理版，约 3500 种），解析失败返回空列表。 */
     fun getBundledMedNames(ctx: Context): List<String> {
         return try {
             val text = InputStreamReader(ctx.assets.open("nmpa_med_names.json"), "UTF-8").use { it.readText() }
@@ -439,9 +439,9 @@ object MedicineReminder {
     }
 
     /**
-     * 打开药名库时立即保证内置的官方药名（372 条，随 App 打包在 assets/nmpa_med_names.json）
+     * 打开药名库时立即保证内置的官方药名库（2024 国家医保药品目录，约 3500 种，随 App 打包在 assets/nmpa_med_names.json）
      * 已并入本地药名库。离线、未联网、未手动同步都能用：直接读内置 JSON 与现有库合并
-     * （忽略大小写去重），幂等。这样用户一打开药名库就能看到全部 372 条官方药名，
+     * （忽略大小写去重），幂等。这样用户一打开药名库就能看到全部官方药名，
      * 不必依赖网络或 7 天静默同步定时器。
      * @return 本次新增条数。
      */
