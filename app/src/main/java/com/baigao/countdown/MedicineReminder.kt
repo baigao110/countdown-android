@@ -325,6 +325,8 @@ object MedicineReminder {
     private const val KEY_MED_NAMES = "med_names"
     /** 药名库存放文件（应用私有 filesDir 下，独立文件，不进 SharedPreferences —— 约 2 万条 ~2MB，SharedPreferences 单键有体积上限，超大值会被静默丢弃导致每次打开都为空）。 */
     private const val MED_NAMES_FILE = "med_names.json"
+    /** 用户主动清空药名库的标记（写在 med_meta.json）：置位后自愈逻辑不再用内置库回填，尊重用户清空意图。 */
+    private const val KEY_USER_CLEARED = "med_user_cleared"
     /** 药名库内存缓存锁与缓存。 */
     private val medNamesLock = Any()
     private var medNamesCache: List<String>? = null
@@ -333,73 +335,76 @@ object MedicineReminder {
 
     /**
      * 药名库全部药名（按添加顺序）。
-     * 数据存放在 filesDir/med_names.json（独立文件，不进 SharedPreferences —— 约 2 万条 ~2MB，
-     * SharedPreferences 单键有体积上限，超大值会静默丢弃、甚至把整个 preference 文件撑坏，
-     * 导致连同步时间之类的小键都写不进去、每次打开都判定「从未同步」反复联网）。
+     * 数据存放在 filesDir/med_names.json（独立文件，不进 SharedPreferences）。
      *
-     * 永不返回空兜底：若文件缺失 / 损坏，则自动从内置官方药名库（assets）兜底并落盘，
-     * 保证列表永远不为空、离线也能用。仅当用户主动「清空」写下的空文件（[]）才返回空。
+     * 自愈式读取，保证列表永远不为空（只要内置官方药名库可用）：
+     *  - 本地文件存在且非空 → 直接用它；
+     *  - 文件缺失 / 损坏 / 为空（旧版超大键值曾把 preference 文件撑坏、偶发写入空数组 []，或首装无文件）
+     *    → 先整文件拷贝内置 assets/nmpa_med_names.json 到本地（最快、不解析、不 OOM），再读回；
+     *  - 若本机写盘彻底不可用，最后兜底在内存里解析内置库，至少这一会话内能看到全部药名。
+     *  仅当用户主动「清空」（写了 user_cleared 标记）时，才尊重空结果。
      */
     fun getMedNames(ctx: Context): List<String> {
         synchronized(medNamesLock) {
             medNamesCache?.let { return it }
             val file = File(ctx.filesDir, MED_NAMES_FILE)
-            // loaded == null 表示文件缺失或已损坏；loaded 为非空列表（可能为空，表示用户主动清空）则直接使用。
-            val loaded = if (file.exists()) {
-                try {
-                    val arr = JSONArray(file.readText())
-                    val out = ArrayList<String>()
-                    for (i in 0 until arr.length()) {
-                        val s = arr.optString(i, "").trim()
-                        if (s.isNotEmpty()) out.add(s)
-                    }
-                    out
-                } catch (e: Throwable) {
-                    null
-                }
-            } else {
-                null
-            }
-
-            val result = if (loaded != null) {
+            val loaded = readMedNamesFile(file)
+            val result = if (loaded != null && loaded.isNotEmpty()) {
                 loaded
-            } else {
-                // 文件缺失 / 损坏：先尝试把旧 SharedPreferences 数据迁过来（最佳努力）
-                val migrated = try {
-                    val raw = prefs(ctx).getString(KEY_MED_NAMES, "") ?: ""
-                    if (raw.isNotBlank()) {
-                        val arr = JSONArray(raw)
-                        val out = ArrayList<String>()
-                        for (i in 0 until arr.length()) {
-                            val s = arr.optString(i, "").trim()
-                            if (s.isNotEmpty()) out.add(s)
-                        }
-                        out
-                    } else null
-                } catch (e: Throwable) { null }
-                if (migrated != null && migrated.isNotEmpty()) migrated
-                else {
-                    // 最终兜底：内置官方药名库（assets），保证界面永不为空
-                    val bundled = getBundledMedNames(ctx)
-                    if (bundled.isNotEmpty()) bundled else ArrayList()
+            } else if (!isUserCleared(ctx)) {
+                // 自愈：用内置官方药名库把本地补满
+                seedFromBundled(ctx, file)
+                val reseeded = readMedNamesFile(file)
+                if (reseeded != null && reseeded.isNotEmpty()) {
+                    setMedBundledTime(ctx, System.currentTimeMillis())
+                    reseeded
+                } else if (loaded != null) {
+                    loaded // 用户主动清空留下的空文件
+                } else {
+                    getBundledMedNames(ctx) // 最后兜底：内存解析内置库（写盘不可用时这一会话内仍可见）
                 }
-            }
-
-            // 只有「文件缺失 / 损坏」时才回写落盘（首次初始化 / 迁移 / 内置兜底）；
-            // 文件存在（含用户主动清空的空文件）则保持原样，不覆盖。
-            if (loaded == null) {
-                try { writeMedNamesFile(ctx, result) } catch (e: Throwable) {}
+            } else {
+                loaded ?: emptyList()
             }
             medNamesCache = result
             return result
         }
     }
 
-    /** 把药名列表写入 filesDir/med_names.json（UTF-8）。 */
+    /** 读药名文件；缺失返回 null，损坏返回 null，空数组返回空列表。 */
+    private fun readMedNamesFile(file: File): List<String>? {
+        if (!file.exists()) return null
+        return try {
+            val arr = JSONArray(file.readText())
+            val out = ArrayList<String>()
+            for (i in 0 until arr.length()) {
+                val s = arr.optString(i, "").trim()
+                if (s.isNotEmpty()) out.add(s)
+            }
+            out
+        } catch (e: Throwable) { null }
+    }
+
+    /** 把内置官方药名库整文件拷贝到本地（不走 2 万条 JSON 解析，最快且不 OOM）。失败静默。 */
+    private fun seedFromBundled(ctx: Context, file: File) {
+        try {
+            ctx.assets.open("nmpa_med_names.json").use { input ->
+                file.outputStream().use { output -> input.copyTo(output) }
+            }
+        } catch (e: Throwable) { }
+    }
+
+    /** 用户是否主动清空过药名库（清空后写 user_cleared 标记，自愈不再回填）。 */
+    private fun isUserCleared(ctx: Context): Boolean =
+        try { loadMedMeta(ctx).optLong(KEY_USER_CLEARED, 0L) != 0L } catch (e: Throwable) { false }
+
+    /** 把药名列表写入 filesDir/med_names.json（UTF-8）。写盘异常一律吞掉，避免中断调用方线程（如后台渲染线程）。 */
     private fun writeMedNamesFile(ctx: Context, list: List<String>) {
-        val arr = JSONArray()
-        list.forEach { arr.put(it) }
-        File(ctx.filesDir, MED_NAMES_FILE).writeText(arr.toString())
+        try {
+            val arr = JSONArray()
+            list.forEach { arr.put(it) }
+            File(ctx.filesDir, MED_NAMES_FILE).writeText(arr.toString())
+        } catch (e: Throwable) { }
     }
 
     /** 加一个药名：空或已存在（忽略大小写与空白）→ 返回 false（调用方弹「该药已添加」）。 */
@@ -442,12 +447,13 @@ object MedicineReminder {
         return removed
     }
 
-    /** 清空整个药名库：写空数组文件（文件存在但为空，重开仍为空，保留「清空」语义）+ 清缓存 + 清旧 SharedPreferences 键。 */
+    /** 清空整个药名库：写空数组文件（保留「清空」语义）+ 标记 user_cleared（自愈不再回填）+ 清缓存 + 清旧 SharedPreferences 键。 */
     fun clearMedNames(ctx: Context) {
         synchronized(medNamesLock) {
             try { writeMedNamesFile(ctx, ArrayList()) } catch (e: Throwable) {}
             medNamesCache = ArrayList()
             try { prefs(ctx).edit().remove(KEY_MED_NAMES).apply() } catch (e: Throwable) {}
+            try { saveMedMetaField(ctx, KEY_USER_CLEARED, 1L) } catch (e: Throwable) {}
         }
     }
 
