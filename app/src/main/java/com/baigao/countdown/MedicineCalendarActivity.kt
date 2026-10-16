@@ -1237,8 +1237,8 @@ class MedicineCalendarActivity : Activity() {
         // 弹窗先出现并提示「正在载入」，合并完成后 renderList 自动填充列表。
         countTv.text = "正在载入药名库…"
         Thread {
-            MedicineReminder.ensureOfficialMedNames(act)   // 现已 O(n)，不再 O(n^2)
-            runOnUiThread { renderList() }                 // renderList 内部也会把重计算放到后台线程
+            try { MedicineReminder.ensureOfficialMedNames(act) } catch (e: Throwable) {}  // 现已 O(n)，不再 O(n^2)
+            runOnUiThread { renderList() }                 // renderList 内部也会把重计算放到后台线程；即便合并异常也要渲染
         }.start()
         syncFromNMPA(manual = false)
     }
