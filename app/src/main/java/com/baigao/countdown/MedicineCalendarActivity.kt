@@ -847,6 +847,7 @@ class MedicineCalendarActivity : Activity() {
         }
         val delSelBtn = rowBtn("删除选中", 1.2f, 12f)
         val cancelSelBtn = rowBtn("取消选择", 1.2f, 12f)
+        val allSelBtn = rowBtn("全选", 1f, 12f)
 
         fun showActionRow() {
             actRow.removeAllViews()
@@ -855,6 +856,7 @@ class MedicineCalendarActivity : Activity() {
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
                 )
                 actRow.addView(selCountTv)
+                actRow.addView(allSelBtn)
                 actRow.addView(delSelBtn)
                 actRow.addView(cancelSelBtn)
             } else {
@@ -878,8 +880,10 @@ class MedicineCalendarActivity : Activity() {
         showActionRow()
 
         fun updateSel() {
+            val names = MedicineReminder.getMedNames(act)
             selCountTv.text = "已选 ${selected.size} 个"
-            delSelBtn.text = "删除选中(${selected.size})"
+            delSelBtn.text = "删除选中"
+            allSelBtn.text = if (names.isNotEmpty() && selected.size >= names.size) "取消全选" else "全选"
         }
 
         // 列表适配器：标题行 + 药名行。ListView 自己滚动，不和弹窗外层 ScrollView 抢手势。
@@ -1084,6 +1088,13 @@ class MedicineCalendarActivity : Activity() {
         cancelSelBtn.setOnClickListener {
             selected.clear(); selecting = false
             showActionRow()
+            renderList(); updateSel()
+        }
+        allSelBtn.setOnClickListener {
+            val names = MedicineReminder.getMedNames(act)
+            if (names.isEmpty()) return@setOnClickListener
+            // 已全部选中则反转为「取消全选」，否则一键全选当前所有药名（含全部 372 条）
+            if (selected.size >= names.size) selected.clear() else selected.addAll(names)
             renderList(); updateSel()
         }
 
