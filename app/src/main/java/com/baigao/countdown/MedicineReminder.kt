@@ -330,44 +330,53 @@ object MedicineReminder {
     /** 药名库内存缓存锁与缓存。 */
     private val medNamesLock = Any()
     private var medNamesCache: List<String>? = null
+    /** 内置官方药名库缓存（从 assets / res/raw 读取后缓存，避免反复读 462KB 大文件）。 */
+    private var bundledCache: List<String>? = null
 
     // ---------------- 药名库（每次吃什么药从这里选） ----------------
 
     /**
-     * 药名库全部药名（按添加顺序）。
-     * 数据存放在 filesDir/med_names.json（独立文件，不进 SharedPreferences）。
+     * 药名库全部药名（内置官方库 ∪ 本地文件，去重合并）。
      *
-     * 自愈式读取，保证列表永远不为空（只要内置官方药名库可用）：
-     *  - 本地文件存在且非空 → 直接用它；
-     *  - 文件缺失 / 损坏 / 为空（旧版超大键值曾把 preference 文件撑坏、偶发写入空数组 []，或首装无文件）
-     *    → 先整文件拷贝内置 assets/nmpa_med_names.json 到本地（最快、不解析、不 OOM），再读回；
-     *  - 若本机写盘彻底不可用，最后兜底在内存里解析内置库，至少这一会话内能看到全部药名。
-     *  仅当用户主动「清空」（写了 user_cleared 标记）时，才尊重空结果。
+     * 关键设计：内置官方药名库（国家药监局药品编码本位码全量 + 2024 医保目录并集，约 2.1 万种，
+     * 随 App 打包在 assets / res/raw）永远是「地板」——无论本地文件损坏、被清空、写盘失败还是
+     * 用户清空过，至少都返回约 2.1 万种官方药名，列表**永远不为空、离线即用**，不再「每次打开都空、
+     * 每次都要重新联网同步」。本地文件里用户增量 / 云端同步结果再并到地板上层。
      */
     fun getMedNames(ctx: Context): List<String> {
         synchronized(medNamesLock) {
             medNamesCache?.let { return it }
+            // 1) 内置官方药名库作为永不低于的地板（assets 失败会自动回退 res/raw，再不行至少这一会话内存有）。
+            val floor = getBundledMedNames(ctx)
+            // 2) 并入本地文件里用户增量 / 云端同步结果。
             val file = File(ctx.filesDir, MED_NAMES_FILE)
-            val loaded = readMedNamesFile(file)
-            val result = if (loaded != null && loaded.isNotEmpty()) {
-                loaded
-            } else if (!isUserCleared(ctx)) {
-                // 自愈：用内置官方药名库把本地补满
-                seedFromBundled(ctx, file)
-                val reseeded = readMedNamesFile(file)
-                if (reseeded != null && reseeded.isNotEmpty()) {
-                    setMedBundledTime(ctx, System.currentTimeMillis())
-                    reseeded
-                } else if (loaded != null) {
-                    loaded // 用户主动清空留下的空文件
-                } else {
-                    getBundledMedNames(ctx) // 最后兜底：内存解析内置库（写盘不可用时这一会话内仍可见）
-                }
-            } else {
-                loaded ?: emptyList()
+            val fromFile = readMedNamesFile(file) ?: emptyList()
+            val seen = HashSet<String>(floor.size + fromFile.size + 16)
+            val out = ArrayList<String>(floor.size + fromFile.size)
+            for (n in floor) { val k = n.lowercase().trim(); if (k.isNotEmpty() && seen.add(k)) out.add(n) }
+            for (n in fromFile) { val k = n.lowercase().trim(); if (k.isNotEmpty() && seen.add(k)) out.add(n) }
+            // 3) 若本地文件内容少于地板（首装 / 文件被清空损坏），把地板写回，保证后续离线也能从文件读到（尽力而为）。
+            if (out.size > fromFile.size) {
+                try { writeMedNamesFile(ctx, out) } catch (e: Throwable) {}
             }
-            medNamesCache = result
-            return result
+            medNamesCache = out
+            return out
+        }
+    }
+
+    /**
+     * 打开内置官方药名库的数据流：优先 assets，失败回退 res/raw（不同加载通道，
+     * 规避个别机型对 assets 大文件（约 462KB）open 时的异常，该异常曾导致离线内置库完全读不出、
+     * 只能联网同步）。两者都失败返回 null。
+     */
+    private fun openBundledStream(ctx: Context): java.io.InputStream? {
+        return try {
+            ctx.assets.open("nmpa_med_names.json")
+        } catch (e: Throwable) {
+            try {
+                val id = ctx.resources.getIdentifier("nmpa_med_names_json", "raw", ctx.packageName)
+                if (id != 0) ctx.resources.openRawResource(id) else null
+            } catch (e2: Throwable) { null }
         }
     }
 
@@ -385,10 +394,10 @@ object MedicineReminder {
         } catch (e: Throwable) { null }
     }
 
-    /** 把内置官方药名库整文件拷贝到本地（不走 2 万条 JSON 解析，最快且不 OOM）。失败静默。 */
+    /** 把内置官方药名库整文件拷贝到本地（不走 2 万条 JSON 解析，最快且不 OOM）。assets 失败自动回退 res/raw。失败静默。 */
     private fun seedFromBundled(ctx: Context, file: File) {
         try {
-            ctx.assets.open("nmpa_med_names.json").use { input ->
+            openBundledStream(ctx)?.use { input ->
                 file.outputStream().use { output -> input.copyTo(output) }
             }
         } catch (e: Throwable) { }
@@ -595,20 +604,34 @@ object MedicineReminder {
 
     private fun setMedBundledTime(ctx: Context, t: Long) = saveMedMetaField(ctx, KEY_MED_BUNDLED_TIME, t)
 
-    /** 读取 App 内置的官方药名库（assets/nmpa_med_names.json，国家药监局药品编码本位码全量 + 2024 医保目录并集，约 2.1 万种），解析失败返回空列表。 */
+    /** 读取 App 内置的官方药名库（约 2.1 万种）。读取顺序：assets → res/raw（不同加载通道）→ 代码内常量 BundledMeds.JSON（编进 DEX，最兜底、绝不依赖外部 IO）。任一来源成功即返回并缓存。 */
     fun getBundledMedNames(ctx: Context): List<String> {
+        bundledCache?.let { return it }
+        val out = parseBundledFromStream(openBundledStream(ctx))
+            ?: parseBundledFromText(BundledMeds.JSON)
+            ?: emptyList()
+        bundledCache = out
+        return out
+    }
+
+    private fun parseBundledFromStream(stream: java.io.InputStream?): List<String>? {
+        if (stream == null) return null
         return try {
-            val text = InputStreamReader(ctx.assets.open("nmpa_med_names.json"), "UTF-8").use { it.readText() }
+            InputStreamReader(stream, "UTF-8").use { it.readText() }.let { parseBundledFromText(it) }
+        } catch (e: Throwable) { null }
+    }
+
+    private fun parseBundledFromText(text: String?): List<String>? {
+        if (text.isNullOrBlank()) return null
+        return try {
             val arr = JSONArray(text)
-            val out = ArrayList<String>()
+            val list = ArrayList<String>()
             for (i in 0 until arr.length()) {
                 val s = arr.optString(i, "").trim()
-                if (s.isNotEmpty()) out.add(s)
+                if (s.isNotEmpty()) list.add(s)
             }
-            out
-        } catch (e: Throwable) {
-            emptyList()
-        }
+            if (list.isEmpty()) null else list
+        } catch (e: Throwable) { null }
     }
 
     /**
