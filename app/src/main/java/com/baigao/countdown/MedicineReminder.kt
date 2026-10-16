@@ -439,25 +439,36 @@ object MedicineReminder {
     }
 
     /**
+     * 把一批药名合并进本地药名库（忽略大小写与空白去重，幂等）。
+     * 用 HashSet 做去重，时间复杂度 O(n) 而非 O(n^2)，即使 2 万条也不会卡死主线程。
+     * @return 本次新增条数。
+     */
+    private fun mergeNames(ctx: Context, incoming: List<String>): Int {
+        if (incoming.isEmpty()) return 0
+        val cur = getMedNames(ctx).toMutableList()
+        val seen = HashSet<String>(cur.size + incoming.size)
+        cur.forEach { seen.add(it.lowercase().trim()) }
+        var added = 0
+        for (raw in incoming) {
+            val key = raw.lowercase().trim()
+            if (key.isEmpty() || seen.contains(key)) continue
+            seen.add(key); cur.add(raw); added++
+        }
+        if (added > 0) saveMedNames(ctx, cur)
+        return added
+    }
+
+    /**
      * 打开药名库时立即保证内置的官方药名库（国家药监局药品编码本位码全量 + 2024 医保目录并集，约 2.1 万种，随 App 打包在 assets/nmpa_med_names.json）
      * 已并入本地药名库。离线、未联网、未手动同步都能用：直接读内置 JSON 与现有库合并
      * （忽略大小写去重），幂等。这样用户一打开药名库就能看到全部官方药名，
      * 不必依赖网络或 7 天静默同步定时器。
+     * 必须在后台线程调用（内部会读 assets 大文件 / 写 SharedPreferences，2 万条数据量大）。
      * @return 本次新增条数。
      */
     fun ensureOfficialMedNames(ctx: Context): Int {
-        val bundled = getBundledMedNames(ctx)
-        if (bundled.isEmpty()) return 0
-        val cur = getMedNames(ctx).toMutableList()
-        var added = 0
-        for (s in bundled) {
-            if (cur.any { it.equals(s, true) }) continue
-            cur.add(s); added++
-        }
-        if (added > 0) {
-            saveMedNames(ctx, cur)
-            setMedBundledTime(ctx, System.currentTimeMillis())
-        }
+        val added = mergeNames(ctx, getBundledMedNames(ctx))
+        if (added > 0) setMedBundledTime(ctx, System.currentTimeMillis())
         return added
     }
 
@@ -495,32 +506,23 @@ object MedicineReminder {
                 null
             }
             if (arr != null) {
-                var added = 0
-                val cur = getMedNames(ctx).toMutableList()
+                val incoming = ArrayList<String>()
                 for (i in 0 until arr.length()) {
                     val s = arr.optString(i, "").trim()
-                    if (s.isEmpty()) continue
-                    if (cur.any { it.equals(s, true) }) continue
-                    cur.add(s); added++
+                    if (s.isNotEmpty()) incoming.add(s)
                 }
-                if (added > 0) saveMedNames(ctx, cur)
+                val added = mergeNames(ctx, incoming)
                 setMedSyncTime(ctx, System.currentTimeMillis())
-                return MedSyncResult(true, added, cur.size, "", "github")
+                return MedSyncResult(true, added, getMedNames(ctx).size, "", "github")
             }
         }
 
         // 2) 云端不可达 → 回退到内置官方药名库（保证离线也能用）
         val bundled = getBundledMedNames(ctx)
         if (bundled.isNotEmpty()) {
-            var added = 0
-            val cur = getMedNames(ctx).toMutableList()
-            for (s in bundled) {
-                if (cur.any { it.equals(s, true) }) continue
-                cur.add(s); added++
-            }
-            if (added > 0) saveMedNames(ctx, cur)
+            val added = mergeNames(ctx, bundled)
             setMedBundledTime(ctx, System.currentTimeMillis())
-            return MedSyncResult(true, added, cur.size, "", "bundled")
+            return MedSyncResult(true, added, getMedNames(ctx).size, "", "bundled")
         }
 
         // 3) 云端与内置均不可用（极少见）
