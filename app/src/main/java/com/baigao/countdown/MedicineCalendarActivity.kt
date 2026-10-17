@@ -50,12 +50,6 @@ class MedicineCalendarActivity : Activity() {
     private lateinit var statTv: TextView
     private lateinit var todayBtn: Button
 
-    /** 药名库管理弹窗的引用（导入后需要关掉重开以刷新列表）。 */
-    private var medLibDialog: AlertDialog? = null
-
-    /** SAF 导入 / 导出药名库的请求码。 */
-    private val REQ_EXPORT_MED = 9101
-    private val REQ_IMPORT_MED = 9102
 
     /** 当前显示的月份（day 恒为 1）。 */
     private val shown = Calendar.getInstance()
@@ -89,8 +83,6 @@ class MedicineCalendarActivity : Activity() {
         findViewById<Button>(R.id.doseEditBtn).setOnClickListener {
             DoseEditor.showDialog(this) { render() }
         }
-        // 「药名库」：每天吃什么药都从这里选；支持添加 / 导入 / 导出 / 删除 / 批量删除
-        findViewById<Button>(R.id.medLibBtn).setOnClickListener { showMedLibraryDialog() }
         // 「记一笔吃药」：再记一次吃药事件（同一天可记多次；超过每天设定次数会弹提示框）
         findViewById<Button>(R.id.addLogBtn).setOnClickListener { tryRecordToday() }
         // 「清空记录」：把全部吃药记录清掉（带同款玻璃确认框）
@@ -332,7 +324,7 @@ class MedicineCalendarActivity : Activity() {
         }
     }
 
-    /** 记一笔今天的吃药：从药名库选药；超过当天设定次数时弹同款玻璃提示框「今天已吃药了，不要重复吃药哦！」。 */
+    /** 记一笔今天的吃药：选用药；超过当天设定次数时弹同款玻璃提示框「今天已吃药了，不要重复吃药哦！」。 */
     private fun tryRecordToday() {
         val count = MedicineReminder.takeCountToday(this)
         val limit = MedicineReminder.timesPerDay(this)
@@ -401,7 +393,7 @@ class MedicineCalendarActivity : Activity() {
         }
     }
 
-    // ---------------- 药名库 / 选药 / 导入导出 ----------------
+    // ---------------- 选药（常用项） ----------------
 
     /** 带按压缩放高亮的青色胶囊按钮。 */
     private fun makeCircleButton(text: String, weight: Float = 0f, textSize: Float = 14f): Button {
@@ -461,11 +453,11 @@ class MedicineCalendarActivity : Activity() {
         a.get(Calendar.YEAR) == b.get(Calendar.YEAR) &&
                 a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR)
 
-    /** 从药名库选一种药：输入框支持模糊搜索（子串匹配），点药名即选中；无匹配可顺手加入药名库。 */
+    /** 选用药：输入框支持模糊搜索（子串匹配），点药名即选中；无匹配可顺手加入常用项。 */
     private fun showDrugPicker(onPicked: (String) -> Unit) {
         if (isFinishing) return
         val act = this
-        val all = MedicineReminder.getMedNames(act).toMutableList()
+        val all = MedicineReminder.getQuickMeds(act).toMutableList()
 
         // —— 快速选择：记录吃药后自动收集常用项，可单个删除 ——
         val quickRow = LinearLayout(act).apply {
@@ -587,20 +579,17 @@ class MedicineCalendarActivity : Activity() {
             val filtered = if (q2.isEmpty()) all else all.filter { it.contains(q2, ignoreCase = true) }
             if (filtered.isEmpty()) {
                 if (q2.isNotEmpty() && !all.any { it.equals(q2, true) }) {
-                    val add = makeCircleButton("＋ 把「$q2」加入药名库")
+                                        val add = makeCircleButton("＋ 把「$q2」加入常用项")
                     add.setOnClickListener {
-                        if (MedicineReminder.addMedName(act, q2)) {
-                            all.add(q2)
-                            Toast.makeText(act, "已加入药名库", Toast.LENGTH_SHORT).show()
-                            refresh(q2)
-                        } else {
-                            showDupMedDialog(q2)
-                        }
+                        MedicineReminder.addQuickMed(act, q2)
+                        all.add(q2)
+                        Toast.makeText(act, "已加入常用项", Toast.LENGTH_SHORT).show()
+                        refresh(q2)
                     }
                     listContainer.addView(add)
                 } else {
                     val t = TextView(act).apply {
-                        text = if (all.isEmpty()) "药名库还是空的，先去「药名库」加几个吧" else "没有匹配「$q2」的药名"
+                        text = if (all.isEmpty()) "还没有常用项，直接输入药名即可" else "没有匹配「$q2」的药名"
                         setTextColor(0xFFA8B3CC.toInt())
                         textSize = 13f
                         setPadding(0, dp(8), 0, dp(8))
@@ -662,30 +651,8 @@ class MedicineCalendarActivity : Activity() {
         }
     }
 
-    /** 重复药名提示（与其它提示框同款玻璃风格）。 */
-    private fun showDupMedDialog(name: String) {
-        if (isFinishing) return
-        UpdateManager.showStyledDialog(
-            activity = this,
-            title = "无法添加",
-            positiveText = "知道了",
-            negativeText = null,
-            onPositive = {}
-        ) { host ->
-            val tv = TextView(this).apply {
-                text = "「$name」该药已添加，请勿重复添加！"
-                setTextColor(0xFFE4EEFF.toInt())
-                textSize = 14f
-                setShadowLayer(2f, 0f, 1f, 0xCC000000.toInt())
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-            }
-            host.addView(tv)
-        }
-    }
 
-    /** 在药名库里新增一个药名（重复则弹「该药已添加」）。 */
+    /** 新增一个常用项（重复则弹「该药已添加」）。 */
     private fun showAddMedDialog(onAdded: () -> Unit) {
         if (isFinishing) return
         val edit = EditText(this).apply {
@@ -706,7 +673,7 @@ class MedicineCalendarActivity : Activity() {
         }
         UpdateManager.showStyledDialog(
             activity = this,
-            title = "添加药名",
+            title = "添加常用项",
             positiveText = "添加",
             negativeText = "取消",
             onPositive = {
@@ -715,536 +682,13 @@ class MedicineCalendarActivity : Activity() {
                     Toast.makeText(this, "药名不能为空", Toast.LENGTH_SHORT).show()
                     return@showStyledDialog
                 }
-                if (MedicineReminder.addMedName(this, n)) {
-                    Toast.makeText(this, "已添加「$n」", Toast.LENGTH_SHORT).show()
-                    onAdded()
-                } else {
-                    showDupMedDialog(n)
-                }
+                                MedicineReminder.addQuickMed(this, n)
+                Toast.makeText(this, "已添加「$n」", Toast.LENGTH_SHORT).show()
+                onAdded()
             }
         ) { host -> host.addView(root) }
     }
 
-    /** 药名库管理：列表 + 添加 / 导入 / 导出 / 删除 / 批量删除。 */
-    private fun showMedLibraryDialog() {
-        if (isFinishing) return
-        val act = this
-        // ---------- 高度预算：让整框稳稳落在一屏之内，所有按钮都露出来 ----------
-        // 弹窗自身的固定部分（标题 + 分隔线 + 「关闭」按钮 + 内外边距）≈ 155dp；
-        // 内容里的固定行（「共 N 个药名 / 上次同步」头 ≈ 44dp + 底部功能按钮行 ≈ 48dp）
-        // 合计 ≈ 247dp。列表只吃「0.76 屏 − 247dp」，整框总高正好压在 0.76 屏内 ——
-        // 外层弹窗因此不会再滚动，也就不会再出现「同步按钮被切掉一半 / 底部按钮看不见」。
-        // 列表本身用 ListView（自带滚动 + requestDisallowInterceptTouchEvent），
-        // 药名再多都能在框内顺畅上下滑动。
-        val dm = act.resources.displayMetrics
-        val screenH = dm.heightPixels
-        val density = dm.density
-        val listH = ((screenH * 0.78f).toInt() - (247f * density).toInt())
-            .coerceAtLeast((screenH * 0.22f).toInt())
-        // 空状态提示（药名库为空时显示）
-        val emptyTv = TextView(act).apply {
-            text = "药名库还是空的，点下面「＋ 添加药名」加几个吧"
-            setTextColor(0xFFA8B3CC.toInt()); textSize = 13f
-            gravity = Gravity.CENTER
-            visibility = View.GONE
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT
-            )
-        }
-        // 药名列表用 ListView：自带滚动，外层弹窗再怎么滚也不会把它挤没
-        val listView = ListView(act).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT
-            )
-            isVerticalScrollBarEnabled = true
-            setPadding(0, 0, dp(2), 0)
-            clipToPadding = false
-        }
-        // 防御：药名列表嵌在弹窗的 ScrollView 里，手指在列表上滑动时主动禁止所有祖先拦截触摸，
-        // 保证 ListView 自己顺畅滚动到底、看到全部药名（避免被外层滚动抢手势只剩半屏）。
-        listView.setOnTouchListener { v, ev ->
-            val disallow = ev.action == MotionEvent.ACTION_DOWN || ev.action == MotionEvent.ACTION_MOVE
-            var p: android.view.ViewParent? = v.parent
-            while (p != null) { p.requestDisallowInterceptTouchEvent(disallow); p = p.parent }
-            false
-        }
-        // 滑动检索时居中弹出当前字母
-        val bubble = TextView(act).apply {
-            textSize = 34f
-            setTypeface(null, Typeface.BOLD)
-            setTextColor(0xFF001018.toInt())
-            gravity = Gravity.CENTER
-            visibility = View.GONE
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(0xFF00E5FF.toInt())
-            }
-            layoutParams = FrameLayout.LayoutParams(dp(64), dp(64), Gravity.CENTER)
-        }
-        val listFrame = FrameLayout(act).apply {
-            layoutParams = LinearLayout.LayoutParams(0, listH, 1f)
-            addView(listView)
-            addView(emptyTv)
-            addView(bubble)
-        }
-        // 列表数据模型：kind=0 是字母分组标题，kind=1 是药名行
-        data class MedItem(val kind: Int, val letter: String, val name: String)
-        val items = mutableListOf<MedItem>()
-        val sectionPositions = mutableMapOf<String, Int>()
-        // 右侧 A-Z（拼音首字母）索引条：点按 / 手指滑动即可跳到对应字母分组。
-        // 这里用「自绘 View」而不是 27 个 TextView —— 27 个 TextView 靠 weight 平分高度，
-        // 真机截图里出现过 U、V 两个字母被挤没（索引条中间空掉一截）。自绘严格按
-        // 「列表高度 ÷ 字母个数」等分，27 个字母一个不少、位置精确，也省掉 27 个 View。
-        val letters = ('A'..'Z').map { it.toString() } + listOf("#")
-        val presentLetters = HashSet<String>()
-        val indexPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            textAlign = Paint.Align.CENTER
-            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
-        }
-        val indexView = object : View(act) {
-            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-                setMeasuredDimension(dp(22), View.resolveSize(listH, heightMeasureSpec))
-            }
-
-            override fun onDraw(canvas: Canvas) {
-                val n = letters.size
-                if (n == 0 || height <= 0) return
-                val cell = height.toFloat() / n
-                indexPaint.textSize = (cell * 0.62f).coerceAtMost(dp(13).toFloat())
-                val baselineShift = -(indexPaint.ascent() + indexPaint.descent()) / 2f
-                letters.forEachIndexed { i, L ->
-                    indexPaint.color =
-                        if (presentLetters.contains(L)) 0xFF00E5FF.toInt() else 0xFF8A96B4.toInt()
-                    canvas.drawText(L, width / 2f, i * cell + cell / 2f + baselineShift, indexPaint)
-                }
-            }
-        }
-        indexView.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT, listH
-        )
-        val listRow = LinearLayout(act).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, listH
-            )
-            addView(listFrame)
-            addView(indexView)
-        }
-
-        fun jumpToSection(letter: String) {
-            if (sectionPositions.isEmpty()) return
-            val present = sectionPositions.keys
-            var target = letter
-            if (!present.contains(target)) {
-                target = letters.filter { present.contains(it) }
-                    .minByOrNull { Math.abs(letters.indexOf(it) - letters.indexOf(letter)) } ?: letter
-            }
-            sectionPositions[target]?.let { pos ->
-                listView.setSelection(pos)
-            }
-        }
-        fun showBubble(letter: String) {
-            bubble.text = letter
-            bubble.visibility = View.VISIBLE
-        }
-        indexView.setOnTouchListener { v, ev ->
-            val h = v.height
-            if (h <= 0) return@setOnTouchListener true
-            val idx = ((ev.y / h) * letters.size).toInt().coerceIn(0, letters.size - 1)
-            val letter = letters[idx]
-            jumpToSection(letter)
-            showBubble(letter)
-            if (ev.action == MotionEvent.ACTION_UP || ev.action == MotionEvent.ACTION_CANCEL) {
-                bubble.postDelayed({ bubble.visibility = View.GONE }, 450)
-            }
-            true
-        }
-
-        val selected = LinkedHashSet<String>()
-        var selecting = false
-
-        // 固定高度行里用的按钮：清掉 makeCircleButton 默认的 8dp 上边距，
-        // 否则 42dp 的按钮塞进 42~44dp 的行里会被切掉一截
-        fun rowBtn(text: String, weight: Float, ts: Float): Button {
-            val b = makeCircleButton(text, weight, ts)
-            val lp = b.layoutParams as LinearLayout.LayoutParams
-            lp.topMargin = 0
-            b.layoutParams = lp
-            return b
-        }
-
-        // ---------- 顶部一行：左边「共 N 个药名 / 上次云端同步」，右边「同步药监局」 ----------
-        // 合成一行，把省下的竖向空间全部让给药名列表
-        val countTv = TextView(act).apply {
-            textSize = 13f
-            setTextColor(0xFF00E5FF.toInt())
-            setTypeface(null, Typeface.BOLD)
-        }
-        val syncInfo = TextView(act).apply {
-            textSize = 11f
-            setTextColor(0xFFA8B3CC.toInt())
-            setPadding(0, dp(2), 0, 0)
-        }
-        val headCol = LinearLayout(act).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
-            )
-            addView(countTv)
-            addView(syncInfo)
-        }
-        val syncBtn = rowBtn("同步药监局", 0f, 13f)
-        val headRow = LinearLayout(act).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(44)
-            setPadding(0, dp(2), 0, dp(2))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            addView(headCol)
-            addView(syncBtn)
-        }
-
-        // ---------- 底部功能按钮行 ----------
-        // 常态 4 个按钮；进入「批量删除」时同一行换成「已选 N / 删除选中 / 取消选择」。
-        // 两态共用同一行，弹窗高度完全不变、切换时不会跳。
-        val actRow = LinearLayout(act).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = dp(6) }
-        }
-        val addBtn = rowBtn("＋添加", 1f, 13f)
-        val importBtn = rowBtn("导入", 1f, 13f)
-        val exportBtn = rowBtn("导出", 1f, 13f)
-        val batchBtn = rowBtn("批量删除", 1f, 13f)
-        val selCountTv = TextView(act).apply {
-            text = "已选 0 个"
-            setTextColor(0xFF00FFFF.toInt())
-            textSize = 13f
-        }
-        val delSelBtn = rowBtn("删除选中", 1.2f, 12f)
-        val cancelSelBtn = rowBtn("取消选择", 1.2f, 12f)
-        val allSelBtn = rowBtn("全选", 1f, 12f)
-
-        fun showActionRow() {
-            actRow.removeAllViews()
-            if (selecting) {
-                selCountTv.layoutParams = LinearLayout.LayoutParams(
-                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
-                )
-                actRow.addView(selCountTv)
-                actRow.addView(allSelBtn)
-                actRow.addView(delSelBtn)
-                actRow.addView(cancelSelBtn)
-            } else {
-                actRow.addView(addBtn)
-                actRow.addView(importBtn)
-                actRow.addView(exportBtn)
-                actRow.addView(batchBtn)
-            }
-        }
-
-        val root = LinearLayout(act).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            addView(headRow)
-            addView(listRow)
-            addView(actRow)
-        }
-        showActionRow()
-
-        fun updateSel() {
-            val names = MedicineReminder.getMedNames(act)
-            selCountTv.text = "已选 ${selected.size} 个"
-            delSelBtn.text = "删除选中"
-            allSelBtn.text = if (names.isNotEmpty() && selected.size >= names.size) "取消全选" else "全选"
-        }
-
-        // 列表适配器：标题行 + 药名行。ListView 自己滚动，不和弹窗外层 ScrollView 抢手势。
-        lateinit var adapter: android.widget.BaseAdapter
-        fun renderList() {
-            /** 由已算好的拼音串取首字母（与 medInitial 等价，但复用拼音、避免重复 transliterate）。 */
-            fun medInitialFromPy(py: String, name: String): String {
-                if (name.isEmpty()) return "#"
-                val c = name[0]
-                if (c in 'a'..'z' || c in 'A'..'Z') return c.uppercaseChar().toString()
-                val first = py.firstOrNull { it in 'a'..'z' || it in 'A'..'Z' }
-                return if (first != null) first.uppercaseChar().toString() else "#"
-            }
-            // 数据量大（约 2 万条）：解析 + 拼音排序 + 构建列表都在后台线程完成，
-            // 结束后再切回主线程套用到 ListView，避免主线程被拖死（ANR / 卡死）。
-            Thread {
-                val names = MedicineReminder.getMedNames(act)
-                val newItems = ArrayList<MedItem>()
-                val newSections = LinkedHashMap<String, Int>()
-                val newPresent = LinkedHashSet<String>()
-                val countText = if (names.isEmpty()) {
-                    // 为空时把诊断信息也显示出来，便于排查到底哪一步返回了空（把这一行反馈给开发者即可）
-                    "药名库还是空的｜诊断：${MedicineReminder.getDiag()}"
-                } else "共 ${names.size} 个药名"
-                if (names.isNotEmpty()) {
-                    // 每个药名只算一次拼音，避免排序时反复 transliterate 拖慢速度
-                    val pyCache = HashMap<String, String>(names.size)
-                    val decorated = names.map { n ->
-                        val py = pyCache.getOrPut(n) { medPinyin(n) }
-                        n to py
-                    }.sortedBy { it.second }
-                    var lastInitial = ""
-                    decorated.forEach { (name, py) ->
-                        val ini = medInitialFromPy(py, name)
-                        if (ini != lastInitial) {
-                            lastInitial = ini
-                            newSections[ini] = newItems.size
-                            newItems.add(MedItem(0, ini, ini))
-                        }
-                        newItems.add(MedItem(1, ini, name))
-                    }
-                    // 末尾加一行「到底了」提示：让用户明确知道列表已经滑到底、一共载入了多少个药名
-                    newItems.add(MedItem(2, "", names.size.toString()))
-                    newPresent.addAll(newSections.keys)
-                }
-                runOnUiThread {
-                    countTv.text = countText
-                    if (names.isEmpty()) {
-                        listView.visibility = View.GONE
-                        emptyTv.visibility = View.VISIBLE
-                    } else {
-                        listView.visibility = View.VISIBLE
-                        emptyTv.visibility = View.GONE
-                    }
-                    items.clear(); items.addAll(newItems)
-                    sectionPositions.clear(); sectionPositions.putAll(newSections)
-                    presentLetters.clear(); presentLetters.addAll(newPresent)
-                    indexView.invalidate()
-                    adapter.notifyDataSetChanged()
-                }
-            }.start()
-        }
-        adapter = object : android.widget.BaseAdapter() {
-            override fun getCount(): Int = items.size
-            override fun getItem(i: Int): Any = items[i]
-            override fun getItemId(i: Int): Long = i.toLong()
-
-            override fun getView(i: Int, convertView: android.view.View?, parent: android.view.ViewGroup): android.view.View {
-                val it = items[i]
-                if (it.kind == 0) {
-                    // 字母分组标题
-                    return TextView(act).apply {
-                        text = it.letter
-                        setTextColor(0xFF00E5FF.toInt())
-                        textSize = 13f
-                        setTypeface(null, Typeface.BOLD)
-                        setPadding(dp(6), dp(6), 0, dp(2))
-                    }
-                }
-                if (it.kind == 2) {
-                    // 列表末尾的「到底了」提示行
-                    return TextView(act).apply {
-                        text = "— 已到底部 · 共 ${it.name} 个药名 —"
-                        setTextColor(0xFF7C88A6.toInt())
-                        textSize = 12f
-                        gravity = Gravity.CENTER
-                        setPadding(0, dp(10), 0, dp(12))
-                    }
-                }
-                // 药名行：先把药名存进局部变量，避免被 setOnClickListener 的隐式 it（按钮本身）遮蔽
-                val medName = it.name
-                val row = LinearLayout(act)
-                row.orientation = LinearLayout.HORIZONTAL
-                row.gravity = Gravity.CENTER_VERTICAL
-                row.setPadding(dp(6), dp(8), dp(6), dp(8))
-                if (selecting) row.background = pressBg()
-                if (selected.contains(medName)) row.setBackgroundColor(0x335AC8FA.toInt())
-
-                val nameTv = TextView(act).apply {
-                    text = medName
-                    setTextColor(0xFFEAF6FF.toInt()); textSize = 15f
-                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                }
-                val del = Button(act).apply {
-                    text = "×"
-                    textSize = 18f
-                    setTypeface(null, Typeface.BOLD)
-                    setTextColor(0xFF001018.toInt())
-                    setBackgroundResource(R.drawable.circle_btn)
-                    // 清掉系统 Button 默认内边距 / 最小宽度，否则 30dp 小圆钮里的「×」会被挤没。
-                    isAllCaps = false
-                    minWidth = 0; minimumWidth = 0; minHeight = 0; minimumHeight = 0
-                    includeFontPadding = false
-                    gravity = Gravity.CENTER
-                    setPadding(0, 0, 0, 0)
-                    stateListAnimator = null
-                    val dlp = LinearLayout.LayoutParams(dp(32), dp(32)); dlp.leftMargin = dp(8)
-                    layoutParams = dlp
-                }
-                del.setOnClickListener {
-                    val mn = medName
-                    // 单条删除也放后台，2 万条时单点删除同样不卡主线程。
-                    Thread {
-                        MedicineReminder.removeMedName(act, mn)
-                        runOnUiThread {
-                            selected.remove(mn)
-                            renderList()
-                        }
-                    }.start()
-                }
-                row.addView(nameTv); row.addView(del)
-                if (selecting) {
-                    row.setOnClickListener {
-                        if (selected.contains(medName)) selected.remove(medName) else selected.add(medName)
-                        renderList()
-                    }
-                }
-                return row
-            }
-        }
-        listView.adapter = adapter
-
-        fun updateSyncInfo() {
-            val t = MedicineReminder.getMedSyncTime(act)
-            val bt = MedicineReminder.getMedBundledTime(act)
-            syncInfo.text = when {
-                t != 0L -> "上次云端同步：" + android.text.format.DateFormat.format("yyyy-MM-dd HH:mm", t).toString()
-                bt != 0L -> "已使用内置官方药名库（" + android.text.format.DateFormat.format("yyyy-MM-dd HH:mm", bt).toString() + "）"
-                else -> "尚未从药监局同步"
-            }
-        }
-
-        fun syncFromNMPA(manual: Boolean) {
-            if (!manual) {
-                val last = MedicineReminder.getMedSyncTime(act)
-                // 后台自动同步：仅在从未同步或距上次超过 7 天才执行一次
-                if (last != 0L && System.currentTimeMillis() - last < 7L * 24 * 3600 * 1000) return
-            }
-            val progress = if (manual) UpdateManager.showStyledDialog(
-                activity = act, title = "同步中", positiveText = "", negativeText = null, onPositive = null
-            ) { host ->
-                val tv = TextView(act).apply {
-                    text = "正在从国家药监局同步药名库…"
-                    setTextColor(0xFFEAF6FF.toInt()); textSize = 14f
-                    setPadding(dp(4), dp(2), dp(4), dp(2))
-                }
-                host.addView(tv)
-            } else null
-            Thread {
-                val res = MedicineReminder.syncMedNamesFromNMPA(act)
-                runOnUiThread {
-                    progress?.dismiss()
-                    updateSyncInfo()
-                    if (res.ok) {
-                        if (manual || res.added > 0) {
-                            val msg = when {
-                                res.source == "github" && res.added > 0 ->
-                                    "已从国家药监局同步：新增 ${res.added} 个药名（共 ${res.total} 个）"
-                                res.source == "github" ->
-                                    "药名库已是最新（共 ${res.total} 个）"
-                                res.added > 0 ->
-                                    "已从内置官方药名库载入：新增 ${res.added} 个药名（共 ${res.total} 个）\n联网后可同步最新版本"
-                                else ->
-                                    "药名库已包含内置官方药名库（共 ${res.total} 个）\n联网后可同步最新版本"
-                            }
-                            showMsg("同步完成", msg)
-                        }
-                        if (res.added > 0) renderList()
-                    } else if (manual) {
-                        showMsg("同步失败", "无法从国家药监局获取药名库：${res.msg}\n请检查网络或稍后重试。")
-                    }
-                }
-            }.start()
-        }
-
-        addBtn.setOnClickListener { showAddMedDialog { renderList() } }
-        syncBtn.setOnClickListener { syncFromNMPA(manual = true) }
-        importBtn.setOnClickListener {
-            medLibDialog?.dismiss()
-            val i = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                addCategory(Intent.CATEGORY_OPENABLE)
-                type = "*/*"
-            }
-            startActivityForResult(i, REQ_IMPORT_MED)
-        }
-        exportBtn.setOnClickListener {
-            val i = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                addCategory(Intent.CATEGORY_OPENABLE)
-                type = "application/json"
-                putExtra(Intent.EXTRA_TITLE, "药名库.json")
-            }
-            startActivityForResult(i, REQ_EXPORT_MED)
-        }
-        batchBtn.setOnClickListener {
-            selecting = !selecting
-            if (!selecting) selected.clear()
-            showActionRow()
-            renderList(); updateSel()
-        }
-        delSelBtn.setOnClickListener {
-            if (selected.isEmpty()) {
-                Toast.makeText(act, "还没选要删的药名", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            val toDel = selected.toList()
-            val cnt = toDel.size
-            // 删除量大（可能上万条）：放到后台线程批量删，避免主线程 O(n^2) 卡死（ANR）。
-            val progress = UpdateManager.showStyledDialog(
-                activity = act, title = "删除中", positiveText = "", negativeText = null, onPositive = null
-            ) { host ->
-                val tv = TextView(act).apply {
-                    text = "正在删除 $cnt 个药名…"
-                    setTextColor(0xFFEAF6FF.toInt()); textSize = 14f
-                    setPadding(dp(4), dp(2), dp(4), dp(2))
-                }
-                host.addView(tv)
-            }
-            Thread {
-                MedicineReminder.removeMedNames(act, toDel)   // 后台线程：一次读 + 一次写，O(n)
-                runOnUiThread {
-                    progress?.dismiss()
-                    selected.clear(); selecting = false
-                    showActionRow()
-                    renderList(); updateSel()
-                    Toast.makeText(act, "已删除 $cnt 个药名", Toast.LENGTH_SHORT).show()
-                }
-            }.start()
-        }
-        cancelSelBtn.setOnClickListener {
-            selected.clear(); selecting = false
-            showActionRow()
-            renderList(); updateSel()
-        }
-        allSelBtn.setOnClickListener {
-            val names = MedicineReminder.getMedNames(act)
-            if (names.isEmpty()) return@setOnClickListener
-            // 已全部选中则反转为「取消全选」，否则一键全选当前药名库里的全部药名
-            if (selected.size >= names.size) selected.clear() else selected.addAll(names)
-            renderList(); updateSel()
-        }
-
-        medLibDialog = UpdateManager.showStyledDialog(
-            activity = act,
-            title = "药名库",
-            positiveText = "关闭",
-            negativeText = null,
-            // 内容高度已按整屏预算算好（列表高度 = 0.76 屏 − 固定行），这里给 0.66 屏的上限，
-            // 保证不会触发外层滚动 —— 底部按钮和同步按钮始终完整可见。
-            maxContentFraction = 0.66f,
-            onPositive = {}
-        ) { host -> host.addView(root) }
-        updateSyncInfo()
-        // 数据量大（约 2 万条）：合并与首屏渲染都放到后台线程，避免主线程卡死（ANR）。
-        // 弹窗先出现并提示「正在载入」，合并完成后 renderList 自动填充列表。
-        countTv.text = "正在载入药名库…"
-        Thread {
-            try { MedicineReminder.ensureOfficialMedNames(act) } catch (e: Throwable) {}  // 现已 O(n)，不再 O(n^2)
-            runOnUiThread { renderList() }                 // renderList 内部也会把重计算放到后台线程；即便合并异常也要渲染
-        }.start()
-        syncFromNMPA(manual = false)
-    }
 
     private val pinyinTransliterator by lazy {
         try { Transliterator.getInstance("Han-Latin") }
@@ -1272,39 +716,5 @@ class MedicineCalendarActivity : Activity() {
         val first = py.firstOrNull { it in 'a'..'z' || it in 'A'..'Z' }
         return if (first != null) first.uppercaseChar().toString() else "#"
     }
-
-    @Suppress("DEPRECATION")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (resultCode != Activity.RESULT_OK || data == null) return
-        val uri: Uri = data.data ?: return
-        when (requestCode) {
-            REQ_EXPORT_MED -> {
-                try {
-                    contentResolver.openOutputStream(uri)?.use { os ->
-                        OutputStreamWriter(os, "UTF-8").use { it.write(MedicineReminder.exportMedNamesJson(this)) }
-                    }
-                    Toast.makeText(this, "药名库已导出", Toast.LENGTH_SHORT).show()
-                } catch (e: Throwable) {
-                    Toast.makeText(this, "导出失败：${e.message}", Toast.LENGTH_SHORT).show()
-                }
-            }
-            REQ_IMPORT_MED -> {
-                try {
-                    val sb = StringBuilder()
-                    contentResolver.openInputStream(uri)?.use { `in` ->
-                        BufferedReader(InputStreamReader(`in`, "UTF-8")).use { r ->
-                            r.forEachLine { sb.append(it) }
-                        }
-                    }
-                    val added = MedicineReminder.importMedNames(this, sb.toString())
-                    Toast.makeText(this, "导入完成，新增 $added 条", Toast.LENGTH_SHORT).show()
-                    medLibDialog?.dismiss()
-                    showMedLibraryDialog()
-                } catch (e: Throwable) {
-                    Toast.makeText(this, "导入失败：${e.message}", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
 }
+
