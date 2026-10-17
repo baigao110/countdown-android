@@ -188,24 +188,7 @@
                 android:textColor="#001018"
                 android:background="@drawable/circle_btn" />
 
-            <Button
-                android:id="@+id/medLibBtn"
-                android:layout_width="0dp"
-                android:layout_height="42dp"
-                android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                android:autoSizeTextType="uniform"
-                android:autoSizeMinTextSize="9sp"
-                android:autoSizeMaxTextSize="14sp"
-                android:autoSizeStepGranularity="1sp"
-                android:minWidth="0dp"
-                android:paddingStart="2dp"
-                android:paddingEnd="2dp"
-                android:text="药名库"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="#001018"
-                android:background="@drawable/circle_btn" />
+            
         </LinearLayout>
 
         <TextView
@@ -239,7 +222,7 @@
             android:lineSpacingExtra="3dp"
             android:textColor="#FFA8B3CC"
             android:textSize="12sp"
-            android:text="点过去的或今天的日期、或下面「记一笔吃药」都能补记，每次吃哪种药从「药名库」里选。\n每天可记多次（按上面「每天次数」设定），重复记录会提醒「今天已吃药了，不要重复吃药哦！」。\n药名库支持添加 / 导入 / 导出 / 删除 / 批量删除，\n还能一键「同步药监局」官方目录；提醒时间、次数和服药时机可在「关于」页或上面按钮设置。" />
+            android:text="点过去的或今天的日期、或下面「记一笔吃药」都能补记，每次吃哪种药从「常用项」里选（记录过 / 历史上吃过的药自动收集，也可手动添加）。\n每天可记多次（按上面「每天次数」设定），重复记录会提醒「今天已吃药了，不要重复吃药哦！」。\n提醒时间、次数和服药时机可在「关于」页或上面按钮设置。" />
 
         <!-- 吃药记录日志：每次吃药的时间（年月日时分秒） -->
         <LinearLayout
