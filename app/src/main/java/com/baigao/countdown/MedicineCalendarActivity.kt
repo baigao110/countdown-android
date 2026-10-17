@@ -984,7 +984,10 @@ class MedicineCalendarActivity : Activity() {
                 val newItems = ArrayList<MedItem>()
                 val newSections = LinkedHashMap<String, Int>()
                 val newPresent = LinkedHashSet<String>()
-                val countText = if (names.isEmpty()) "药名库还是空的" else "共 ${names.size} 个药名"
+                val countText = if (names.isEmpty()) {
+                    // 为空时把诊断信息也显示出来，便于排查到底哪一步返回了空（把这一行反馈给开发者即可）
+                    "药名库还是空的｜诊断：${MedicineReminder.getDiag()}"
+                } else "共 ${names.size} 个药名"
                 if (names.isNotEmpty()) {
                     // 每个药名只算一次拼音，避免排序时反复 transliterate 拖慢速度
                     val pyCache = HashMap<String, String>(names.size)
