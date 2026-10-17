@@ -332,6 +332,8 @@ object MedicineReminder {
     private var medNamesCache: List<String>? = null
     /** 内置官方药名库缓存（从 assets / res/raw 读取后缓存，避免反复读 462KB 大文件）。 */
     private var bundledCache: List<String>? = null
+    /** 诊断信息：药名库为空时通过 getDiag() 暴露给 UI，便于排查到底是哪一步返回了空。 */
+    private var medDiagInfo: String = ""
 
     // ---------------- 药名库（每次吃什么药从这里选） ----------------
 
@@ -343,10 +345,29 @@ object MedicineReminder {
      * 用户清空过，至少都返回约 2.1 万种官方药名，列表**永远不为空、离线即用**，不再「每次打开都空、
      * 每次都要重新联网同步」。本地文件里用户增量 / 云端同步结果再并到地板上层。
      */
+    /** 返回最近一次 getMedNames / getBundledMedNames 的诊断信息（供 UI 在药名库为空时显示）。 */
+    fun getDiag(): String = medDiagInfo
+
+    /**
+     * 首启 / 兜底落地：若本地药名文件缺失或过小（被清空 / 损坏 / 某些机型 filesDir 异常），
+     * 直接用 DEX 常量 BundledMeds.JSON（本身是合法 JSON）原样写回文件。
+     * 关键点：这里**不做任何 JSON 解析**，只是把常量字节写盘，绝不抛 OOM / 解析异常，
+     * 从而保证本地文件至少有完整的 2 万条官方药名，后续读取走已验证可用的 JSONArray 路径。
+     */
+    private fun ensureSeeded(ctx: Context) {
+        try {
+            val f = File(ctx.filesDir, MED_NAMES_FILE)
+            if (f.exists() && f.length() > 1000) return
+            f.writeText(BundledMeds.JSON)
+        } catch (e: Throwable) { /* 尽力而为，失败不影响主流程 */ }
+    }
+
     fun getMedNames(ctx: Context): List<String> {
         synchronized(medNamesLock) {
             medNamesCache?.let { return it }
-            // 1) 内置官方药名库作为永不低于的地板（assets 失败会自动回退 res/raw，再不行至少这一会话内存有）。
+            // 0) 兜底落地：保证本地文件至少有 DEX 常量里的完整官方药名（不解析、不抛异常）。
+            ensureSeeded(ctx)
+            // 1) 内置官方药名库作为永不低于的地板（assets 失败会自动回退 res/raw，再不行回退 DEX 常量）。
             val floor = getBundledMedNames(ctx)
             // 2) 并入本地文件里用户增量 / 云端同步结果。
             val file = File(ctx.filesDir, MED_NAMES_FILE)
@@ -359,6 +380,9 @@ object MedicineReminder {
             if (out.size > fromFile.size) {
                 try { writeMedNamesFile(ctx, out) } catch (e: Throwable) {}
             }
+            val fExists = file.exists()
+            val fLen = if (fExists) file.length() else -1L
+            medDiagInfo += " | file: exists=$fExists len=$fLen final=${out.size}"
             medNamesCache = out
             return out
         }
@@ -607,10 +631,14 @@ object MedicineReminder {
     /** 读取 App 内置的官方药名库（约 2.1 万种）。读取顺序：assets → res/raw（不同加载通道）→ 代码内常量 BundledMeds.JSON（编进 DEX，最兜底、绝不依赖外部 IO）。任一来源成功即返回并缓存。 */
     fun getBundledMedNames(ctx: Context): List<String> {
         bundledCache?.let { return it }
-        val out = parseBundledFromStream(openBundledStream(ctx))
+        val stream = try { openBundledStream(ctx) } catch (e: Throwable) { null }
+        val fromStream = if (stream != null) parseBundledFromStream(stream) else null
+        val out = fromStream
             ?: parseBundledFromText(BundledMeds.JSON)
             ?: emptyList()
+        val src = if (fromStream != null) "assets" else if (out.isNotEmpty()) "dex" else "empty"
         bundledCache = out
+        medDiagInfo = "bundled.src=$src size=${out.size} dexLen=${BundledMeds.JSON.length}"
         return out
     }
 
