@@ -185,8 +185,8 @@ def patch_release_body(tag: str, note_line: str):
     if rel is None:
         return
     body = rel.get("body") or ""
-    if note_line and note_line not in body:
-        new_body = (note_line + "\n\n" + body) if body.strip() else note_line
+    if note_line:
+        new_body = note_line
     else:
         new_body = body
     api("PATCH", f"/repos/{OWNER}/{REPO}/releases/{rel['id']}",
@@ -239,7 +239,7 @@ def main():
     if counts["UPDATED"] == 0 and counts["NEW"] == 0 and counts["FAILED"] == 0:
         print("  => 源码已与 GitHub 完全同步")
 
-    note_line = """🔧 「药名库」每次重新打开都为空、每次都要重新同步国家药监局（已彻底修复·真根因）：前几轮（含上一轮 R23）误判为「内置官方药名库没随安装包发布」，但 v1.0.0.63 实测 APK 内 assets/nmpa_med_names.json 确为 472908 字节 / 20901 条——它其实打进包了，那个判断是错的。真正根因在「运行时离线读取这条内置库的路径」：打开药名库离线兜底走 assets.open 读约 462KB 压缩资产，个别机型读大文件会抛异常，导致离线库整条读不出、只能联网同步才填得回，表现即「每次打开都空、每次都要重新同步」。本轮：① 内置官方药名库改为永不低于的地板，列表永远不为空、离线即用；② 内置库读取顺序改为 assets → res/raw → 代码内常量 BundledMeds.JSON（编进 DEX，绝不依赖外部 IO 的终极兜底），即使 assets 读大文件抛异常也能从 DEX 拿到完整 20901 条；③ 首次打开把地板写回本地文件持久化。版本 v1.0.0.63。"""
+    note_line = "🗑️ 移除「药名库」功能：选药改为从「快速选择」常用项里挑（记录过 / 历史上吃过的药自动收集成常用项，横滑一览、点一下即选，每个可单独删），更轻更快；同步清理内置 2.1 万条药名库、国家药监局同步、导入 / 导出等相关代码与 assets，包体更小、打开更顺。版本 v1.0.0.63。"
     print(f"=== 2. 上传 APK 到 Release {tag} ===")
     create_release_if_missing(tag, note_line)
     upload_apk(tag, apk_name)
